@@ -1,0 +1,22 @@
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          firebase: ["firebase/app", "firebase/auth", "firebase/firestore"],
+          redux: ["@reduxjs/toolkit", "react-redux"],
+          ui: ["lucide-react", "sonner", "recharts"]
+        }
+      }
+    }
+  },
+  server: {
+    port: 5174,
+    strictPort: true
+  }
+});

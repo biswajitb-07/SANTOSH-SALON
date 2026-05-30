@@ -1,0 +1,323 @@
+import express from "express";
+import {
+  createCashfreeRefund,
+  createCashfreeServiceOrder,
+  getCashfreeOrder,
+  getCashfreeOrderPayments,
+  verifyCashfreeWebhook
+} from "../cashfree.js";
+import { getDb } from "../firebaseAdmin.js";
+import {
+  createRazorpayServiceOrder,
+  verifyRazorpayCheckoutSignature
+} from "../razorpay.js";
+
+export const customerPaymentsRouter = express.Router();
+
+customerPaymentsRouter.post("/cashfree/create-order", async (req, res, next) => {
+  try {
+    const {
+      serviceTitle,
+      amount,
+      customerName,
+      customerMobile,
+      customerEmail,
+      customerUserId,
+      bookingDay,
+      bookingDate
+    } = req.body;
+
+    if (!serviceTitle || !amount || !customerName || !customerMobile) {
+      return res.status(400).json({
+        error: "serviceTitle, amount, customerName and customerMobile are required"
+      });
+    }
+
+    const order = await createCashfreeServiceOrder({
+      serviceTitle,
+      amount,
+      customerName,
+      customerMobile,
+      customerEmail,
+      customerUserId,
+      bookingDay,
+      bookingDate
+    });
+
+    res.status(201).json(order);
+  } catch (error) {
+    next(error);
+  }
+});
+
+customerPaymentsRouter.get("/cashfree/verify/:orderId", async (req, res, next) => {
+  try {
+    const order = await getCashfreeOrder(req.params.orderId);
+    const verified = order.order_status === "PAID";
+    const payments = verified
+      ? await getCashfreeOrderPayments(req.params.orderId)
+      : [];
+    const capturedPayment =
+      payments.find((payment) => payment.is_captured) || payments[0] || null;
+
+    res.status(verified ? 200 : 402).json({
+      verified,
+      order,
+      payment: capturedPayment,
+      payments,
+      error: verified ? undefined : "Cashfree payment is not paid yet"
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const cashfreeRefundStatusToAppStatus = (status = "") => {
+  const value = String(status).toUpperCase();
+  if (["SUCCESS", "PROCESSED", "COMPLETED", "REFUNDED"].includes(value)) {
+    return "completed";
+  }
+  if (["FAILED", "CANCELLED", "REJECTED"].includes(value)) return "failed";
+  return "processing";
+};
+
+const updateRefundFromWebhook = async (event) => {
+  const refund =
+    event?.data?.refund ||
+    event?.data?.refund_details ||
+    event?.data?.refund_entity ||
+    event?.data ||
+    {};
+  const refundId = refund.refund_id || refund.refundId;
+  if (!refundId) return { updated: false, reason: "refund_id missing" };
+
+  const db = getDb();
+  if (!db) return { updated: false, reason: "Firebase Admin is not configured" };
+
+  const refundSnapshot = await db
+    .collection("refundRequests")
+    .where("cashfree.refundId", "==", refundId)
+    .limit(1)
+    .get();
+  if (refundSnapshot.empty) {
+    return { updated: false, reason: "refund request not found" };
+  }
+
+  const refundDoc = refundSnapshot.docs[0];
+  const refundData = refundDoc.data();
+  const nextStatus = cashfreeRefundStatusToAppStatus(
+    refund.refund_status || refund.status
+  );
+  const payload = {
+    status: nextStatus,
+    refundDetails: {
+      ...(refundData.refundDetails || {}),
+      refundId,
+      cfRefundId: refund.cf_refund_id || refund.cfRefundId || null,
+      orderId: refund.order_id || refundData.orderId || null,
+      refundAmount: refund.refund_amount || refundData.amount || null,
+      refundStatus: refund.refund_status || refund.status || null,
+      refundMode: refund.refund_mode || null,
+      refundArn: refund.refund_arn || null,
+      refundSpeed: refund.refund_speed || null,
+      processedAt: refund.processed_at || new Date().toISOString()
+    },
+    cashfree: {
+      ...(refundData.cashfree || {}),
+      refundId,
+      cfRefundId: refund.cf_refund_id || refund.cfRefundId || null,
+      refundStatus: refund.refund_status || refund.status || null,
+      webhookUpdatedAt: new Date().toISOString(),
+      lastWebhookPayload: refund
+    },
+    updatedAt: new Date()
+  };
+
+  await refundDoc.ref.set(payload, { merge: true });
+  if (refundData.bookingId) {
+    await db.collection("customers").doc(refundData.bookingId).set(
+      {
+        refundStatus: nextStatus,
+        refundId,
+        cfRefundId: payload.cashfree.cfRefundId,
+        updatedAt: new Date()
+      },
+      { merge: true }
+    );
+  }
+
+  return { updated: true, status: nextStatus };
+};
+
+customerPaymentsRouter.post("/cashfree/refund", async (req, res, next) => {
+  try {
+    const {
+      refundRequestId,
+      bookingId,
+      orderId,
+      amount,
+      note,
+      adminId,
+      adminEmail
+    } = req.body;
+
+    if (!refundRequestId || !orderId || !amount) {
+      return res.status(400).json({
+        error: "refundRequestId, orderId and amount are required"
+      });
+    }
+
+    const db = getDb();
+    let refundRef = null;
+    if (db) {
+      refundRef = db.collection("refundRequests").doc(refundRequestId);
+      const refundDoc = await refundRef.get();
+      if (refundDoc.exists) {
+        const existingRefund = refundDoc.data();
+        const hasCashfreeRefund =
+          existingRefund.refundDetails?.refundId || existingRefund.cashfree?.refundId;
+        if (
+          ["completed", "processing"].includes(existingRefund.status) &&
+          hasCashfreeRefund
+        ) {
+          return res.json({
+            refunded: true,
+            alreadyProcessed: true,
+            refund: existingRefund.cashfree || null,
+            status: existingRefund.status
+          });
+        }
+      }
+    }
+
+    const refundId = `refund_${refundRequestId}`.replace(/[^a-zA-Z0-9_-]/g, "");
+    const refund = await createCashfreeRefund({
+      orderId,
+      refundId,
+      amount,
+      note
+    });
+    const status = cashfreeRefundStatusToAppStatus(refund.refund_status);
+    const now = new Date();
+
+    const refundDetails = {
+      refundId,
+      cfRefundId: refund.cf_refund_id || null,
+      orderId,
+      refundAmount: refund.refund_amount || amount,
+      refundStatus: refund.refund_status || null,
+      refundMode: refund.refund_mode || null,
+      refundArn: refund.refund_arn || null,
+      refundSpeed: refund.refund_speed || null,
+      processedAt: refund.processed_at || now.toISOString()
+    };
+
+    if (refundRef) {
+      await refundRef.set(
+        {
+          status,
+          adminId: adminId || null,
+          adminEmail: adminEmail || null,
+          refundDetails,
+          cashfree: {
+            ...refundDetails,
+            raw: refund
+          },
+          processedAt: now,
+          updatedAt: now
+        },
+        { merge: true }
+      );
+    }
+
+    if (db && bookingId) {
+      await db.collection("customers").doc(bookingId).set(
+        {
+          refundStatus: status,
+          refundId,
+          cfRefundId: refund.cf_refund_id || null,
+          refundedAmount: refund.refund_amount || amount,
+          updatedAt: now
+        },
+        { merge: true }
+      );
+    }
+
+    res.status(201).json({
+      refunded: true,
+      status,
+      refund,
+      persisted: Boolean(db)
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+customerPaymentsRouter.post("/cashfree/webhook", async (req, res, next) => {
+  const isValid = verifyCashfreeWebhook({
+    signature: req.header("x-webhook-signature"),
+    timestamp: req.header("x-webhook-timestamp"),
+    rawBody: req.rawBody
+  });
+
+  if (!isValid) {
+    return res.status(401).json({ error: "Invalid Cashfree webhook signature" });
+  }
+
+  try {
+    const webhookType = String(req.body?.type || req.body?.event || "").toLowerCase();
+    const refundUpdate = webhookType.includes("refund")
+      ? await updateRefundFromWebhook(req.body)
+      : { updated: false, reason: "not a refund webhook" };
+
+    res.json({ ok: true, refundUpdate });
+  } catch (error) {
+    next(error);
+  }
+});
+
+customerPaymentsRouter.post("/razorpay/create-order", async (req, res, next) => {
+  try {
+    const { serviceTitle, amount, customerName, customerMobile, customerUserId } =
+      req.body;
+
+    if (!serviceTitle || !amount || !customerName || !customerMobile) {
+      return res.status(400).json({
+        error: "serviceTitle, amount, customerName and customerMobile are required"
+      });
+    }
+
+    const order = await createRazorpayServiceOrder({
+      serviceTitle,
+      amount,
+      customerName,
+      customerMobile,
+      customerUserId
+    });
+
+    res.status(201).json(order);
+  } catch (error) {
+    next(error);
+  }
+});
+
+customerPaymentsRouter.post("/razorpay/verify", (req, res) => {
+  const {
+    razorpay_order_id: razorpayOrderId,
+    razorpay_payment_id: razorpayPaymentId,
+    razorpay_signature: razorpaySignature
+  } = req.body;
+
+  const verified = verifyRazorpayCheckoutSignature({
+    razorpayOrderId,
+    razorpayPaymentId,
+    razorpaySignature
+  });
+
+  if (!verified) {
+    return res.status(401).json({ error: "Invalid Razorpay signature" });
+  }
+
+  res.json({ verified: true });
+});
