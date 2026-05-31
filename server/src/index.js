@@ -51,8 +51,22 @@ app.use(
   })
 );
 
-app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "salon-queue-server" });
+const healthPayload = {
+  ok: true,
+  service: "salon-queue-server",
+  environment: process.env.NODE_ENV || "development"
+};
+
+app.get(["/health", "/api/health"], (_req, res) => {
+  res.status(200).json({
+    ...healthPayload,
+    uptime: Math.round(process.uptime()),
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.head(["/health", "/api/health"], (_req, res) => {
+  res.sendStatus(200);
 });
 
 app.use("/api/payments", paymentsRouter);
@@ -76,6 +90,14 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-app.listen(config.port, () => {
-  console.log(`Server running on http://localhost:${config.port}`);
+app.use((_req, res) => {
+  res.status(404).json({ error: "Route not found" });
 });
+
+if (!process.env.VERCEL) {
+  app.listen(config.port, () => {
+    console.log(`Server running on http://localhost:${config.port}`);
+  });
+}
+
+export default app;
