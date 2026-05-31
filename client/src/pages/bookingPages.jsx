@@ -129,7 +129,7 @@ export function HomePage({
               Premium Salon Experience
             </div>
             <h1 className="max-w-4xl text-5xl font-black leading-[0.94] sm:text-6xl lg:text-7xl">
-              Luxury groomin with live queue confidence.
+              Luxury grooming with live queue confidence.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-8 text-white/78 sm:text-lg">
               Choose your service, pay online or at the salon, and arrive only
