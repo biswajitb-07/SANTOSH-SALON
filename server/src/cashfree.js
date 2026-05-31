@@ -28,50 +28,6 @@ export const calculateCashfreeCustomerCharge = (baseAmount) => {
 const cashfreeMode = () =>
   config.cashfree.env === "production" ? "production" : "sandbox";
 
-export const createCashfreeOrder = async ({
-  amount,
-  plan,
-  salonId,
-  ownerId,
-  customer
-}) => {
-  const orderId = `salon_${salonId}_${plan}_${Date.now()}`;
-  const payload = {
-    order_id: orderId,
-    order_amount: amount,
-    order_currency: "INR",
-    customer_details: {
-      customer_id: ownerId,
-      customer_name: customer?.name || "Salon Owner",
-      customer_email: customer?.email,
-      customer_phone: customer?.phone
-    },
-    order_meta: {
-      return_url: `${config.clientUrl}/payment/status?order_id={order_id}`,
-      notify_url: `${config.serverUrl}/api/payments/webhook/cashfree`
-    },
-    order_tags: {
-      plan,
-      salonId,
-      ownerId
-    }
-  };
-
-  const response = await fetch(`${config.cashfree.baseUrl}/orders`, {
-    method: "POST",
-    headers: cashfreeHeaders(),
-    body: JSON.stringify(payload)
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    const message = data?.message || "Cashfree order creation failed";
-    throw new Error(message);
-  }
-
-  return data;
-};
-
 export const createCashfreeServiceOrder = async ({
   serviceTitle,
   amount,

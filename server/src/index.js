@@ -1,7 +1,6 @@
 import cors from "cors";
 import express from "express";
 import { config } from "./config.js";
-import { paymentsRouter } from "./routes/payments.js";
 import { subscriptionsRouter } from "./routes/subscriptions.js";
 import { customerPaymentsRouter } from "./routes/customerPayments.js";
 import { cloudinaryRouter } from "./routes/cloudinary.js";
@@ -69,7 +68,6 @@ app.head(["/health", "/api/health"], (_req, res) => {
   res.sendStatus(200);
 });
 
-app.use("/api/payments", paymentsRouter);
 app.use("/api/subscriptions", subscriptionsRouter);
 app.use("/api/customer-payments", customerPaymentsRouter);
 app.use("/api/cloudinary", cloudinaryRouter);

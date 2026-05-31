@@ -73,39 +73,6 @@ export const createRazorpaySubscriptionOrder = async ({ salonId, ownerId }) => {
   };
 };
 
-export const createRazorpayServiceOrder = async ({
-  serviceTitle,
-  amount,
-  customerName,
-  customerMobile,
-  customerUserId
-}) => {
-  const razorpay = getRazorpay();
-  const receipt = `service_${Date.now()}`.slice(0, 40);
-
-  const order = await razorpay.orders
-    .create({
-      amount: Number(amount) * 100,
-      currency: "INR",
-      receipt,
-      notes: {
-        type: "customer_service",
-        serviceTitle,
-        customerName,
-        customerMobile,
-        customerUserId
-      }
-    })
-    .catch((error) => {
-      throw getRazorpayError(error, "Unable to create Razorpay service order");
-    });
-
-  return {
-    ...order,
-    key_id: config.razorpay.keyId
-  };
-};
-
 export const verifyRazorpayCheckoutSignature = ({
   razorpayOrderId,
   razorpayPaymentId,

@@ -352,8 +352,10 @@ function RefundRequestDialog({ booking, user, onClose }) {
 }
 
 export function ProfilePage({
+  bookingsOnly = false,
   loginLoading,
   logoutLoading,
+  onMyBookings,
   onLogin,
   onLogout,
   user
@@ -391,7 +393,7 @@ export function ProfilePage({
   }, [selectedBookingGroup, selectedBookingGroupKey]);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !bookingsOnly) {
       setBookings([]);
       setBookingsLoading(false);
       return undefined;
@@ -417,10 +419,10 @@ export function ProfilePage({
         setBookingsLoading(false);
       }
     );
-  }, [user]);
+  }, [user, bookingsOnly]);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !bookingsOnly) {
       setRefundRequests([]);
       return undefined;
     }
@@ -443,7 +445,7 @@ export function ProfilePage({
       },
       () => setRefundRequests([])
     );
-  }, [user]);
+  }, [user, bookingsOnly]);
 
   const cancelBooking = async (booking) => {
     if (!booking || !["waiting", "waitlist"].includes(booking.status)) return;
@@ -525,7 +527,7 @@ export function ProfilePage({
           </span>
           <h1 className="mt-5 text-3xl font-black">Login required</h1>
           <p className="mt-3 leading-7 text-[#637371]">
-            Log in to view your profile.
+            Log in to view your {bookingsOnly ? "bookings" : "profile"}.
           </p>
           <button
             className="mx-auto mt-5 flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-[#1a0f12] px-6 py-4 font-black text-white disabled:opacity-70"
@@ -543,6 +545,7 @@ export function ProfilePage({
 
   return (
     <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:px-8">
+      {!bookingsOnly ? (
       <div className="luxury-glass rounded-[2rem] p-6 queue-shadow sm:p-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -559,15 +562,25 @@ export function ProfilePage({
               </p>
             </div>
           </div>
-          <button
-            className="flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-[#1a0f12] px-6 py-4 font-black text-white disabled:opacity-70"
-            disabled={logoutLoading}
-            onClick={onLogout}
-            type="button"
-          >
-            {logoutLoading ? <ButtonSpinner /> : <LogOut size={19} />}
-            {logoutLoading ? "Logging out..." : "Logout"}
-          </button>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              className="flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-6 py-4 font-black text-white"
+              onClick={onMyBookings}
+              type="button"
+            >
+              <CalendarCheck2 size={19} />
+              My Bookings
+            </button>
+            <button
+              className="flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-[#1a0f12] px-6 py-4 font-black text-white disabled:opacity-70"
+              disabled={logoutLoading}
+              onClick={onLogout}
+              type="button"
+            >
+              {logoutLoading ? <ButtonSpinner /> : <LogOut size={19} />}
+              {logoutLoading ? "Logging out..." : "Logout"}
+            </button>
+          </div>
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -586,8 +599,12 @@ export function ProfilePage({
           ))}
         </div>
       </div>
+      ) : null}
 
-      <div className="luxury-glass rounded-[2rem] p-6 queue-shadow sm:p-8">
+      {bookingsOnly ? (
+      <div
+        className="luxury-glass scroll-mt-28 rounded-[2rem] p-6 queue-shadow sm:p-8"
+      >
         <p className="section-kicker">
           Queue History
         </p>
@@ -694,7 +711,8 @@ export function ProfilePage({
           ) : null}
         </div>
       </div>
-      {selectedBookingGroup && typeof document !== "undefined" ? createPortal(
+      ) : null}
+      {bookingsOnly && selectedBookingGroup && typeof document !== "undefined" ? createPortal(
         <div className="modal-fade fixed inset-0 z-[9999] flex items-end justify-center bg-black/70 px-3 py-3 backdrop-blur-md sm:items-center sm:px-4 sm:py-6">
           <div className="queue-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-[#f9c66d]/15 bg-[#081311]/95 text-[#f4fbf8] sm:max-h-[90vh] sm:max-w-2xl sm:rounded-[2rem]">
             <div className="sticky top-0 z-10 border-b border-[#35201f] bg-[#081311]/95 p-4 backdrop-blur sm:p-6">
@@ -872,11 +890,13 @@ export function ProfilePage({
         </div>,
         document.body
       ) : null}
+      {bookingsOnly ? (
       <RefundRequestDialog
         booking={refundBooking}
         onClose={() => setRefundBooking(null)}
         user={user}
       />
+      ) : null}
     </section>
   );
 }

@@ -8,10 +8,6 @@ import {
 } from "../cashfree.js";
 import { getDb } from "../firebaseAdmin.js";
 import {
-  createRazorpayServiceOrder,
-  verifyRazorpayCheckoutSignature
-} from "../razorpay.js";
-import {
   createRateLimiter,
   requireAdminUser
 } from "../middleware/security.js";
@@ -312,56 +308,4 @@ customerPaymentsRouter.post("/cashfree/webhook", async (req, res, next) => {
   } catch (error) {
     next(error);
   }
-});
-
-customerPaymentsRouter.post("/razorpay/create-order", writeLimiter, async (req, res, next) => {
-  try {
-    const { serviceTitle, amount, customerName, customerMobile, customerUserId } =
-      req.body;
-
-    const missing = requireFields(req.body, [
-      "serviceTitle",
-      "amount",
-      "customerName",
-      "customerMobile"
-    ]);
-    const safeAmount = parsePositiveAmount(amount);
-    if (missing || !safeAmount) {
-      return res.status(400).json({
-        error: missing || "A valid amount is required"
-      });
-    }
-
-    const order = await createRazorpayServiceOrder({
-      serviceTitle: cleanString(serviceTitle, 80),
-      amount: safeAmount,
-      customerName: cleanString(customerName, 80),
-      customerMobile: cleanPhone(customerMobile),
-      customerUserId: cleanString(customerUserId, 80)
-    });
-
-    res.status(201).json(order);
-  } catch (error) {
-    next(error);
-  }
-});
-
-customerPaymentsRouter.post("/razorpay/verify", (req, res) => {
-  const {
-    razorpay_order_id: razorpayOrderId,
-    razorpay_payment_id: razorpayPaymentId,
-    razorpay_signature: razorpaySignature
-  } = req.body;
-
-  const verified = verifyRazorpayCheckoutSignature({
-    razorpayOrderId,
-    razorpayPaymentId,
-    razorpaySignature
-  });
-
-  if (!verified) {
-    return res.status(401).json({ error: "Invalid Razorpay signature" });
-  }
-
-  res.json({ verified: true });
 });

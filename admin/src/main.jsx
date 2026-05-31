@@ -760,6 +760,7 @@ function App() {
     setActionLoading("login");
     try {
       await signInWithPopup(auth, googleProvider);
+      toast.success("Admin login successful.");
     } catch (error) {
       const message = error.message || "Google login failed";
       setAuthError(message);
@@ -1924,6 +1925,9 @@ function App() {
         throw new Error("Razorpay order response is missing checkout details.");
       }
 
+      setSubscriptionStatus("Razorpay checkout opened. Payment is pending.");
+      toast.info("Payment pending. Complete Razorpay checkout to activate premium.");
+
       const checkout = new window.Razorpay({
         key: order.key_id,
         amount: order.amount,
@@ -1992,14 +1996,17 @@ function App() {
               error,
               "Payment verification failed."
             );
-            setSubscriptionStatus(message);
-            toast.error(message);
+            const paymentHelp = `${message} If money was debited, wait for provider/bank auto-reversal or contact support with your Razorpay payment/order ID.`;
+            setSubscriptionStatus(paymentHelp);
+            toast.error(paymentHelp);
           } finally {
             setSubscriptionLoading(false);
           }
         },
         modal: {
           ondismiss: () => {
+            setSubscriptionStatus("Payment is pending or was cancelled before completion.");
+            toast.warning("Payment pending/cancelled. Premium is not active until payment succeeds.");
             setSubscriptionLoading(false);
           }
         }
@@ -2008,8 +2015,9 @@ function App() {
       checkout.open();
     } catch (error) {
       const message = getRequestErrorMessage(error, "Subscription failed");
-      setSubscriptionStatus(message);
-      toast.error(message);
+      const paymentHelp = `${message} If money was debited, wait for provider/bank auto-reversal or contact support with your Razorpay payment/order ID.`;
+      setSubscriptionStatus(paymentHelp);
+      toast.error(paymentHelp);
     } finally {
       setSubscriptionLoading(false);
     }

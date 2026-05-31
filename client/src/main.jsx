@@ -54,7 +54,7 @@ const legalPages = [
   "cancellation-refund-policy",
   "payment-policy"
 ];
-const routedPages = [...pages, "profile", ...legalPages];
+const routedPages = [...pages, "profile", "my-bookings", ...legalPages];
 const SALON_SLUG = import.meta.env.VITE_SALON_SLUG || "santosh";
 const BOOKING_CLOSED_MESSAGE =
   "Booking is currently closed by the owner. Please try again later.";
@@ -107,29 +107,23 @@ const sortBookingsForTurns = (bookings) =>
 
 const getClientRoute = () => {
   if (typeof window === "undefined") {
-    return { page: "home", tab: "account" };
+    return { page: "home" };
   }
 
   const params = new URLSearchParams(window.location.search);
   const page = params.get("page");
-  const tab = params.get("tab");
 
   return {
-    page: routedPages.includes(page) ? page : "home",
-    tab: tab === "bookings" ? "bookings" : "account"
+    page: routedPages.includes(page) ? page : "home"
   };
 };
 
-const writeClientRoute = ({ page, tab }, replace = false) => {
+const writeClientRoute = ({ page }, replace = false) => {
   if (typeof window === "undefined") return;
 
   const url = new URL(window.location.href);
   url.searchParams.set("page", page);
-  if (page === "profile") {
-    url.searchParams.set("tab", tab === "bookings" ? "bookings" : "account");
-  } else {
-    url.searchParams.delete("tab");
-  }
+  url.searchParams.delete("tab");
 
   const method = replace ? "replaceState" : "pushState";
   window.history[method]({}, "", `${url.pathname}${url.search}${url.hash}`);
@@ -692,6 +686,11 @@ function CheckoutModal({
             order.charge?.payableAmount
           )}.`
         });
+        toast.info(
+          `Payment pending. Complete Cashfree checkout for ${formatMoney(
+            order.charge?.payableAmount
+          )}.`
+        );
 
         const cashfree = window.Cashfree({
           mode: order.checkoutMode || "sandbox"
@@ -710,10 +709,12 @@ function CheckoutModal({
           );
         }
 
+        toast.info("Payment received. Verifying booking confirmation...");
         const verification = await verifyCustomerPayment(order.order_id).unwrap();
         if (!verification.verified) {
           throw new Error(verification.error || "Payment verification failed");
         }
+        toast.success("Payment verified successfully.");
 
         paidOrder = verification.order || {};
         paidPayment = verification.payment || {};
@@ -852,10 +853,13 @@ function CheckoutModal({
           isWaitlist ? "added to the waiting list" : "confirmed"
         } for ${bookingOption.label}, ${bookingOption.displayDate}.`
       });
+      if (form.paymentMethod === "cod") {
+        toast.info("Cash payment is pending. Please pay at the salon.");
+      }
       toast.success(
-        `Turn ${firstTurn}${
-          bookedTurns.length > 1 ? `-${lastTurn}` : ""
-        } ${isWaitlist ? "added to the waiting list" : "confirmed"} for ${
+        `Booking ${
+          isWaitlist ? "added to waiting list" : "confirmed"
+        }. Turn ${firstTurn}${bookedTurns.length > 1 ? `-${lastTurn}` : ""} for ${
           bookingOption.label
         }.`
       );
@@ -870,7 +874,11 @@ function CheckoutModal({
         type: "error",
         message
       });
-      toast.error(message);
+      toast.error(
+        form.paymentMethod === "online"
+          ? `${message}. If money was debited, please wait for provider/bank auto-reversal or contact the salon with your payment/order ID.`
+          : message
+      );
       setLoading(false);
     }
   };
@@ -1213,7 +1221,6 @@ function App() {
     waitingCount: 0
   });
   const [queueLoading, setQueueLoading] = useState(true);
-  const [profileTab, setProfileTab] = useState(initialRoute.tab);
   const [bookingGate, setBookingGate] = useState({
     loading: true,
     open: false,
@@ -1237,12 +1244,11 @@ function App() {
   }, []);
 
   useEffect(() => {
-    writeClientRoute({ page, tab: profileTab }, true);
+    writeClientRoute({ page }, true);
 
     const syncRoute = () => {
       const nextRoute = getClientRoute();
       setPage(nextRoute.page);
-      setProfileTab(nextRoute.tab);
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
@@ -1482,17 +1488,12 @@ function App() {
     };
   }, [page]);
 
-  const navigatePage = (nextPage, nextTabOverride) => {
-    const nextTab =
-      nextPage === "profile" ? nextTabOverride || profileTab : "account";
+  const navigatePage = (nextPage) => {
     setRouteProgressActive(true);
     setScrollBadgeVisible(true);
     setRouteProgress(18);
     setPage(nextPage);
-    if (nextPage !== "profile") {
-      setProfileTab("account");
-    }
-    writeClientRoute({ page: nextPage, tab: nextTab });
+    writeClientRoute({ page: nextPage });
     window.scrollTo({ top: 0, behavior: "smooth" });
 
     window.setTimeout(() => setRouteProgress(72), 120);
@@ -1510,6 +1511,7 @@ function App() {
     setLoginLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
+      toast.success("Login successful.");
     } catch (error) {
       const message = error.message || "Login failed";
       setAuthError(message);
@@ -1559,13 +1561,7 @@ function App() {
 
   const handleBookingSuccess = () => {
     setSelectedService(null);
-    setProfileTab("bookings");
-    navigatePage("profile", "bookings");
-  };
-
-  const changeProfileTab = (tab) => {
-    setProfileTab(tab);
-    writeClientRoute({ page: "profile", tab });
+    navigatePage("my-bookings");
   };
 
   if (authLoading) {
@@ -1633,12 +1629,21 @@ function App() {
       {legalPages.includes(page) ? <LegalPage page={page} /> : null}
       {page === "profile" ? (
         <ProfilePage
-          activeTab={profileTab}
+          loginLoading={loginLoading}
+          logoutLoading={logoutLoading}
+          onMyBookings={() => navigatePage("my-bookings")}
+          onLogin={login}
+          onLogout={requestLogout}
+          user={user}
+        />
+      ) : null}
+      {page === "my-bookings" ? (
+        <ProfilePage
+          bookingsOnly
           loginLoading={loginLoading}
           logoutLoading={logoutLoading}
           onLogin={login}
           onLogout={requestLogout}
-          onTabChange={changeProfileTab}
           user={user}
         />
       ) : null}
