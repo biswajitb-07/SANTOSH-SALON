@@ -1,5 +1,7 @@
 import cors from "cors";
 import express from "express";
+import mongoSanitize from "express-mongo-sanitize";
+import hpp from "hpp";
 import { config } from "./config.js";
 import { subscriptionsRouter } from "./routes/subscriptions.js";
 import { customerPaymentsRouter } from "./routes/customerPayments.js";
@@ -8,6 +10,7 @@ import {
   createRateLimiter,
   securityHeaders
 } from "./middleware/security.js";
+import { sanitizeRequestPayload } from "./middleware/validation.js";
 
 const app = express();
 const allowedOrigins = new Set([config.clientUrl, config.adminUrl]);
@@ -49,6 +52,9 @@ app.use(
     }
   })
 );
+app.use(hpp());
+app.use(mongoSanitize({ replaceWith: "_" }));
+app.use(sanitizeRequestPayload);
 
 const healthPayload = {
   ok: true,

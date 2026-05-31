@@ -1,7 +1,7 @@
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 import { config } from "../config.js";
 import { verifyFirebaseIdToken } from "../firebaseAdmin.js";
-
-const rateBuckets = new Map();
 
 const getClientIp = (req) =>
   req.ip ||
@@ -9,45 +9,26 @@ const getClientIp = (req) =>
   req.socket?.remoteAddress ||
   "unknown";
 
-export const securityHeaders = (_req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Referrer-Policy", "no-referrer");
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  res.setHeader("Cross-Origin-Resource-Policy", "same-site");
-  next();
-};
+export const securityHeaders = helmet({
+  crossOriginResourcePolicy: { policy: "same-site" },
+  frameguard: { action: "deny" },
+  referrerPolicy: { policy: "no-referrer" }
+});
 
 export const createRateLimiter = ({ max, windowMs, keyPrefix }) => {
   const limit = Number(max || config.security.apiRateLimitMax);
   const duration = Number(windowMs || config.security.rateLimitWindowMs);
 
-  return (req, res, next) => {
-    const now = Date.now();
-    const key = `${keyPrefix}:${getClientIp(req)}`;
-    const bucket = rateBuckets.get(key);
-
-    if (!bucket || bucket.resetAt <= now) {
-      if (rateBuckets.size > 5000) {
-        for (const [bucketKey, bucketValue] of rateBuckets.entries()) {
-          if (bucketValue.resetAt <= now) rateBuckets.delete(bucketKey);
-        }
-      }
-      rateBuckets.set(key, { count: 1, resetAt: now + duration });
-      return next();
+  return rateLimit({
+    windowMs: duration,
+    max: limit,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => `${keyPrefix}:${getClientIp(req)}`,
+    message: {
+      error: "Too many requests. Please try again shortly."
     }
-
-    bucket.count += 1;
-    if (bucket.count > limit) {
-      const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
-      res.setHeader("Retry-After", String(retryAfter));
-      return res.status(429).json({
-        error: "Too many requests. Please try again shortly."
-      });
-    }
-
-    return next();
-  };
+  });
 };
 
 export const requireFirebaseUser = async (req, res, next) => {

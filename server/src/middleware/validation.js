@@ -1,7 +1,39 @@
+import sanitizeHtml from "sanitize-html";
+
 const stringValue = (value) => String(value ?? "").trim();
 
+const sanitizeStringValue = (value) =>
+  sanitizeHtml(String(value), {
+    allowedTags: [],
+    allowedAttributes: {}
+  }).trim();
+
+const sanitizePayload = (value) => {
+  if (typeof value === "string") return sanitizeStringValue(value);
+  if (Array.isArray(value)) return value.map(sanitizePayload);
+  if (!value || typeof value !== "object") return value;
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, sanitizePayload(entry)])
+  );
+};
+
+export const sanitizeRequestPayload = (req, _res, next) => {
+  if (req.body && typeof req.body === "object") {
+    req.body = sanitizePayload(req.body);
+  }
+  if (req.query && typeof req.query === "object") {
+    req.query = sanitizePayload(req.query);
+  }
+  if (req.params && typeof req.params === "object") {
+    req.params = sanitizePayload(req.params);
+  }
+
+  next();
+};
+
 export const cleanString = (value, maxLength = 160) =>
-  stringValue(value).replace(/\s+/g, " ").slice(0, maxLength);
+  sanitizeStringValue(value).replace(/\s+/g, " ").slice(0, maxLength);
 
 export const cleanPhone = (value) =>
   stringValue(value).replace(/[^\d+]/g, "").slice(0, 15);
