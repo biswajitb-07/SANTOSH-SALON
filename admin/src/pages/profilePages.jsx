@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   CheckCircle2,
   Copy,
   CreditCard,
@@ -107,6 +108,24 @@ export function PlansPage({
             {subscriptionStatus}
           </p>
         ) : null}
+        <div className="mt-5 rounded-3xl border border-[#f9c66d]/20 bg-[#24170d] p-4 text-[#f9c66d]">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-1 shrink-0" size={20} />
+            <div>
+              <p className="font-black">Subscription policy</p>
+              <p className="mt-1 text-sm font-bold leading-6 text-[#f7d79a]">
+                After subscription activation, the Rs. 699 premium plan is
+                non-refundable and cannot be cancelled for the active 30-day
+                period.
+              </p>
+              <p className="mt-2 text-sm font-bold leading-6 text-[#f7d79a]">
+                If payment fails but money is debited, wait for provider/bank
+                auto-reversal or contact support with the Razorpay payment/order
+                ID. Do not retry multiple times until the payment status is clear.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
       {premiumActive ? (
         <div className="rounded-3xl bg-[#2a1111] p-5 text-[#fca5a5]">
