@@ -1,8 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  color: #17201f;
-  background: #eef5f1;
+  --bg-base: #06100e;
+  --bg-surface: #0b1714;
+  --bg-elevated: #101a18;
+  --bg-wine: #2a1111;
+  --color-primary: #991b1b;
+  --color-primary-dark: #7f1d1d;
+  --color-accent: #f9c66d;
+  --text-primary: #f4fbf8;
+  --text-muted: #9db2ad;
+  --border-subtle: #35201f;
+  color: var(--text-primary);
+  background: var(--bg-base);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
@@ -15,6 +25,12 @@
 body {
   margin: 0;
   min-width: 320px;
+  background:
+    radial-gradient(circle at 16% 0%, rgba(153, 27, 27, 0.18), transparent 30rem),
+    radial-gradient(circle at 86% 8%, rgba(249, 198, 109, 0.1), transparent 28rem),
+    var(--bg-base);
+  color: var(--text-primary);
+  overflow-x: hidden;
 }
 
 body.drawer-open {
@@ -40,14 +56,134 @@ button:disabled,
 
 .admin-hero {
   background-image:
-    linear-gradient(120deg, rgba(13, 38, 35, 0.9), rgba(13, 38, 35, 0.3)),
+    linear-gradient(120deg, rgba(6, 16, 14, 0.94), rgba(42, 17, 17, 0.72)),
     url("/assets/salon-hero.png");
   background-position: center;
   background-size: cover;
 }
 
 .soft-shadow {
-  box-shadow: 0 18px 60px rgba(18, 57, 52, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 24px 90px rgba(0, 0, 0, 0.36);
+}
+
+.bg-white {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
+    rgba(16, 26, 24, 0.88) !important;
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.bg-white\/10,
+.bg-white\/12,
+.bg-white\/14,
+.bg-white\/20 {
+  border: 1px solid rgba(249, 198, 109, 0.14);
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(18px);
+}
+
+.border-white\/70 {
+  border-color: var(--border-subtle) !important;
+}
+
+.text-white\/72,
+.text-white\/76,
+.text-white\/78 {
+  color: rgba(244, 251, 248, 0.74) !important;
+}
+
+.bg-\[\#101a18\] {
+  background-color: #101a18 !important;
+}
+
+.bg-\[\#081311\] {
+  background-color: #081311 !important;
+}
+
+.bg-\[\#2a1111\] {
+  background-color: #2a1111 !important;
+}
+
+.bg-\[\#24170d\] {
+  background-color: #24170d !important;
+}
+
+.bg-\[\#f4fbf8\],
+.bg-\[\#f7faf8\],
+.bg-\[\#f6faf8\],
+.bg-\[\#effaf7\],
+.bg-\[\#fbfdfc\],
+.bg-\[\#eef4f0\] {
+  background-color: #101a18 !important;
+  color: #f4fbf8 !important;
+}
+
+.bg-\[\#fff7ed\] {
+  background-color: #24170d !important;
+  color: #f9c66d !important;
+}
+
+.bg-\[\#fee2e2\] {
+  background-color: #2a1111 !important;
+  color: #fca5a5 !important;
+}
+
+.text-\[\#f4fbf8\] {
+  color: #f4fbf8 !important;
+}
+
+.text-\[\#9db2ad\] {
+  color: #9db2ad !important;
+}
+
+.text-\[\#991b1b\] {
+  color: #fca5a5 !important;
+}
+
+.text-\[\#b91c1c\],
+.text-\[\#c2410c\] {
+  color: #fca5a5 !important;
+}
+
+.text-\[\#f9c66d\] {
+  color: #f9c66d !important;
+}
+
+.border-\[\#35201f\] {
+  border-color: #35201f !important;
+}
+
+input,
+select,
+textarea {
+  background-color: #0b1714;
+  border-color: #35201f;
+  color: #f4fbf8;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #7f9690;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #f87171 !important;
+  outline: 2px solid rgba(248, 113, 113, 0.4) !important;
+  outline-offset: 2px;
+}
+
+.section-kicker,
+.admin-kicker {
+  color: var(--color-accent);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
 }
 
 .chart-card .recharts-wrapper {

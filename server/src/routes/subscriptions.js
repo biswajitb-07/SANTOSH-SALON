@@ -6,6 +6,8 @@ import {
   verifyRazorpayWebhookSignature
 } from "../razorpay.js";
 import { saveRazorpaySubscription } from "../paymentStatus.js";
+import { requireAdminUser } from "../middleware/security.js";
+import { cleanString, requireFields } from "../middleware/validation.js";
 
 export const subscriptionsRouter = express.Router();
 
@@ -13,22 +15,26 @@ subscriptionsRouter.get("/plans", (_req, res) => {
   res.json({ plans: [subscriptionPlan] });
 });
 
-subscriptionsRouter.post("/razorpay/create-order", async (req, res, next) => {
+subscriptionsRouter.post("/razorpay/create-order", requireAdminUser, async (req, res, next) => {
   try {
     const { salonId, ownerId } = req.body;
 
-    if (!salonId || !ownerId) {
-      return res.status(400).json({ error: "salonId and ownerId are required" });
+    const missing = requireFields(req.body, ["salonId", "ownerId"]);
+    if (missing) {
+      return res.status(400).json({ error: missing });
     }
 
-    const order = await createRazorpaySubscriptionOrder({ salonId, ownerId });
+    const order = await createRazorpaySubscriptionOrder({
+      salonId: cleanString(salonId, 120),
+      ownerId: cleanString(ownerId, 120)
+    });
     res.status(201).json(order);
   } catch (error) {
     next(error);
   }
 });
 
-subscriptionsRouter.post("/razorpay/verify", async (req, res, next) => {
+subscriptionsRouter.post("/razorpay/verify", requireAdminUser, async (req, res, next) => {
   try {
     const {
       salonId,
@@ -37,6 +43,17 @@ subscriptionsRouter.post("/razorpay/verify", async (req, res, next) => {
       razorpay_payment_id: razorpayPaymentId,
       razorpay_signature: razorpaySignature
     } = req.body;
+
+    const missing = requireFields(req.body, [
+      "salonId",
+      "ownerId",
+      "razorpay_order_id",
+      "razorpay_payment_id",
+      "razorpay_signature"
+    ]);
+    if (missing) {
+      return res.status(400).json({ error: missing });
+    }
 
     const verified = verifyRazorpayCheckoutSignature({
       razorpayOrderId,
@@ -49,10 +66,10 @@ subscriptionsRouter.post("/razorpay/verify", async (req, res, next) => {
     }
 
     const firestore = await saveRazorpaySubscription({
-      salonId,
-      ownerId,
-      orderId: razorpayOrderId,
-      paymentId: razorpayPaymentId,
+      salonId: cleanString(salonId, 120),
+      ownerId: cleanString(ownerId, 120),
+      orderId: cleanString(razorpayOrderId, 120),
+      paymentId: cleanString(razorpayPaymentId, 120),
       source: "razorpay-checkout-verify"
     });
 

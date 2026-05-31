@@ -25,6 +25,16 @@ export const config = {
   clientUrl: process.env.CLIENT_URL || "http://localhost:5173",
   adminUrl: process.env.ADMIN_URL || "http://localhost:5174",
   serverUrl: process.env.SERVER_URL || "http://localhost:5000",
+  trustProxy: process.env.TRUST_PROXY === "true",
+  security: {
+    adminAllowedEmails: (process.env.ADMIN_ALLOWED_EMAILS || "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean),
+    rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000),
+    apiRateLimitMax: Number(process.env.API_RATE_LIMIT_MAX || 120),
+    writeRateLimitMax: Number(process.env.WRITE_RATE_LIMIT_MAX || 30)
+  },
   cashfree: {
     env: process.env.CASHFREE_ENV || "sandbox",
     baseUrl:

@@ -4,6 +4,7 @@ import path from "node:path";
 import { config } from "./config.js";
 
 let db = null;
+let auth = null;
 
 const getServiceAccount = () => {
   if (config.firebase.serviceAccountFile) {
@@ -57,4 +58,31 @@ export const getDb = () => {
 
   db = admin.firestore();
   return db;
+};
+
+export const getAuth = () => {
+  if (auth) return auth;
+
+  const serviceAccount = getServiceAccount();
+  if (!serviceAccount) return null;
+
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+  }
+
+  auth = admin.auth();
+  return auth;
+};
+
+export const verifyFirebaseIdToken = async (idToken) => {
+  const firebaseAuth = getAuth();
+  if (!firebaseAuth) {
+    const error = new Error("Firebase Admin is not configured.");
+    error.statusCode = 503;
+    throw error;
+  }
+
+  return firebaseAuth.verifyIdToken(idToken);
 };

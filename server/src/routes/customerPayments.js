@@ -11,10 +11,26 @@ import {
   createRazorpayServiceOrder,
   verifyRazorpayCheckoutSignature
 } from "../razorpay.js";
+import {
+  createRateLimiter,
+  requireAdminUser
+} from "../middleware/security.js";
+import {
+  cleanEmail,
+  cleanPhone,
+  cleanString,
+  parsePositiveAmount,
+  requireFields
+} from "../middleware/validation.js";
 
 export const customerPaymentsRouter = express.Router();
+const writeLimiter = createRateLimiter({
+  keyPrefix: "customer-payments-write",
+  max: 20,
+  windowMs: 60_000
+});
 
-customerPaymentsRouter.post("/cashfree/create-order", async (req, res, next) => {
+customerPaymentsRouter.post("/cashfree/create-order", writeLimiter, async (req, res, next) => {
   try {
     const {
       serviceTitle,
@@ -27,21 +43,28 @@ customerPaymentsRouter.post("/cashfree/create-order", async (req, res, next) => 
       bookingDate
     } = req.body;
 
-    if (!serviceTitle || !amount || !customerName || !customerMobile) {
+    const missing = requireFields(req.body, [
+      "serviceTitle",
+      "amount",
+      "customerName",
+      "customerMobile"
+    ]);
+    const safeAmount = parsePositiveAmount(amount);
+    if (missing || !safeAmount) {
       return res.status(400).json({
-        error: "serviceTitle, amount, customerName and customerMobile are required"
+        error: missing || "A valid amount is required"
       });
     }
 
     const order = await createCashfreeServiceOrder({
-      serviceTitle,
-      amount,
-      customerName,
-      customerMobile,
-      customerEmail,
-      customerUserId,
-      bookingDay,
-      bookingDate
+      serviceTitle: cleanString(serviceTitle, 80),
+      amount: safeAmount,
+      customerName: cleanString(customerName, 80),
+      customerMobile: cleanPhone(customerMobile),
+      customerEmail: cleanEmail(customerEmail),
+      customerUserId: cleanString(customerUserId, 80),
+      bookingDay: cleanString(bookingDay, 20),
+      bookingDate: cleanString(bookingDate, 20)
     });
 
     res.status(201).json(order);
@@ -149,7 +172,7 @@ const updateRefundFromWebhook = async (event) => {
   return { updated: true, status: nextStatus };
 };
 
-customerPaymentsRouter.post("/cashfree/refund", async (req, res, next) => {
+customerPaymentsRouter.post("/cashfree/refund", requireAdminUser, writeLimiter, async (req, res, next) => {
   try {
     const {
       refundRequestId,
@@ -161,41 +184,53 @@ customerPaymentsRouter.post("/cashfree/refund", async (req, res, next) => {
       adminEmail
     } = req.body;
 
-    if (!refundRequestId || !orderId || !amount) {
+    const missing = requireFields(req.body, ["refundRequestId", "orderId", "amount"]);
+    const safeAmount = parsePositiveAmount(amount);
+    if (missing || !safeAmount) {
       return res.status(400).json({
-        error: "refundRequestId, orderId and amount are required"
+        error: missing || "A valid refund amount is required"
       });
     }
 
     const db = getDb();
     let refundRef = null;
+    let refundData = null;
     if (db) {
       refundRef = db.collection("refundRequests").doc(refundRequestId);
       const refundDoc = await refundRef.get();
       if (refundDoc.exists) {
-        const existingRefund = refundDoc.data();
+        refundData = refundDoc.data();
         const hasCashfreeRefund =
-          existingRefund.refundDetails?.refundId || existingRefund.cashfree?.refundId;
+          refundData.refundDetails?.refundId || refundData.cashfree?.refundId;
         if (
-          ["completed", "processing"].includes(existingRefund.status) &&
+          ["completed", "processing"].includes(refundData.status) &&
           hasCashfreeRefund
         ) {
           return res.json({
             refunded: true,
             alreadyProcessed: true,
-            refund: existingRefund.cashfree || null,
-            status: existingRefund.status
+            refund: refundData.cashfree || null,
+            status: refundData.status
           });
         }
       }
     }
 
+    const refundOrderId =
+      refundData?.orderId && refundData.orderId !== "-" ? refundData.orderId : orderId;
+    const refundAmount = parsePositiveAmount(refundData?.amount || safeAmount);
+    if (!refundAmount || refundAmount <= 0) {
+      return res.status(400).json({
+        error: "Valid refund amount is required"
+      });
+    }
+
     const refundId = `refund_${refundRequestId}`.replace(/[^a-zA-Z0-9_-]/g, "");
     const refund = await createCashfreeRefund({
-      orderId,
+      orderId: refundOrderId,
       refundId,
-      amount,
-      note
+      amount: refundAmount,
+      note: cleanString(note, 240)
     });
     const status = cashfreeRefundStatusToAppStatus(refund.refund_status);
     const now = new Date();
@@ -203,8 +238,8 @@ customerPaymentsRouter.post("/cashfree/refund", async (req, res, next) => {
     const refundDetails = {
       refundId,
       cfRefundId: refund.cf_refund_id || null,
-      orderId,
-      refundAmount: refund.refund_amount || amount,
+      orderId: refundOrderId,
+      refundAmount: refund.refund_amount || refundAmount,
       refundStatus: refund.refund_status || null,
       refundMode: refund.refund_mode || null,
       refundArn: refund.refund_arn || null,
@@ -217,7 +252,9 @@ customerPaymentsRouter.post("/cashfree/refund", async (req, res, next) => {
         {
           status,
           adminId: adminId || null,
-          adminEmail: adminEmail || null,
+          adminEmail: adminEmail || req.user?.email || null,
+          amount: refundAmount,
+          orderId: refundOrderId,
           refundDetails,
           cashfree: {
             ...refundDetails,
@@ -236,7 +273,7 @@ customerPaymentsRouter.post("/cashfree/refund", async (req, res, next) => {
           refundStatus: status,
           refundId,
           cfRefundId: refund.cf_refund_id || null,
-          refundedAmount: refund.refund_amount || amount,
+          refundedAmount: refund.refund_amount || refundAmount,
           updatedAt: now
         },
         { merge: true }
@@ -277,23 +314,30 @@ customerPaymentsRouter.post("/cashfree/webhook", async (req, res, next) => {
   }
 });
 
-customerPaymentsRouter.post("/razorpay/create-order", async (req, res, next) => {
+customerPaymentsRouter.post("/razorpay/create-order", writeLimiter, async (req, res, next) => {
   try {
     const { serviceTitle, amount, customerName, customerMobile, customerUserId } =
       req.body;
 
-    if (!serviceTitle || !amount || !customerName || !customerMobile) {
+    const missing = requireFields(req.body, [
+      "serviceTitle",
+      "amount",
+      "customerName",
+      "customerMobile"
+    ]);
+    const safeAmount = parsePositiveAmount(amount);
+    if (missing || !safeAmount) {
       return res.status(400).json({
-        error: "serviceTitle, amount, customerName and customerMobile are required"
+        error: missing || "A valid amount is required"
       });
     }
 
     const order = await createRazorpayServiceOrder({
-      serviceTitle,
-      amount,
-      customerName,
-      customerMobile,
-      customerUserId
+      serviceTitle: cleanString(serviceTitle, 80),
+      amount: safeAmount,
+      customerName: cleanString(customerName, 80),
+      customerMobile: cleanPhone(customerMobile),
+      customerUserId: cleanString(customerUserId, 80)
     });
 
     res.status(201).json(order);

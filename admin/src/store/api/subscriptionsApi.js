@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { prepareAuthHeaders } from "../../lib/apiAuth.js";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -6,6 +7,7 @@ export const subscriptionsApi = createApi({
   reducerPath: "subscriptionsApi",
   baseQuery: fetchBaseQuery({
     baseUrl: `${API_URL}/api/subscriptions`,
+    prepareHeaders: prepareAuthHeaders,
     timeout: 20000
   }),
   endpoints: (builder) => ({
