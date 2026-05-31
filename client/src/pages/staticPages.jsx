@@ -1,12 +1,30 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  limit,
+  query as firestoreQuery,
+  serverTimestamp,
+  updateDoc,
+  where
+} from "firebase/firestore";
 import {
   Clock3,
+  Edit3,
   Mail,
   MapPin,
   MessageCircle,
   Phone,
-  Star
+  Star,
+  Trash2,
+  X
 } from "lucide-react";
+import { ButtonSpinner } from "../components/common.jsx";
+import { db } from "../lib/firebase.js";
 
 export function AboutPage() {
   return (
@@ -44,8 +62,262 @@ export function AboutPage() {
   );
 }
 
-export function ContactPage() {
-  const [sent, setSent] = useState(false);
+const unresolvedIssueStatuses = ["open", "pending", "in_progress"];
+
+const getIssueMillis = (value) => {
+  if (!value) return 0;
+  if (value.toMillis) return value.toMillis();
+  if (value.toDate) return value.toDate().getTime();
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+};
+
+const normalizeIssue = (snapshotDoc) => {
+  const data = snapshotDoc.data();
+  const updatedMillis = getIssueMillis(data.updatedAt);
+  const createdMillis = getIssueMillis(data.createdAt);
+
+  return {
+    id: snapshotDoc.id,
+    name: data.name || "",
+    mobile: data.mobile || "",
+    email: data.email || "",
+    message: data.message || "",
+    status: String(data.status || "open").toLowerCase(),
+    sortTime: updatedMillis || createdMillis,
+    displayTime: (updatedMillis || createdMillis)
+      ? new Date(updatedMillis || createdMillis).toLocaleString("en-IN", {
+          day: "numeric",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit"
+        })
+      : "Just now"
+  };
+};
+
+export function ContactPage({ user }) {
+  const [submitting, setSubmitting] = useState(false);
+  const [issueHistory, setIssueHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [editingIssueId, setEditingIssueId] = useState("");
+  const [deletingIssueId, setDeletingIssueId] = useState("");
+  const [form, setForm] = useState({
+    name: user?.displayName || "",
+    mobile: "",
+    email: user?.email || "",
+    message: ""
+  });
+
+  const updateField = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const loadIssueHistory = async (mobileValue = form.mobile) => {
+    const mobile = String(mobileValue || "").replace(/\D/g, "");
+    const issueQueries = [];
+
+    if (user?.uid) {
+      issueQueries.push(
+        firestoreQuery(
+          collection(db, "contactIssues"),
+          where("userId", "==", user.uid),
+          limit(20)
+        )
+      );
+    }
+
+    if (mobile.length >= 10) {
+      issueQueries.push(
+        firestoreQuery(
+          collection(db, "contactIssues"),
+          where("mobile", "==", mobile),
+          limit(20)
+        )
+      );
+    }
+
+    if (!issueQueries.length) {
+      setIssueHistory([]);
+      return [];
+    }
+
+    setHistoryLoading(true);
+    try {
+      const snapshots = await Promise.all(
+        issueQueries.map((issueQuery) => getDocs(issueQuery))
+      );
+      const issueMap = new Map();
+      snapshots.forEach((snapshot) => {
+        snapshot.docs.forEach((snapshotDoc) => {
+          issueMap.set(snapshotDoc.id, normalizeIssue(snapshotDoc));
+        });
+      });
+      const issues = [...issueMap.values()]
+        .sort((first, second) => second.sortTime - first.sortTime)
+        .slice(0, 3);
+
+      setIssueHistory(issues);
+      return issues;
+    } catch (error) {
+      toast.error(error.message || "Issue history could not be loaded.");
+      return [];
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const cleanupIssueHistory = async (mobileValue) => {
+    const mobile = String(mobileValue || "").replace(/\D/g, "");
+    const issueQueries = [];
+
+    if (user?.uid) {
+      issueQueries.push(
+        firestoreQuery(
+          collection(db, "contactIssues"),
+          where("userId", "==", user.uid),
+          limit(30)
+        )
+      );
+    }
+    if (mobile.length >= 10) {
+      issueQueries.push(
+        firestoreQuery(
+          collection(db, "contactIssues"),
+          where("mobile", "==", mobile),
+          limit(30)
+        )
+      );
+    }
+
+    const snapshots = await Promise.all(
+      issueQueries.map((issueQuery) => getDocs(issueQuery))
+    );
+    const issueMap = new Map();
+    snapshots.forEach((snapshot) => {
+      snapshot.docs.forEach((snapshotDoc) => {
+        issueMap.set(snapshotDoc.id, normalizeIssue(snapshotDoc));
+      });
+    });
+
+    const oldIssues = [...issueMap.values()]
+      .sort((first, second) => second.sortTime - first.sortTime)
+      .slice(3);
+
+    await Promise.all(
+      oldIssues.map((issue) => deleteDoc(doc(db, "contactIssues", issue.id)))
+    );
+  };
+
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      name: current.name || user?.displayName || "",
+      email: current.email || user?.email || ""
+    }));
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.uid) {
+      loadIssueHistory();
+    }
+  }, [user?.uid]);
+
+  const submitContact = async (event) => {
+    event.preventDefault();
+
+    const name = form.name.trim();
+    const mobile = form.mobile.replace(/\D/g, "");
+    const email = form.email.trim().toLowerCase();
+    const message = form.message.trim();
+
+    if (!name || mobile.length < 10 || !message) {
+      toast.error("Please enter name, valid mobile number, and message.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const issues = await loadIssueHistory(mobile);
+      const hasOpenIssue = issues.some((issue) =>
+        unresolvedIssueStatuses.includes(issue.status)
+      );
+
+      if (hasOpenIssue && !editingIssueId) {
+        toast.warning(
+          "Your previous issue is still open. You can send a new message after it is resolved."
+        );
+        return;
+      }
+
+      if (editingIssueId) {
+        await updateDoc(doc(db, "contactIssues", editingIssueId), {
+          name,
+          mobile,
+          email: email || user?.email || "",
+          message,
+          editedAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        toast.success("Message updated.");
+      } else {
+        await addDoc(collection(db, "contactIssues"), {
+          userId: user?.uid || "",
+          name,
+          mobile,
+          email: email || user?.email || "",
+          message,
+          status: "open",
+          source: "client-contact-page",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        toast.success("Message sent. The salon team will review your issue.");
+      }
+
+      await cleanupIssueHistory(mobile);
+      await loadIssueHistory(mobile);
+
+      setEditingIssueId("");
+      setForm((current) => ({
+        ...current,
+        message: ""
+      }));
+    } catch (error) {
+      toast.error(error.message || "Message could not be sent.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const editIssue = (issue) => {
+    setEditingIssueId(issue.id);
+    setForm({
+      name: issue.name || form.name,
+      mobile: issue.mobile || form.mobile,
+      email: issue.email || form.email,
+      message: issue.message || ""
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingIssueId("");
+    setForm((current) => ({ ...current, message: "" }));
+  };
+
+  const deleteIssue = async (issueId) => {
+    setDeletingIssueId(issueId);
+    try {
+      await deleteDoc(doc(db, "contactIssues", issueId));
+      if (editingIssueId === issueId) cancelEdit();
+      toast.success("Message deleted. You can send a new issue now.");
+      await loadIssueHistory();
+    } catch (error) {
+      toast.error(error.message || "Message could not be deleted.");
+    } finally {
+      setDeletingIssueId("");
+    }
+  };
 
   return (
     <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
@@ -73,38 +345,136 @@ export function ContactPage() {
 
       <form
         className="luxury-glass rounded-[2rem] p-6 queue-shadow sm:p-8"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSent(true);
-        }}
+        onSubmit={submitContact}
       >
         <h2 className="text-3xl font-black">Send message</h2>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="mb-2 block text-sm font-bold">Name</span>
-            <input className="h-12 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] px-4 text-[#f4fbf8] outline-none focus:border-[#f87171]" />
+            <input
+              className="h-12 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] px-4 text-[#f4fbf8] outline-none focus:border-[#f87171]"
+              onChange={(event) => updateField("name", event.target.value)}
+              value={form.name}
+            />
           </label>
           <label className="block">
             <span className="mb-2 block text-sm font-bold">Mobile</span>
-            <input className="h-12 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] px-4 text-[#f4fbf8] outline-none focus:border-[#f87171]" />
+            <input
+              className="h-12 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] px-4 text-[#f4fbf8] outline-none focus:border-[#f87171]"
+              onChange={(event) => updateField("mobile", event.target.value)}
+              placeholder="98765 43210"
+              value={form.mobile}
+            />
           </label>
         </div>
+        <label className="mt-4 block">
+          <span className="mb-2 block text-sm font-bold">Email</span>
+          <input
+            className="h-12 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] px-4 text-[#f4fbf8] outline-none focus:border-[#f87171]"
+            onChange={(event) => updateField("email", event.target.value)}
+            placeholder="you@example.com"
+            type="email"
+            value={form.email}
+          />
+        </label>
         <label className="mt-4 block">
           <span className="mb-2 block text-sm font-bold">Message</span>
           <textarea
             className="min-h-36 w-full resize-y rounded-2xl border border-[#4a2525] bg-[#0b1714] p-4 text-[#f4fbf8] outline-none focus:border-[#f87171]"
+            onChange={(event) => updateField("message", event.target.value)}
             placeholder="Write your message"
+            value={form.message}
           />
         </label>
-        <button className="shine-button mt-4 flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-6 py-4 font-black text-white">
-          <MessageCircle size={19} />
-          Send Message
+        <button
+          className="shine-button mt-4 flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-6 py-4 font-black text-white disabled:opacity-60"
+          disabled={submitting}
+          type="submit"
+        >
+          {submitting ? <ButtonSpinner /> : <MessageCircle size={19} />}
+          {submitting
+            ? "Sending..."
+            : editingIssueId
+              ? "Update Message"
+              : "Send Message"}
         </button>
-        {sent ? (
-          <p className="mt-4 rounded-2xl bg-[#2a1111] px-4 py-3 text-sm font-bold text-[#fca5a5]">
-            Message ready. Connect backend/email service when needed.
-          </p>
+        {editingIssueId ? (
+          <button
+            className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[#35201f] bg-[#101a18] px-5 font-black text-[#f4fbf8]"
+            onClick={cancelEdit}
+            type="button"
+          >
+            <X size={18} />
+            Cancel Edit
+          </button>
         ) : null}
+        <p className="mt-4 rounded-2xl bg-[#2a1111] px-4 py-3 text-sm font-bold text-[#fca5a5]">
+          You can keep only one unresolved issue open at a time. A new message
+          is allowed after the salon marks your previous issue as resolved.
+        </p>
+        <div className="mt-5 rounded-3xl border border-[#35201f] bg-[#0b1714] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-lg font-black">Recent messages</h3>
+            <button
+              className="rounded-full border border-[#35201f] px-3 py-1 text-xs font-black text-[#f9c66d]"
+              onClick={() => loadIssueHistory()}
+              type="button"
+            >
+              Refresh
+            </button>
+          </div>
+          {historyLoading ? (
+            <p className="mt-3 text-sm font-bold text-[#9db2ad]">Loading...</p>
+          ) : issueHistory.length ? (
+            <div className="mt-3 grid gap-3">
+              {issueHistory.map((issue) => (
+                <article
+                  className="rounded-2xl border border-[#35201f] bg-[#101a18] p-4"
+                  key={issue.id}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <span className="rounded-full bg-[#2a1111] px-3 py-1 text-xs font-black uppercase text-[#fca5a5]">
+                        {issue.status.replace(/_/g, " ")}
+                      </span>
+                      <p className="mt-2 text-xs font-bold text-[#9db2ad]">
+                        {issue.displayTime}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        className="grid h-10 w-10 place-items-center rounded-xl bg-[#24170d] text-[#f9c66d]"
+                        onClick={() => editIssue(issue)}
+                        type="button"
+                      >
+                        <Edit3 size={17} />
+                      </button>
+                      <button
+                        className="grid h-10 w-10 place-items-center rounded-xl bg-[#3a1515] text-[#fca5a5] disabled:opacity-60"
+                        disabled={deletingIssueId === issue.id}
+                        onClick={() => deleteIssue(issue.id)}
+                        type="button"
+                      >
+                        {deletingIssueId === issue.id ? (
+                          <ButtonSpinner />
+                        ) : (
+                          <Trash2 size={17} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="mt-3 line-clamp-3 text-sm font-bold leading-6 text-[#f4fbf8]">
+                    {issue.message}
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm font-bold text-[#9db2ad]">
+              No recent messages found.
+            </p>
+          )}
+        </div>
       </form>
     </section>
   );

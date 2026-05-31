@@ -24,7 +24,8 @@ import {
 import {
   ButtonSpinner,
   PaginationControls,
-  UserAvatar
+  UserAvatar,
+  useBodyScrollLock
 } from "../components/common.jsx";
 import { db } from "../lib/firebase.js";
 import {
@@ -182,6 +183,8 @@ const groupUserBookings = (bookings) =>
   }, []);
 
 function RefundRequestDialog({ booking, user, onClose }) {
+  useBodyScrollLock(Boolean(booking));
+
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     paymentId: booking?.paymentId || "",
@@ -381,6 +384,8 @@ export function ProfilePage({
   const selectedBookingGroup =
     groupedBookings.find((group) => group.key === selectedBookingGroupKey) ||
     null;
+
+  useBodyScrollLock(Boolean(bookingsOnly && selectedBookingGroup));
 
   useEffect(() => {
     setBookingPage(1);

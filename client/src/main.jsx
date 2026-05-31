@@ -29,7 +29,8 @@ import {
 import {
   ButtonSpinner,
   ConfirmDialog,
-  getUserPhotoUrl
+  getUserPhotoUrl,
+  useBodyScrollLock
 } from "./components/common.jsx";
 import {
   Header,
@@ -446,6 +447,8 @@ function CheckoutModal({
     confirmedCount: 0,
     waitlistCount: 0
   });
+
+  useBodyScrollLock(Boolean(service));
 
   useEffect(() => {
     setForm({
@@ -884,8 +887,8 @@ function CheckoutModal({
   };
 
   return (
-    <div className="modal-fade fixed inset-0 z-[9999] flex items-end justify-center bg-black/65 px-3 py-3 backdrop-blur-md sm:items-center sm:px-4 sm:py-6">
-      <section className="queue-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-[#f9c66d]/15 bg-[#081311]/95 text-[#f4fbf8] sm:max-h-[90vh] sm:max-w-2xl sm:rounded-[2rem]">
+    <div className="modal-fade fixed inset-0 z-[9999] flex h-[100dvh] items-center justify-center overflow-hidden bg-black/65 px-3 py-4 backdrop-blur-md sm:px-5 sm:py-6">
+      <section className="queue-shadow flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[#f9c66d]/15 bg-[#081311]/95 text-[#f4fbf8] sm:max-h-[min(820px,calc(100dvh-3rem))] sm:max-w-3xl sm:rounded-[2rem] lg:max-w-4xl">
         <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#35201f] bg-[#081311]/95 px-5 py-4 backdrop-blur sm:px-6">
           <div>
             <p className="section-kicker">
@@ -905,7 +908,7 @@ function CheckoutModal({
           </button>
         </div>
 
-        <form className="space-y-4 p-5 sm:p-6" onSubmit={submitCheckout}>
+        <form className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5 sm:p-6" onSubmit={submitCheckout}>
           <label className="block">
             <span className="mb-2 block text-sm font-bold">Name</span>
             <input
@@ -1572,13 +1575,16 @@ function App() {
     <main className="min-h-screen bg-[#06100e] text-[#f4fbf8]">
       <Toaster
         position="top-right"
+        className="app-toaster"
+        offset="76px"
         richColors
         closeButton
         toastOptions={{
           style: {
             borderRadius: "18px",
             border: "1px solid #d9e5df",
-            boxShadow: "0 18px 60px rgba(18, 57, 52, 0.16)"
+            boxShadow: "0 18px 60px rgba(18, 57, 52, 0.16)",
+            zIndex: 100000
           }
         }}
       />
@@ -1625,7 +1631,7 @@ function App() {
         />
       ) : null}
       {page === "about" ? <AboutPage /> : null}
-      {page === "contact" ? <ContactPage /> : null}
+      {page === "contact" ? <ContactPage user={user} /> : null}
       {legalPages.includes(page) ? <LegalPage page={page} /> : null}
       {page === "profile" ? (
         <ProfilePage

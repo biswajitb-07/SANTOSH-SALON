@@ -38,6 +38,14 @@ body.drawer-open {
   padding-right: var(--scrollbar-width, 0px);
 }
 
+.app-toaster {
+  z-index: 100000 !important;
+}
+
+.app-toaster [data-sonner-toast] {
+  margin-top: 0.25rem;
+}
+
 button,
 input,
 select {

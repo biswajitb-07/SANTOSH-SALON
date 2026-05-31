@@ -64,6 +64,24 @@ export function ButtonSpinner({ dark = false }) {
   );
 }
 
+export function useBodyScrollLock(locked) {
+  useEffect(() => {
+    if (!locked) return undefined;
+
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.paddingRight = `${scrollbarWidth}px`;
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+    };
+  }, [locked]);
+}
+
 export function PaginationControls({ page, totalPages, onPageChange }) {
   if (totalPages <= 1) return null;
 
@@ -115,6 +133,8 @@ export function ConfirmDialog({
   onCancel,
   onConfirm
 }) {
+  useBodyScrollLock(true);
+
   return (
     <div className="fixed inset-0 z-[9999] grid place-items-center bg-[#081311]/70 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
       <div className="soft-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-5 sm:max-h-[90vh] sm:max-w-2xl sm:p-6">

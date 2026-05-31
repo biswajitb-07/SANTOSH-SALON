@@ -1,5 +1,5 @@
 import { ImagePlus, Save, XCircle } from "lucide-react";
-import { ButtonSpinner } from "./common.jsx";
+import { ButtonSpinner, useBodyScrollLock } from "./common.jsx";
 
 export function ServiceDialog({
   actionLoading,
@@ -11,6 +11,8 @@ export function ServiceDialog({
   onSubmit,
   open
 }) {
+  useBodyScrollLock(open);
+
   if (!open) return null;
 
   const updateDraft = (patch) => {
@@ -155,6 +157,8 @@ export function BookingDialog({
   timeSlots,
   todayDateValue
 }) {
+  useBodyScrollLock(open);
+
   if (!open || !draft) return null;
 
   const updateDraft = (patch) => {

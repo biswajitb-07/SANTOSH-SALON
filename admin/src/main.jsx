@@ -2055,13 +2055,16 @@ function App() {
     <main className="h-screen overflow-hidden bg-[#06100e] text-[#f4fbf8]">
       <Toaster
         position="top-right"
+        className="app-toaster"
+        offset="76px"
         richColors
         closeButton
         toastOptions={{
           style: {
             borderRadius: "18px",
             border: "1px solid #35201f",
-            boxShadow: "0 18px 60px rgba(18, 57, 52, 0.16)"
+            boxShadow: "0 18px 60px rgba(18, 57, 52, 0.16)",
+            zIndex: 100000
           }
         }}
       />
