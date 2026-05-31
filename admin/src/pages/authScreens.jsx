@@ -57,7 +57,7 @@ export function AdminLoginScreen({
               Google owner login
             </p>
             <h2 className="max-w-xl text-3xl font-black leading-[1.04] sm:text-5xl lg:text-6xl">
-              Run your salon queue from one clean dashboard.
+              Ru your salon queue from one clean dashboard.
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-7 text-white/78 sm:mt-5 sm:text-lg sm:leading-8">
               Secure Google sign-in, live tokens, queue controls, and premium
