@@ -535,6 +535,20 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (authLoading) return undefined;
+
+    if (!user) {
+      setActivePage("dashboard");
+      if (typeof window !== "undefined" && window.location.search) {
+        window.history.replaceState(
+          {},
+          "",
+          `${window.location.pathname}${window.location.hash}`
+        );
+      }
+      return undefined;
+    }
+
     writeAdminRoute(activePage, true);
 
     const syncRoute = () => {
@@ -544,7 +558,7 @@ function App() {
 
     window.addEventListener("popstate", syncRoute);
     return () => window.removeEventListener("popstate", syncRoute);
-  }, []);
+  }, [authLoading, user]);
 
   const navigateAdminPage = (page) => {
     setActivePage(page);

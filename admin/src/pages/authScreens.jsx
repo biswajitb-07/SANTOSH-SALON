@@ -29,60 +29,62 @@ export function AdminLoginScreen({
   onGoogleLogin
 }) {
   return (
-    <main className="min-h-screen bg-[#06100e] px-4 py-6 sm:px-6 lg:grid lg:place-items-center lg:px-8">
+    <main className="min-h-screen bg-[#06100e] px-3 py-4 sm:px-6 lg:grid lg:place-items-center lg:px-8">
       <Toaster
         position="top-right"
         richColors
         closeButton
         toastOptions={toastOptions}
       />
-      <div className="mx-auto grid w-full max-w-6xl overflow-hidden rounded-[2rem] bg-white soft-shadow lg:min-h-[680px] lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="admin-hero relative flex min-h-[360px] overflow-hidden p-6 text-white sm:p-8 lg:min-h-full lg:flex-col lg:justify-between">
+      <div className="mx-auto grid w-full max-w-6xl overflow-hidden rounded-[1.75rem] bg-white soft-shadow sm:rounded-[2rem] lg:min-h-[680px] lg:grid-cols-[1.05fr_0.95fr]">
+        <section className="admin-hero relative flex min-h-[300px] flex-col justify-between overflow-hidden p-5 text-white sm:min-h-[360px] sm:p-8 lg:min-h-full">
           <div className="relative z-10 flex items-center gap-3">
-            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#f9c66d] text-[#081311]">
-              <Scissors size={23} />
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f9c66d] text-[#081311] sm:h-12 sm:w-12">
+              <Scissors size={22} />
             </span>
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#f9c66d]">
                 Salon SaaS
               </p>
-              <h1 className="text-xl font-black">Santosh Salon Queue</h1>
+              <h1 className="text-lg font-black leading-tight sm:text-xl">
+                Santosh Salon Queue
+              </h1>
             </div>
           </div>
-          <div className="relative z-10 mt-auto max-w-2xl pt-20 lg:pt-0">
-            <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/12 px-4 py-2 text-sm font-bold text-[#f9c66d] ring-1 ring-white/20">
+          <div className="relative z-10 mt-10 max-w-2xl lg:mt-0">
+            <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-2 text-xs font-bold text-[#f9c66d] ring-1 ring-white/20 sm:mb-4 sm:px-4 sm:text-sm">
               <Sparkles size={16} />
               Google owner login
             </p>
-            <h2 className="max-w-xl text-4xl font-black leading-[1.02] sm:text-5xl lg:text-6xl">
+            <h2 className="max-w-xl text-3xl font-black leading-[1.04] sm:text-5xl lg:text-6xl">
               Run your salon queue from one clean dashboard.
             </h2>
-            <p className="mt-5 max-w-xl text-base leading-8 text-white/78 sm:text-lg">
+            <p className="mt-4 max-w-xl text-sm leading-7 text-white/78 sm:mt-5 sm:text-lg sm:leading-8">
               Secure Google sign-in, live tokens, queue controls, and premium
               analytics in one responsive admin panel.
             </p>
           </div>
         </section>
 
-        <section className="flex items-center justify-center bg-white p-5 sm:p-8 lg:p-10">
+        <section className="flex items-center justify-center bg-white p-4 sm:p-8 lg:p-10">
           <div className="w-full max-w-md">
             <div className="flex items-center gap-3">
-              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#081311] text-white">
-                <Scissors size={22} />
+              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#081311] text-white sm:h-12 sm:w-12">
+                <Scissors size={21} />
               </span>
               <div>
-                <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#991b1b] sm:text-sm">
                   Admin Login
                 </p>
-                <h1 className="text-2xl font-black">Santosh Salon</h1>
+                <h1 className="text-xl font-black sm:text-2xl">Santosh Salon</h1>
               </div>
             </div>
 
-            <div className="mt-8 rounded-3xl bg-[#101a18] p-5">
-              <h2 className="text-3xl font-black leading-tight">
+            <div className="mt-6 rounded-3xl bg-[#101a18] p-4 sm:mt-8 sm:p-5">
+              <h2 className="text-2xl font-black leading-tight sm:text-3xl">
                 Continue with Google
               </h2>
-              <p className="mt-3 leading-7 text-[#9db2ad]">
+              <p className="mt-3 text-sm leading-7 text-[#9db2ad] sm:text-base">
                 Only Google login is enabled for owner dashboard access.
               </p>
             </div>

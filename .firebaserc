@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "santosh-salon"
+  },
+  "targets": {
+    "santosh-salon": {
+      "hosting": {
+        "client": [
+          "santosh-salon"
+        ],
+        "admin": [
+          "santosh-salon-admin"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
