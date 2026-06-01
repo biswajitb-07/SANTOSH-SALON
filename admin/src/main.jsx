@@ -46,6 +46,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquare,
   PhoneCall,
   QrCode,
   Scissors,
@@ -80,6 +81,7 @@ import {
   PublicLinkPage,
   SettingsPage
 } from "./pages/profilePages.jsx";
+import { ContactIssuesPage } from "./pages/ContactIssuesPage.jsx";
 import { UsersPage } from "./pages/UsersPage.jsx";
 import {
   useCreateSubscriptionOrderMutation,
@@ -132,6 +134,7 @@ const navItems = [
   { key: "queue", label: "Queue", icon: UsersRound },
   { key: "services", label: "Haircut Design", icon: Scissors },
   { key: "refunds", label: "Refunds", icon: CreditCard },
+  { key: "messages", label: "Messages", icon: MessageSquare },
   { key: "users", label: "Users", icon: UserCheck },
   { key: "public-link", label: "Public Link", icon: QrCode },
   { key: "plans", label: "Plans", icon: WalletCards },
@@ -775,6 +778,9 @@ function App() {
     try {
       await signOut(auth);
       setConfirmDialog(null);
+      toast.success("Admin logout successful.");
+    } catch (error) {
+      toast.error(error.message || "Admin logout failed.");
     } finally {
       setActionLoading("");
     }
@@ -3183,6 +3189,8 @@ function App() {
                 />
               </section>
             ) : null}
+
+            {activePage === "messages" ? <ContactIssuesPage /> : null}
 
             {activePage === "users" ? (
               <UsersPage

@@ -1529,6 +1529,7 @@ function App() {
     try {
       await signOut(auth);
       setConfirmLogoutOpen(false);
+      toast.success("Logout successful.");
       if (page === "profile") {
         navigatePage("home");
       }
