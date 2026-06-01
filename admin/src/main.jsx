@@ -63,6 +63,8 @@ import {
 } from "lucide-react";
 import { auth, db, googleProvider } from "./lib/firebase.js";
 import { getAuthHeader } from "./lib/apiAuth.js";
+import { applyAdminSeo } from "./lib/seo.js";
+import { getAdminRoute, writeAdminRoute } from "./lib/routing.js";
 import {
   ButtonSpinner,
   ConfirmDialog,
@@ -140,22 +142,6 @@ const navItems = [
   { key: "plans", label: "Plans", icon: WalletCards },
   { key: "settings", label: "Settings", icon: Settings }
 ];
-
-const getAdminRoute = () => {
-  if (typeof window === "undefined") return "dashboard";
-
-  const page = new URLSearchParams(window.location.search).get("page");
-  return navItems.some((item) => item.key === page) ? page : "dashboard";
-};
-
-const writeAdminRoute = (page, replace = false) => {
-  if (typeof window === "undefined") return;
-
-  const url = new URL(window.location.href);
-  url.searchParams.set("page", page);
-  const method = replace ? "replaceState" : "pushState";
-  window.history[method]({}, "", `${url.pathname}${url.search}${url.hash}`);
-};
 
 const defaultSalonProfile = {
   name: "Santosh Salon",
@@ -569,6 +555,10 @@ function App() {
     writeAdminRoute(page);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  useEffect(() => {
+    applyAdminSeo(user ? activePage : "dashboard");
+  }, [activePage, user]);
 
   useEffect(() => {
     if (!mobileMenuOpen) {

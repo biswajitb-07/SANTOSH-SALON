@@ -40,6 +40,14 @@ import {
 import {
   formatMoney
 } from "./lib/formatters.js";
+import {
+  businessPages,
+  getClientRoute,
+  legalPages,
+  titleCase,
+  writeClientRoute
+} from "./lib/routing.js";
+import { applyClientSeo } from "./lib/seo.js";
 import { useRevealOnScroll } from "./lib/animations.js";
 import { defaultServices, getServiceImageUrl } from "./lib/services.js";
 import { BookingPage, HomePage } from "./pages/bookingPages.jsx";
@@ -56,15 +64,6 @@ import {
 import { store } from "./store/store.js";
 import "./styles.css";
 
-const pages = ["home", "booking", "about", "contact"];
-const businessPages = ["pricing", "gallery", "staff", "faq"];
-const legalPages = [
-  "privacy-policy",
-  "terms-and-conditions",
-  "cancellation-refund-policy",
-  "payment-policy"
-];
-const routedPages = [...pages, ...businessPages, "profile", "my-bookings", ...legalPages];
 const SALON_SLUG = import.meta.env.VITE_SALON_SLUG || "santosh";
 const BOOKING_CLOSED_MESSAGE =
   "Booking is currently closed by the owner. Please try again later.";
@@ -114,30 +113,6 @@ const sortBookingsForTurns = (bookings) =>
 
     return String(first.id || "").localeCompare(String(second.id || ""));
   });
-
-const getClientRoute = () => {
-  if (typeof window === "undefined") {
-    return { page: "home" };
-  }
-
-  const params = new URLSearchParams(window.location.search);
-  const page = params.get("page");
-
-  return {
-    page: routedPages.includes(page) ? page : "home"
-  };
-};
-
-const writeClientRoute = ({ page }, replace = false) => {
-  if (typeof window === "undefined") return;
-
-  const url = new URL(window.location.href);
-  url.searchParams.set("page", page);
-  url.searchParams.delete("tab");
-
-  const method = replace ? "replaceState" : "pushState";
-  window.history[method]({}, "", `${url.pathname}${url.search}${url.hash}`);
-};
 
 const loadCashfreeCheckout = () =>
   new Promise((resolve, reject) => {
@@ -253,18 +228,6 @@ function getBookingOption(day) {
       year: "numeric"
     })
   };
-}
-
-function titleCase(value) {
-  if (value === "about") return "About Us";
-  if (value === "contact") return "Contact Us";
-  if (value === "refund") return "Refund";
-  if (value === "profile") return "Profile";
-  if (value === "privacy-policy") return "Privacy Policy";
-  if (value === "terms-and-conditions") return "Terms";
-  if (value === "cancellation-refund-policy") return "Refund Policy";
-  if (value === "payment-policy") return "Payment Policy";
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 const getRequestErrorMessage = (error, fallback) =>
@@ -1269,20 +1232,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const pageTitle = titleCase(page);
-    document.title =
-      page === "home"
-        ? "Santosh Salon Queue | Book Haircut Tokens Online"
-        : `${pageTitle} | Santosh Salon Queue`;
-    const description = document.querySelector("meta[name='description']");
-    if (description) {
-      description.setAttribute(
-        "content",
-        page === "booking"
-          ? "Choose a salon service, pick an available time slot, pay online or cash at salon, and track your queue token."
-          : "Santosh Salon Queue helps customers book grooming services, track live queue tokens, and contact the salon team."
-      );
-    }
+    applyClientSeo(page);
   }, [page]);
 
   useEffect(() => {

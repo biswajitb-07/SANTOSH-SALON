@@ -136,8 +136,8 @@ export function ConfirmDialog({
   useBodyScrollLock(true);
 
   return (
-    <div className="fixed inset-0 z-[9999] grid place-items-center bg-[#081311]/70 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
-      <div className="soft-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-5 sm:max-h-[90vh] sm:max-w-2xl sm:p-6">
+    <div className="fixed inset-0 z-[9999] grid place-items-center bg-black/65 px-3 py-3 backdrop-blur-md sm:px-4 sm:py-6">
+      <div className="soft-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-[#35201f] bg-[#081311]/95 p-5 text-[#f4fbf8] sm:max-h-[90vh] sm:max-w-2xl sm:p-6">
         <h2 className="text-2xl font-black text-[#f4fbf8]">{title}</h2>
         <p className="mt-3 leading-7 text-[#9db2ad]">{message}</p>
         <div className="mt-6 grid gap-3 sm:grid-cols-2">

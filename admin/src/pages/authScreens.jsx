@@ -55,7 +55,7 @@ export function AdminLoginScreen({
         closeButton
         toastOptions={toastOptions}
       />
-      <div className="mx-auto grid w-full max-w-6xl overflow-hidden rounded-[1.75rem] bg-white soft-shadow sm:rounded-[2rem] lg:min-h-[680px] lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="mx-auto grid w-full max-w-6xl overflow-hidden rounded-[1.75rem] border border-[#35201f] bg-[#101a18] soft-shadow sm:rounded-[2rem] lg:min-h-[680px] lg:grid-cols-[1.05fr_0.95fr]">
         <section className="admin-hero relative flex min-h-[300px] flex-col justify-between overflow-hidden p-5 text-white sm:min-h-[360px] sm:p-8 lg:min-h-full">
           <div className="relative z-10 flex items-center gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f9c66d] text-[#081311] sm:h-12 sm:w-12">
@@ -85,7 +85,7 @@ export function AdminLoginScreen({
           </div>
         </section>
 
-        <section className="flex items-center justify-center bg-white p-4 sm:p-8 lg:p-10">
+        <section className="flex items-center justify-center bg-[#101a18] p-4 text-[#f4fbf8] sm:p-8 lg:p-10">
           <div className="w-full max-w-md">
             <div className="flex items-center gap-3">
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#081311] text-white sm:h-12 sm:w-12">
@@ -95,12 +95,14 @@ export function AdminLoginScreen({
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#991b1b] sm:text-sm">
                   Admin Login
                 </p>
-                <h1 className="text-xl font-black sm:text-2xl">Santosh Salon</h1>
+                <h1 className="text-xl font-black text-[#f4fbf8] sm:text-2xl">
+                  Santosh Salon
+                </h1>
               </div>
             </div>
 
             <div className="mt-6 rounded-3xl bg-[#101a18] p-4 sm:mt-8 sm:p-5">
-              <h2 className="text-2xl font-black leading-tight sm:text-3xl">
+              <h2 className="text-2xl font-black leading-tight text-[#f4fbf8] sm:text-3xl">
                 Continue with Google
               </h2>
               <p className="mt-3 text-sm leading-7 text-[#9db2ad] sm:text-base">
@@ -115,7 +117,7 @@ export function AdminLoginScreen({
             ) : null}
 
             <button
-              className="mt-5 flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-[#35201f] bg-white px-5 font-black text-[#f4fbf8] shadow-sm transition hover:border-[#991b1b] hover:bg-[#101a18] disabled:opacity-60"
+              className="mt-5 flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-[#35201f] bg-[#081311] px-5 font-black text-[#f4fbf8] shadow-sm transition hover:border-[#991b1b] hover:bg-[#2a1111] disabled:opacity-60"
               disabled={actionLoading === "login"}
               onClick={onGoogleLogin}
               type="button"

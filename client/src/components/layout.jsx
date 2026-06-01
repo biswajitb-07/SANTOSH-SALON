@@ -1,14 +1,7 @@
 import { useEffect, useState } from "react";
 import { LogIn, Menu, Scissors, X } from "lucide-react";
 import { ButtonSpinner, UserAvatar } from "./common.jsx";
-
-const pages = ["home", "booking", "about", "contact"];
-
-const titleCase = (value) =>
-  value
-    .split("-")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+import { primaryPages, titleCase } from "../lib/routing.js";
 
 export function PageSkeleton() {
   return (
@@ -78,7 +71,7 @@ export function Header({
   scrollProgress
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const navPages = user ? [...pages, "profile"] : pages;
+  const navPages = user ? [...primaryPages, "profile"] : primaryPages;
 
   useEffect(() => {
     if (!menuOpen) {
