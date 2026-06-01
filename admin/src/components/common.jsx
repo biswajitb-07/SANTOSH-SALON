@@ -276,15 +276,20 @@ export function useDragScroll({ enabled = true } = {}) {
     active: false,
     dragged: false,
     lastX: 0,
-    scrollLeft: 0,
-    startX: 0
+    pointerId: null,
+    startX: 0,
+    type: ""
   });
 
   const endDrag = (event) => {
     const state = dragRef.current;
+    if (!state.active) return;
+
     state.active = false;
-    event.currentTarget.classList.remove("is-dragging");
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    event.currentTarget.classList.remove("is-dragging", "is-mouse-dragging");
+    if (state.pointerId !== null) {
+      event.currentTarget.releasePointerCapture?.(state.pointerId);
+    }
     window.getSelection?.()?.removeAllRanges?.();
   };
 
@@ -299,6 +304,8 @@ export function useDragScroll({ enabled = true } = {}) {
     onPointerCancel: endDrag,
     onPointerDown: (event) => {
       if (!enabled || (event.button !== undefined && event.button !== 0)) return;
+      if (event.pointerType && event.pointerType !== "mouse") return;
+
       const element = event.currentTarget;
       if (element.scrollWidth <= element.clientWidth) return;
 
@@ -306,10 +313,11 @@ export function useDragScroll({ enabled = true } = {}) {
         active: true,
         dragged: false,
         lastX: event.clientX,
-        scrollLeft: element.scrollLeft,
-        startX: event.clientX
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        type: event.pointerType || "mouse"
       };
-      element.classList.add("is-dragging");
+      element.classList.add("is-dragging", "is-mouse-dragging");
       element.setPointerCapture?.(event.pointerId);
     },
     onPointerLeave: (event) => {
@@ -324,7 +332,7 @@ export function useDragScroll({ enabled = true } = {}) {
       if (Math.abs(distance) > 5) state.dragged = true;
       event.currentTarget.scrollLeft -= frameDistance;
       state.lastX = event.clientX;
-      if (state.dragged) event.preventDefault();
+      if (state.dragged && state.type === "mouse") event.preventDefault();
     },
     onPointerUp: endDrag
   };
@@ -348,11 +356,11 @@ export function useBodyScrollLock(locked) {
   }, [locked]);
 }
 
-export function PaginationControls({ page, totalPages, onPageChange }) {
+export function PaginationControls({ page, totalPages, onPageChange, className = "" }) {
   if (totalPages <= 1) return null;
 
   return (
-    <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+    <div className={`mt-5 flex flex-wrap items-center justify-center gap-2 ${className}`}>
       <button
         className="min-h-11 rounded-2xl bg-[#101a18] px-4 font-black text-[#f4fbf8] disabled:opacity-50"
         disabled={page <= 1}

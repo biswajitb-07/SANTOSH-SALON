@@ -16,7 +16,8 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
-  where
+  where,
+  writeBatch
 } from "firebase/firestore";
 import {
   Area,
@@ -104,6 +105,7 @@ const SLOT_MINUTES = 30;
 const confirmedBookingStatuses = new Set(["waiting", "in_chair"]);
 const activeTransferStatuses = new Set(["waiting", "in_chair", "waitlist"]);
 const ADMIN_PAGE_SIZE = 6;
+const SERVICE_PAGE_SIZE = 8;
 const queueStatusTabs = [
   { key: "booking", label: "Confirmed", statuses: ["waiting"] },
   { key: "waitlist", label: "Waiting", statuses: ["waitlist"] },
@@ -514,6 +516,9 @@ function App() {
   const [bookingDraft, setBookingDraft] = useState(null);
   const [adminBookingMode, setAdminBookingMode] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [selectedBookingIds, setSelectedBookingIds] = useState([]);
+  const [selectedServiceIds, setSelectedServiceIds] = useState([]);
+  const [selectedRefundIds, setSelectedRefundIds] = useState([]);
   const [queuePage, setQueuePage] = useState(1);
   const [servicePage, setServicePage] = useState(1);
   const [refundPage, setRefundPage] = useState(1);
@@ -884,11 +889,11 @@ function App() {
     (safeQueuePage - 1) * ADMIN_PAGE_SIZE,
     safeQueuePage * ADMIN_PAGE_SIZE
   );
-  const serviceTotalPages = Math.max(1, Math.ceil(serviceItems.length / ADMIN_PAGE_SIZE));
+  const serviceTotalPages = Math.max(1, Math.ceil(serviceItems.length / SERVICE_PAGE_SIZE));
   const safeServicePage = Math.min(servicePage, serviceTotalPages);
   const paginatedServices = serviceItems.slice(
-    (safeServicePage - 1) * ADMIN_PAGE_SIZE,
-    safeServicePage * ADMIN_PAGE_SIZE
+    (safeServicePage - 1) * SERVICE_PAGE_SIZE,
+    safeServicePage * SERVICE_PAGE_SIZE
   );
   const refundTotalPages = Math.max(1, Math.ceil(refundRequests.length / ADMIN_PAGE_SIZE));
   const safeRefundPage = Math.min(refundPage, refundTotalPages);
@@ -902,6 +907,33 @@ function App() {
     (safeUsersPage - 1) * ADMIN_PAGE_SIZE,
     safeUsersPage * ADMIN_PAGE_SIZE
   );
+  const paginatedBookingIds = paginatedQueue
+    .map((booking) => booking.id)
+    .filter(Boolean);
+  const paginatedServiceIds = paginatedServices
+    .map((service) => service.id)
+    .filter(Boolean);
+  const paginatedRefundIds = paginatedRefunds
+    .map((refund) => refund.id)
+    .filter(Boolean);
+  const selectedBookings = filteredQueue.filter((booking) =>
+    selectedBookingIds.includes(booking.id)
+  );
+  const selectedServices = serviceItems.filter((service) =>
+    selectedServiceIds.includes(service.id)
+  );
+  const selectedRefunds = refundRequests.filter((refund) =>
+    selectedRefundIds.includes(refund.id)
+  );
+  const bookingPageAllSelected =
+    paginatedBookingIds.length > 0 &&
+    paginatedBookingIds.every((id) => selectedBookingIds.includes(id));
+  const servicePageAllSelected =
+    paginatedServiceIds.length > 0 &&
+    paginatedServiceIds.every((id) => selectedServiceIds.includes(id));
+  const refundPageAllSelected =
+    paginatedRefundIds.length > 0 &&
+    paginatedRefundIds.every((id) => selectedRefundIds.includes(id));
   const usersWithPhone = registeredUsers.filter(
     (customer) => customer.phone && customer.phone !== "-"
   ).length;
@@ -924,6 +956,40 @@ function App() {
   useEffect(() => {
     setUsersPage(1);
   }, [userSearchTerm, filteredUsers.length]);
+
+  useEffect(() => {
+    setSelectedBookingIds((ids) =>
+      ids.filter((id) => filteredQueue.some((booking) => booking.id === id))
+    );
+  }, [filteredQueue.length, queueStatusTab]);
+
+  useEffect(() => {
+    setSelectedServiceIds((ids) =>
+      ids.filter((id) => serviceItems.some((service) => service.id === id))
+    );
+  }, [serviceItems.length]);
+
+  useEffect(() => {
+    setSelectedRefundIds((ids) =>
+      ids.filter((id) => refundRequests.some((refund) => refund.id === id))
+    );
+  }, [refundRequests.length]);
+
+  const toggleSelection = (setter, id) => {
+    if (!id) return;
+    setter((ids) =>
+      ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id]
+    );
+  };
+
+  const togglePageSelection = (setter, pageIds, checked) => {
+    setter((ids) => {
+      if (checked) {
+        return [...new Set([...ids, ...pageIds])];
+      }
+      return ids.filter((id) => !pageIds.includes(id));
+    });
+  };
 
   const waitingCount = activeQueueItems.filter((item) =>
     ["waiting", "waitlist"].includes(String(item.status || "").toLowerCase())
@@ -1473,6 +1539,33 @@ function App() {
     }
   };
 
+  const deleteSelectedBookings = async () => {
+    if (!selectedBookings.length) return;
+
+    setActionLoading("booking-bulk-delete");
+    try {
+      const affectedDates = [...new Set(selectedBookings.map((booking) => booking.bookingDate).filter(Boolean))];
+      const batch = writeBatch(db);
+      selectedBookings.forEach((booking) => {
+        batch.delete(doc(db, "customers", booking.id));
+      });
+      await batch.commit();
+      await Promise.all(
+        affectedDates.map(async (bookingDate) => {
+          await promoteNextWaitlist(bookingDate);
+          await reindexQueueDate(bookingDate);
+        })
+      );
+      setSelectedBookingIds([]);
+      setConfirmDialog(null);
+      toast.success(`${selectedBookings.length} bookings deleted.`);
+    } catch (error) {
+      toast.error(error.message || "Selected bookings could not be deleted.");
+    } finally {
+      setActionLoading("");
+    }
+  };
+
   const resetServiceForm = () => {
     setEditingServiceId("");
     setServiceDraft(defaultServiceDraft);
@@ -1639,6 +1732,68 @@ function App() {
     }
   };
 
+  const deleteSelectedServices = async () => {
+    if (!selectedServices.length) return;
+
+    setActionLoading("service-bulk-delete");
+    try {
+      await Promise.all(
+        selectedServices
+          .filter((service) => service.imagePublicId)
+          .map((service) => deleteCloudinaryImage(service.imagePublicId))
+      );
+      const batch = writeBatch(db);
+      selectedServices.forEach((service) => {
+        batch.delete(doc(db, "services", service.id));
+      });
+      await batch.commit();
+      setSelectedServiceIds([]);
+      setConfirmDialog(null);
+      toast.success(`${selectedServices.length} services deleted.`);
+    } catch (error) {
+      toast.error(error.message || "Selected services could not be deleted.");
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const deleteRefundRequest = async (refund) => {
+    if (!refund?.id) return;
+
+    const loadingKey = `refund-${refund.id}-delete`;
+    setActionLoading(loadingKey);
+    try {
+      await deleteDoc(doc(db, "refundRequests", refund.id));
+      setSelectedRefundIds((ids) => ids.filter((id) => id !== refund.id));
+      setConfirmDialog(null);
+      toast.success("Refund request deleted.");
+    } catch (error) {
+      toast.error(error.message || "Refund request could not be deleted.");
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const deleteSelectedRefunds = async () => {
+    if (!selectedRefunds.length) return;
+
+    setActionLoading("refund-bulk-delete");
+    try {
+      const batch = writeBatch(db);
+      selectedRefunds.forEach((refund) => {
+        batch.delete(doc(db, "refundRequests", refund.id));
+      });
+      await batch.commit();
+      setSelectedRefundIds([]);
+      setConfirmDialog(null);
+      toast.success(`${selectedRefunds.length} refund requests deleted.`);
+    } catch (error) {
+      toast.error(error.message || "Selected refund requests could not be deleted.");
+    } finally {
+      setActionLoading("");
+    }
+  };
+
   const updateRefundStatus = async (refund, status) => {
     const loadingKey = `refund-${refund.id}-${status}`;
     setActionLoading(loadingKey);
@@ -1774,6 +1929,31 @@ function App() {
       setActionLoading("");
     }
   };
+
+  const handleRefundDropdownAction = (refund, action) => {
+    if (!refund || !action) return;
+
+    if (action === "sync") {
+      syncCashfreeRefundStatus(refund);
+      return;
+    }
+
+    if (action === "delete") {
+      setConfirmDialog({
+        title: "Delete refund request?",
+        message: `Refund request for ${refund.customerName} will be permanently deleted from admin records.`,
+        confirmLabel: "Delete",
+        loadingKey: `refund-${refund.id}-delete`,
+        onConfirm: () => deleteRefundRequest(refund)
+      });
+      return;
+    }
+
+    updateRefundStatus(refund, action);
+  };
+
+  const isRefundActionLoading = (refund) =>
+    Boolean(refund?.id && actionLoading.startsWith(`refund-${refund.id}-`));
 
   const callNextCustomer = () => {
     const nextCustomer = activeDisplayQueue.find((item) => item.status === "waiting");
@@ -2860,9 +3040,47 @@ function App() {
                   </div>
                 </div>
 
+                {filteredQueue.length ? (
+                  <div className="mx-4 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#35201f] bg-[#081311] px-4 py-3 sm:mx-6">
+                    <label className="flex items-center gap-3 text-sm font-black text-[#f4fbf8]">
+                      <input
+                        checked={bookingPageAllSelected}
+                        className="h-4 w-4 accent-[#991b1b]"
+                        onChange={(event) =>
+                          togglePageSelection(
+                            setSelectedBookingIds,
+                            paginatedBookingIds,
+                            event.target.checked
+                          )
+                        }
+                        type="checkbox"
+                      />
+                      Select page
+                    </label>
+                    <button
+                      className="action-chip action-delete min-h-10 px-4 text-sm disabled:opacity-50"
+                      disabled={!selectedBookingIds.length}
+                      onClick={() =>
+                        setConfirmDialog({
+                          title: "Delete selected bookings?",
+                          message: `${selectedBookings.length} selected bookings will be permanently deleted.`,
+                          confirmLabel: "Delete selected",
+                          loadingKey: "booking-bulk-delete",
+                          onConfirm: deleteSelectedBookings
+                        })
+                      }
+                      type="button"
+                    >
+                      <Trash2 size={16} />
+                      Delete selected ({selectedBookingIds.length})
+                    </button>
+                  </div>
+                ) : null}
+
                 <div className="mt-5 overflow-x-auto px-4 pb-5 sm:px-6">
-                  <table className="w-full min-w-[980px] table-fixed border-collapse text-left">
+                  <table className="w-full min-w-[1040px] table-fixed border-collapse text-left">
                     <colgroup>
+                      <col className="w-[54px]" />
                       <col className="w-[76px]" />
                       <col className="w-[150px]" />
                       <col className="w-[125px]" />
@@ -2875,6 +3093,9 @@ function App() {
                     </colgroup>
                     <thead>
                       <tr className="bg-[#101a18] text-sm text-[#9db2ad]">
+                        <th className="px-5 py-4">
+                          <span className="sr-only">Select</span>
+                        </th>
                         <th className="px-5 py-4">Token</th>
                         <th className="px-5 py-4">Customer</th>
                         <th className="px-5 py-4">Mobile</th>
@@ -2889,6 +3110,16 @@ function App() {
                     <tbody>
                       {paginatedQueue.map((customer) => (
                         <tr className="border-t border-[#35201f]" key={customer.id || customer.token}>
+                          <td className="px-5 py-4">
+                            <input
+                              checked={selectedBookingIds.includes(customer.id)}
+                              className="h-4 w-4 accent-[#991b1b]"
+                              onChange={() =>
+                                toggleSelection(setSelectedBookingIds, customer.id)
+                              }
+                              type="checkbox"
+                            />
+                          </td>
                           <td className="px-5 py-4 text-xl font-black">{customer.token}</td>
                           <td className="px-5 py-4 font-bold">{customer.name}</td>
                           <td className="px-5 py-4 text-[#9db2ad]">{customer.phone}</td>
@@ -3022,12 +3253,59 @@ function App() {
                       </button>
                     </div>
                   </div>
+                  {serviceItems.length ? (
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#35201f] bg-[#081311] px-4 py-3">
+                      <label className="flex items-center gap-3 text-sm font-black text-[#f4fbf8]">
+                        <input
+                          checked={servicePageAllSelected}
+                          className="h-4 w-4 accent-[#991b1b]"
+                          onChange={(event) =>
+                            togglePageSelection(
+                              setSelectedServiceIds,
+                              paginatedServiceIds,
+                              event.target.checked
+                            )
+                          }
+                          type="checkbox"
+                        />
+                        Select page
+                      </label>
+                      <button
+                        className="action-chip action-delete min-h-10 px-4 text-sm disabled:opacity-50"
+                        disabled={!selectedServiceIds.length}
+                        onClick={() =>
+                          setConfirmDialog({
+                            title: "Delete selected services?",
+                            message: `${selectedServices.length} selected services will be removed from the website. Cloudinary images will also be deleted.`,
+                            confirmLabel: "Delete selected",
+                            loadingKey: "service-bulk-delete",
+                            onConfirm: deleteSelectedServices
+                          })
+                        }
+                        type="button"
+                      >
+                        <Trash2 size={16} />
+                        Delete selected ({selectedServiceIds.length})
+                      </button>
+                    </div>
+                  ) : null}
                   <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                     {paginatedServices.map((service) => (
                       <article
-                        className="overflow-hidden rounded-3xl border border-[#35201f] bg-[var(--color-surface)] shadow-sm"
+                        className="relative overflow-hidden rounded-3xl border border-[#35201f] bg-[var(--color-surface)] shadow-sm"
                         key={service.id}
                       >
+                        <label className="absolute left-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-2xl border border-[#5a2525] bg-[#081311]/90 shadow-lg backdrop-blur">
+                          <span className="sr-only">Select {service.title}</span>
+                          <input
+                            checked={selectedServiceIds.includes(service.id)}
+                            className="h-4 w-4 accent-[#991b1b]"
+                            onChange={() =>
+                              toggleSelection(setSelectedServiceIds, service.id)
+                            }
+                            type="checkbox"
+                          />
+                        </label>
                         {service.imageUrl ? (
                           <img
                             alt={service.title}
@@ -3091,11 +3369,27 @@ function App() {
                       No custom haircut designs yet.
                     </p>
                   ) : null}
-                  <PaginationControls
-                    onPageChange={setServicePage}
-                    page={safeServicePage}
-                    totalPages={serviceTotalPages}
-                  />
+                  {serviceItems.length ? (
+                    <div className="mt-6 flex flex-col items-center justify-between gap-3 rounded-3xl border border-[#35201f] bg-[#081311] px-4 py-4 sm:flex-row">
+                      <p className="text-sm font-bold text-[#9db2ad]">
+                        Showing{" "}
+                        <span className="text-white">
+                          {(safeServicePage - 1) * SERVICE_PAGE_SIZE + 1}
+                        </span>
+                        {" - "}
+                        <span className="text-white">
+                          {Math.min(safeServicePage * SERVICE_PAGE_SIZE, serviceItems.length)}
+                        </span>{" "}
+                        of <span className="text-white">{serviceItems.length}</span> services
+                      </p>
+                      <PaginationControls
+                        className="mt-0"
+                        onPageChange={setServicePage}
+                        page={safeServicePage}
+                        totalPages={serviceTotalPages}
+                      />
+                    </div>
+                  ) : null}
               </section>
             ) : null}
 
@@ -3117,11 +3411,50 @@ function App() {
                     {refundRequests.length} requests
                   </span>
                 </div>
+                {refundRequests.length ? (
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#35201f] bg-[#081311] px-4 py-3">
+                    <label className="flex items-center gap-3 text-sm font-black text-[#f4fbf8]">
+                      <input
+                        checked={refundPageAllSelected}
+                        className="h-4 w-4 accent-[#991b1b]"
+                        onChange={(event) =>
+                          togglePageSelection(
+                            setSelectedRefundIds,
+                            paginatedRefundIds,
+                            event.target.checked
+                          )
+                        }
+                        type="checkbox"
+                      />
+                      Select page
+                    </label>
+                    <button
+                      className="action-chip action-delete min-h-10 px-4 text-sm disabled:opacity-50"
+                      disabled={!selectedRefundIds.length}
+                      onClick={() =>
+                        setConfirmDialog({
+                          title: "Delete selected refund requests?",
+                          message: `${selectedRefunds.length} selected refund requests will be permanently deleted from admin records.`,
+                          confirmLabel: "Delete selected",
+                          loadingKey: "refund-bulk-delete",
+                          onConfirm: deleteSelectedRefunds
+                        })
+                      }
+                      type="button"
+                    >
+                      <Trash2 size={16} />
+                      Delete selected ({selectedRefundIds.length})
+                    </button>
+                  </div>
+                ) : null}
 
                 <div className="mt-5 overflow-x-auto rounded-2xl">
-                  <table className="min-w-[1180px] w-full text-left">
+                  <table className="min-w-[1360px] w-full text-left">
                     <thead className="bg-[#101a18] text-sm font-black text-[#9db2ad]">
                       <tr>
+                        <th className="px-5 py-4">
+                          <span className="sr-only">Select</span>
+                        </th>
                         {[
                           "Customer",
                           "Mobile",
@@ -3140,6 +3473,16 @@ function App() {
                     <tbody>
                       {paginatedRefunds.map((refund) => (
                         <tr className="border-b border-[#35201f]" key={refund.id}>
+                          <td className="px-5 py-5">
+                            <input
+                              checked={selectedRefundIds.includes(refund.id)}
+                              className="h-4 w-4 accent-[#991b1b]"
+                              onChange={() =>
+                                toggleSelection(setSelectedRefundIds, refund.id)
+                              }
+                              type="checkbox"
+                            />
+                          </td>
                           <td className="px-5 py-5">
                             <p className="font-black text-[#f4fbf8]">{refund.customerName}</p>
                             <p className="mt-1 text-xs font-bold text-[#9db2ad]">
@@ -3176,45 +3519,32 @@ function App() {
                             </span>
                           </td>
                           <td className="px-5 py-5">
-                            <div className="flex min-w-max items-center gap-2">
-                              <button
-                                className="action-chip action-check min-h-10 px-4 py-2 text-sm disabled:opacity-60"
-                                disabled={actionLoading === `refund-${refund.id}-sync`}
-                                onClick={() => syncCashfreeRefundStatus(refund)}
-                                type="button"
+                            <div className="refund-action-wrap">
+                              {isRefundActionLoading(refund) ? (
+                                <ButtonSpinner dark />
+                              ) : null}
+                              <select
+                                aria-label={`Refund actions for ${refund.customerName}`}
+                                className="refund-action-select"
+                                disabled={isRefundActionLoading(refund)}
+                                defaultValue=""
+                                onChange={(event) => {
+                                  handleRefundDropdownAction(refund, event.target.value);
+                                  event.target.value = "";
+                                }}
                               >
-                                {actionLoading === `refund-${refund.id}-sync` ? (
-                                  <ButtonSpinner dark />
-                                ) : null}
-                                Check
-                              </button>
-                              {[
-                                ["reviewing", "Review"],
-                                ["processing", "Processing"],
-                                ["completed", "Refund"],
-                                ["rejected", "Reject"]
-                              ].map(([status, label]) => (
-                                <button
-                                  className={`action-chip min-h-10 px-4 py-2 text-sm disabled:opacity-60 ${
-                                    status === "rejected"
-                                      ? "action-reject"
-                                      : status === "completed"
-                                        ? "action-refund"
-                                        : status === "processing"
-                                          ? "action-processing"
-                                          : "action-review"
-                                  }`}
-                                  disabled={actionLoading === `refund-${refund.id}-${status}`}
-                                  key={status}
-                                  onClick={() => updateRefundStatus(refund, status)}
-                                  type="button"
-                                >
-                                  {actionLoading === `refund-${refund.id}-${status}` ? (
-                                    <ButtonSpinner dark />
-                                  ) : null}
-                                  {label}
-                                </button>
-                              ))}
+                                <option disabled value="">
+                                  {isRefundActionLoading(refund)
+                                    ? "Working..."
+                                    : "Actions"}
+                                </option>
+                                <option value="sync">Check status</option>
+                                <option value="reviewing">Mark review</option>
+                                <option value="processing">Mark processing</option>
+                                <option value="completed">Process refund</option>
+                                <option value="rejected">Reject request</option>
+                                <option value="delete">Delete request</option>
+                              </select>
                             </div>
                           </td>
                         </tr>
@@ -3223,7 +3553,7 @@ function App() {
                         <tr>
                           <td
                             className="px-5 py-7 font-bold text-[#9db2ad]"
-                            colSpan={7}
+                            colSpan={8}
                           >
                             No refund requests yet.
                           </td>
@@ -3353,4 +3683,3 @@ createRoot(document.getElementById("root")).render(
     </Provider>
   </React.StrictMode>
 );
-

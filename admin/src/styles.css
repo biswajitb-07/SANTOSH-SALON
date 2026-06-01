@@ -239,15 +239,18 @@ textarea:focus {
 .drag-scroll {
   cursor: grab;
   overscroll-behavior-x: contain;
-  scroll-behavior: smooth;
-  touch-action: pan-y;
+  scroll-behavior: auto;
+  touch-action: auto;
 }
 
 .drag-scroll.is-dragging {
   cursor: grabbing;
+  user-select: none;
+}
+
+.drag-scroll.is-mouse-dragging {
   scroll-behavior: auto;
   scroll-snap-type: none !important;
-  user-select: none;
 }
 
 .drag-scroll img {
@@ -527,6 +530,45 @@ textarea.ui-input {
   filter: none;
   opacity: 0.55;
   transform: none;
+}
+
+.refund-action-wrap {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.6rem;
+  min-width: 11rem;
+}
+
+.refund-action-select {
+  appearance: auto;
+  background:
+    linear-gradient(135deg, rgba(127, 29, 29, 0.96), rgba(185, 28, 28, 0.92)),
+    #991b1b;
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  border-radius: 1rem;
+  box-shadow: 0 12px 26px rgba(185, 28, 28, 0.15);
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 900;
+  min-height: 2.8rem;
+  min-width: 10.5rem;
+  padding: 0.65rem 0.9rem;
+}
+
+.refund-action-select:hover {
+  filter: brightness(1.08);
+}
+
+.refund-action-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.refund-action-select option {
+  background: #0b1714;
+  color: #fff;
+  font-weight: 800;
 }
 
 .action-compact {

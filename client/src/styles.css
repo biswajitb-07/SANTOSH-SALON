@@ -282,15 +282,18 @@ h3 {
 .drag-scroll {
   cursor: grab;
   overscroll-behavior-x: contain;
-  scroll-behavior: smooth;
-  touch-action: pan-y;
+  scroll-behavior: auto;
+  touch-action: auto;
 }
 
 .drag-scroll.is-dragging {
   cursor: grabbing;
+  user-select: none;
+}
+
+.drag-scroll.is-mouse-dragging {
   scroll-behavior: auto;
   scroll-snap-type: none !important;
-  user-select: none;
 }
 
 .drag-scroll img {

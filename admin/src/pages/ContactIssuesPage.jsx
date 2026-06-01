@@ -7,12 +7,17 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  updateDoc
+  updateDoc,
+  writeBatch
 } from "firebase/firestore";
 import { CheckCircle2, Clock3, Mail, MessageSquare, Phone, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { db } from "../lib/firebase.js";
-import { ButtonSpinner, PaginationControls } from "../components/common.jsx";
+import {
+  ButtonSpinner,
+  ConfirmDialog,
+  PaginationControls
+} from "../components/common.jsx";
 
 const PAGE_SIZE = 8;
 const unresolvedStatuses = new Set(["open", "pending", "in_progress"]);
@@ -72,6 +77,8 @@ export function ContactIssuesPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState("");
   const [page, setPage] = useState(1);
+  const [selectedIssueIds, setSelectedIssueIds] = useState([]);
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -99,10 +106,37 @@ export function ContactIssuesPage() {
   const totalPages = Math.max(1, Math.ceil(issues.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const visibleIssues = issues.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const visibleIssueIds = visibleIssues.map((issue) => issue.id);
+  const visibleAllSelected =
+    visibleIssueIds.length > 0 &&
+    visibleIssueIds.every((id) => selectedIssueIds.includes(id));
+  const selectedIssues = issues.filter((issue) => selectedIssueIds.includes(issue.id));
 
   useEffect(() => {
     setPage(1);
   }, [issues.length]);
+
+  useEffect(() => {
+    setSelectedIssueIds((ids) =>
+      ids.filter((id) => issues.some((issue) => issue.id === id))
+    );
+  }, [issues.length]);
+
+  const toggleIssueSelection = (issueId) => {
+    setSelectedIssueIds((ids) =>
+      ids.includes(issueId)
+        ? ids.filter((id) => id !== issueId)
+        : [...ids, issueId]
+    );
+  };
+
+  const toggleVisibleIssues = (checked) => {
+    setSelectedIssueIds((ids) =>
+      checked
+        ? [...new Set([...ids, ...visibleIssueIds])]
+        : ids.filter((id) => !visibleIssueIds.includes(id))
+    );
+  };
 
   const updateIssueStatus = async (issueId, status) => {
     const loadingKey = `${issueId}-${status}`;
@@ -130,9 +164,31 @@ export function ContactIssuesPage() {
     setActionLoading(loadingKey);
     try {
       await deleteDoc(doc(db, "contactIssues", issueId));
+      setSelectedIssueIds((ids) => ids.filter((id) => id !== issueId));
+      setConfirmDialog(null);
       toast.success("Message deleted.");
     } catch (error) {
       toast.error(error.message || "Message could not be deleted.");
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const deleteSelectedIssues = async () => {
+    if (!selectedIssues.length) return;
+
+    setActionLoading("issues-bulk-delete");
+    try {
+      const batch = writeBatch(db);
+      selectedIssues.forEach((issue) => {
+        batch.delete(doc(db, "contactIssues", issue.id));
+      });
+      await batch.commit();
+      setSelectedIssueIds([]);
+      setConfirmDialog(null);
+      toast.success(`${selectedIssues.length} messages deleted.`);
+    } catch (error) {
+      toast.error(error.message || "Selected messages could not be deleted.");
     } finally {
       setActionLoading("");
     }
@@ -164,18 +220,53 @@ export function ContactIssuesPage() {
         </div>
       </div>
 
+      {issues.length ? (
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#5a2525]/60 bg-[#081311] px-4 py-3">
+          <label className="flex items-center gap-3 text-sm font-black text-white">
+            <input
+              checked={visibleAllSelected}
+              className="h-4 w-4 accent-[#991b1b]"
+              onChange={(event) => toggleVisibleIssues(event.target.checked)}
+              type="checkbox"
+            />
+            Select page
+          </label>
+          <button
+            className="action-chip action-delete min-h-10 px-4 text-sm disabled:opacity-50"
+            disabled={!selectedIssueIds.length}
+            onClick={() =>
+              setConfirmDialog({
+                title: "Delete selected messages?",
+                message: `${selectedIssues.length} selected contact messages will be permanently deleted.`,
+                confirmLabel: "Delete selected",
+                loadingKey: "issues-bulk-delete",
+                onConfirm: deleteSelectedIssues
+              })
+            }
+            type="button"
+          >
+            <Trash2 size={16} />
+            Delete selected ({selectedIssueIds.length})
+          </button>
+        </div>
+      ) : null}
+
       <div className="mt-6 overflow-x-auto rounded-3xl border border-[#5a2525]/60 bg-[#081311]">
-        <table className="w-full min-w-[1320px] table-fixed border-collapse text-left">
+        <table className="w-full min-w-[1380px] table-fixed border-collapse text-left">
           <colgroup>
+            <col className="w-[54px]" />
             <col className="w-[210px]" />
             <col className="w-[150px]" />
             <col className="w-[250px]" />
             <col className="w-[310px]" />
             <col className="w-[130px]" />
-            <col className="w-[270px]" />
+            <col className="w-[360px]" />
           </colgroup>
           <thead>
             <tr className="bg-[#13201d] text-sm font-black text-[#a9bfba]">
+              <th className="px-5 py-4">
+                <span className="sr-only">Select</span>
+              </th>
               <th className="px-5 py-4">Customer</th>
               <th className="px-5 py-4">Mobile</th>
               <th className="px-5 py-4">Email</th>
@@ -187,6 +278,14 @@ export function ContactIssuesPage() {
           <tbody className="divide-y divide-[#5a2525]/50 bg-[#081311]">
             {visibleIssues.map((issue) => (
               <tr key={issue.id}>
+                <td className="px-5 py-5 align-middle">
+                  <input
+                    checked={selectedIssueIds.includes(issue.id)}
+                    className="h-4 w-4 accent-[#991b1b]"
+                    onChange={() => toggleIssueSelection(issue.id)}
+                    type="checkbox"
+                  />
+                </td>
                 <td className="px-5 py-5 align-middle">
                   <p className="font-black text-white">{issue.name}</p>
                   <p className="mt-1 text-sm font-bold text-[#a9bfba]">
@@ -214,9 +313,9 @@ export function ContactIssuesPage() {
                   </span>
                 </td>
                 <td className="bg-[#081311] px-5 py-5 align-middle">
-                  <div className="grid grid-cols-3 gap-2 whitespace-nowrap">
+                  <div className="flex min-w-[320px] flex-nowrap items-center gap-2 whitespace-nowrap">
                     <button
-                      className="action-chip action-working min-h-10 px-2 text-xs disabled:opacity-60"
+                      className="action-chip action-working min-h-10 min-w-[102px] px-3 text-xs disabled:opacity-60"
                       disabled={actionLoading === `${issue.id}-in_progress`}
                       onClick={() => updateIssueStatus(issue.id, "in_progress")}
                       type="button"
@@ -225,7 +324,7 @@ export function ContactIssuesPage() {
                       Working
                     </button>
                     <button
-                      className="action-chip action-resolve min-h-10 px-2 text-xs disabled:opacity-60"
+                      className="action-chip action-resolve min-h-10 min-w-[102px] px-3 text-xs disabled:opacity-60"
                       disabled={actionLoading === `${issue.id}-resolved`}
                       onClick={() => updateIssueStatus(issue.id, "resolved")}
                       type="button"
@@ -234,9 +333,17 @@ export function ContactIssuesPage() {
                       Resolve
                     </button>
                     <button
-                      className="action-chip action-delete min-h-10 px-2 text-xs disabled:opacity-60"
+                      className="action-chip action-delete min-h-10 min-w-[94px] px-3 text-xs disabled:opacity-60"
                       disabled={actionLoading === `${issue.id}-delete`}
-                      onClick={() => deleteIssue(issue.id)}
+                      onClick={() =>
+                        setConfirmDialog({
+                          title: "Delete message?",
+                          message: `Message from ${issue.name} will be permanently deleted.`,
+                          confirmLabel: "Delete",
+                          loadingKey: `${issue.id}-delete`,
+                          onConfirm: () => deleteIssue(issue.id)
+                        })
+                      }
                       type="button"
                     >
                       {actionLoading === `${issue.id}-delete` ? <ButtonSpinner /> : <Trash2 size={16} />}
@@ -263,6 +370,17 @@ export function ContactIssuesPage() {
         </div>
       ) : null}
       <PaginationControls onPageChange={setPage} page={safePage} totalPages={totalPages} />
+      {confirmDialog ? (
+        <ConfirmDialog
+          confirmLabel={confirmDialog.confirmLabel}
+          loading={actionLoading === confirmDialog.loadingKey}
+          message={confirmDialog.message}
+          onCancel={() => setConfirmDialog(null)}
+          onConfirm={confirmDialog.onConfirm}
+          title={confirmDialog.title}
+          tone="danger"
+        />
+      ) : null}
     </section>
   );
 }
