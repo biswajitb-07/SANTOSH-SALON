@@ -10,7 +10,7 @@ export default defineConfig({
         manualChunks: {
           firebase: ["firebase/app", "firebase/auth", "firebase/firestore"],
           redux: ["@reduxjs/toolkit", "react-redux"],
-          ui: ["lucide-react", "sonner", "recharts"]
+          ui: ["lucide-react", "sonner"]
         }
       }
     }
