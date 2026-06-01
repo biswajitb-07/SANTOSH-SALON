@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import {
   ArrowRight,
   BadgeCheck,
@@ -18,12 +17,6 @@ import {
 } from "lucide-react";
 import { ButtonSpinner, PaginationControls } from "../components/common.jsx";
 import { defaultServices, getServiceImageUrl } from "../lib/services.js";
-import {
-  cardVariants,
-  containerVariants,
-  itemVariants,
-  pulseVariants
-} from "../lib/animationVariants";
 
 const STAFF_COUNT = 3;
 const SERVICE_PAGE_SIZE = 8;
@@ -40,157 +33,57 @@ function QueueSummaryCard({ loading, onNavigate, stats }) {
     : `${getQueueEstimateMinutes(stats.waitingCount)}m`;
 
   return (
-    <motion.section
-      className="luxury-glass rounded-3xl p-6 text-white shadow-2xl border border-[#35201f]"
-      variants={cardVariants}
-      initial="initial"
-      animate="animate"
-      whileHover="whileHover"
-    >
-      {/* Live Queue Header */}
-      <motion.div
-        className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-[#9db2ad]"
-        variants={itemVariants}
-      >
-        <motion.span
-          className="h-2.5 w-2.5 rounded-full bg-[#ef4444]"
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [1, 0.7, 1]
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
+    <section className="queue-shadow luxury-glass rounded-2xl p-5 text-white sm:p-6">
+      <div className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.16em] text-[#9db2ad]">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-[#ef4444]" />
         Live Queue
-      </motion.div>
-
-      {/* Main Token Display */}
-      <motion.div
-        className="mt-6 rounded-3xl border border-[#35201f] bg-gradient-to-br from-[#101a18] to-[#0b1714] p-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-      >
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1">
-            <motion.p
-              className="text-sm font-bold text-[#f9c66d]"
-              variants={itemVariants}
-            >
+      </div>
+      <div className="mt-4 rounded-[1.25rem] border border-[#3a2b20] bg-[#090f0d]/80 p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-[#991b1b]">
               {loading ? "Now Serving" : stats.tokenLabel}
-            </motion.p>
-            <motion.p
-              className="mt-3 font-mono text-7xl font-black tracking-tighter text-[#f9c66d]"
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{
-                type: "spring",
-                stiffness: 100,
-                damping: 20,
-                delay: 0.2
-              }}
-            >
+            </p>
+            <p className="mt-1 font-mono text-6xl font-black tracking-tight text-[#f9c66d]">
               {nextToken}
-            </motion.p>
-            <motion.p
-              className="mt-2 text-xs font-black text-[#9db2ad]"
-              variants={itemVariants}
-            >
+            </p>
+            <p className="mt-1 text-xs font-black text-[#637371]">
               {loading ? "Syncing..." : stats.tokenHint}
-            </motion.p>
+            </p>
           </div>
-
-          {/* Bell Icon */}
-          <motion.div
-            className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-[#991b1b] to-[#7f1d1d] text-white shadow-lg shadow-[#991b1b]/30"
-            animate={{ y: [0, -8, 0] }}
-            transition={{
-              duration: 2.5,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            whileHover={{
-              scale: 1.08,
-              boxShadow: "0 20px 48px rgba(153, 27, 27, 0.4)"
-            }}
-          >
-            <BellRing size={32} strokeWidth={1.5} />
-          </motion.div>
+          <span className="grid h-16 w-16 place-items-center rounded-3xl bg-[#991b1b] text-white">
+            <BellRing size={28} />
+          </span>
         </div>
-
-        {/* Queue Stats */}
-        <motion.div
-          className="mt-6 grid grid-cols-2 gap-4"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          {/* Waiting Count */}
-          <motion.div
-            className="rounded-2xl border border-[#35201f] bg-[#101a18]/50 p-4 backdrop-blur"
-            variants={itemVariants}
-            whileHover={{ backgroundColor: "rgba(16, 26, 24, 0.8)" }}
-          >
-            <p className="flex items-center gap-2 text-sm text-[#9db2ad]">
-              <UsersRound size={18} /> Waiting
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-[#3a2b20] bg-[#101a18]/80 p-4">
+            <p className="flex items-center gap-2 text-sm text-[#637371]">
+              <UsersRound size={16} /> Waiting
             </p>
-            <motion.p
-              className="mt-3 text-4xl font-black text-white"
-              key={waitingCount}
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
-              {waitingCount}
-            </motion.p>
-          </motion.div>
-
-          {/* Time Estimate */}
-          <motion.div
-            className="rounded-2xl border border-[#35201f] bg-[#101a18]/50 p-4 backdrop-blur"
-            variants={itemVariants}
-            whileHover={{ backgroundColor: "rgba(16, 26, 24, 0.8)" }}
-          >
-            <p className="flex items-center gap-2 text-sm text-[#9db2ad]">
-              <Clock3 size={18} /> Estimate
+            <p className="mt-2 text-3xl font-black">{waitingCount}</p>
+          </div>
+          <div className="rounded-2xl border border-[#3a2b20] bg-[#101a18]/80 p-4">
+            <p className="flex items-center gap-2 text-sm text-[#637371]">
+              <Clock3 size={16} /> Estimate
             </p>
-            <motion.p
-              className="mt-3 text-4xl font-black text-[#f9c66d]"
-              key={estimateMinutes}
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
-              {estimateMinutes}
-            </motion.p>
-          </motion.div>
-        </motion.div>
-      </motion.div>
+            <p className="mt-2 text-3xl font-black">{estimateMinutes}</p>
+          </div>
+        </div>
+      </div>
 
-      {/* CTA Section */}
-      <motion.div
-        className="mt-6 rounded-2xl border border-[#35201f] bg-[#101a18]/50 p-4 backdrop-blur"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-      >
-        <p className="text-sm font-bold text-[#9db2ad]">
-          💡 Choose a service first. Details are collected at checkout.
+      <div className="mt-5 rounded-[1.5rem] border border-[#3a2b20] bg-[#090f0d]/80 p-4">
+        <p className="text-sm font-bold text-[#637371]">
+          Choose a service first. Details are collected at checkout.
         </p>
-        <motion.button
-          className="mt-4 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/40 bg-gradient-to-r from-[#991b1b] to-[#7f1d1d] px-5 py-4 font-black text-white shadow-lg shadow-[#991b1b]/30 transition-all duration-200"
+        <button
+          className="mt-4 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl border border-[#991b1b] bg-transparent px-5 py-4 font-black text-[#fca5a5] shadow-lg shadow-[#991b1b]/20 transition hover:bg-[#991b1b] hover:text-white"
           onClick={() => onNavigate("booking")}
           type="button"
-          whileHover={{ y: -2, boxShadow: "0 16px 48px rgba(153, 27, 27, 0.4)" }}
-          whileTap={{ scale: 0.98 }}
         >
-          View Services <ArrowRight size={20} />
-        </motion.button>
-      </motion.div>
-    </motion.section>
+          View Services <ArrowRight size={19} />
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -198,30 +91,19 @@ function BookingClosedNotice({ bookingGate }) {
   if (bookingGate.loading || bookingGate.open) return null;
 
   return (
-    <motion.section
-      className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8"
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-    >
-      <motion.div
-        className="luxury-red-glass flex flex-col gap-4 rounded-3xl p-6 text-white shadow-lg border border-[#35201f]"
-        whileHover={{ boxShadow: "0 20px 48px rgba(0, 0, 0, 0.4)" }}
-      >
+    <section className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
+      <div className="queue-shadow luxury-red-glass flex flex-col gap-3 rounded-[2rem] p-5 text-[#f4fbf8] sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="section-kicker text-xs font-black uppercase tracking-widest">
-            ⏸️ Booking Closed
+          <p className="section-kicker">
+            Booking Closed
           </p>
-          <p className="mt-2 text-xl font-black">{bookingGate.message}</p>
+          <p className="mt-1 text-lg font-black">{bookingGate.message}</p>
         </div>
-        <motion.span
-          className="w-fit rounded-full border border-[#f9c66d]/30 bg-[#24170d] px-4 py-2 text-sm font-black text-[#f9c66d]"
-          whileHover={{ backgroundColor: "#2a1111", borderColor: "rgba(249, 198, 109, 0.5)" }}
-        >
+        <span className="rounded-full border border-[#f9c66d]/20 bg-[#24170d] px-4 py-2 text-sm font-black text-[#f9c66d]">
           Try after sometime
-        </motion.span>
-      </motion.div>
-    </motion.section>
+        </span>
+      </div>
+    </section>
   );
 }
 
