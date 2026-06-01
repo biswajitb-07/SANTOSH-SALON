@@ -18,6 +18,7 @@ import {
   parsePositiveAmount,
   requireFields
 } from "../middleware/validation.js";
+import { logWebhookEvent } from "../webhookLogs.js";
 
 export const customerPaymentsRouter = express.Router();
 const writeLimiter = createRateLimiter({
@@ -293,16 +294,45 @@ customerPaymentsRouter.post("/cashfree/webhook", async (req, res, next) => {
     timestamp: req.header("x-webhook-timestamp"),
     rawBody: req.rawBody
   });
+  const webhookType = String(req.body?.type || req.body?.event || "").toLowerCase();
 
   if (!isValid) {
+    try {
+      await logWebhookEvent({
+        provider: "cashfree",
+        eventType: webhookType || "invalid",
+        valid: false,
+        payload: req.body,
+        headers: {
+          signature: req.header("x-webhook-signature"),
+          timestamp: req.header("x-webhook-timestamp")
+        },
+        result: { error: "Invalid Cashfree webhook signature" }
+      });
+    } catch (error) {
+      console.error("Cashfree webhook log failed", error);
+    }
     return res.status(401).json({ error: "Invalid Cashfree webhook signature" });
   }
 
   try {
-    const webhookType = String(req.body?.type || req.body?.event || "").toLowerCase();
     const refundUpdate = webhookType.includes("refund")
       ? await updateRefundFromWebhook(req.body)
       : { updated: false, reason: "not a refund webhook" };
+    await logWebhookEvent({
+      provider: "cashfree",
+      eventType: webhookType,
+      eventId:
+        req.body?.event_id ||
+        req.body?.data?.order?.order_id ||
+        req.body?.data?.refund?.refund_id,
+      valid: true,
+      payload: req.body,
+      headers: {
+        timestamp: req.header("x-webhook-timestamp")
+      },
+      result: { refundUpdate }
+    });
 
     res.json({ ok: true, refundUpdate });
   } catch (error) {

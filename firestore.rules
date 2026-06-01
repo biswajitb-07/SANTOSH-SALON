@@ -15,6 +15,18 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    function isContactOwner() {
+      return signedIn() &&
+        (resource.data.userId == request.auth.uid ||
+          resource.data.email == request.auth.token.email);
+    }
+
+    function isNewContactOwner() {
+      return signedIn() &&
+        (request.resource.data.userId == request.auth.uid ||
+          request.resource.data.email == request.auth.token.email);
+    }
+
     match /admins/{adminId} {
       allow read: if isOwner(adminId) || isAdmin();
       allow write: if isAdmin();
@@ -48,6 +60,31 @@ service cloud.firestore {
         request.resource.data.userId == request.auth.uid;
       allow read: if isAdmin() || isOwner(resource.data.userId);
       allow update, delete: if isAdmin();
+    }
+
+    match /contactIssues/{issueId} {
+      allow create: if signedIn() && isNewContactOwner();
+      allow read: if isAdmin() || isContactOwner();
+      allow update: if isAdmin() ||
+        (isContactOwner() &&
+          request.resource.data.status == resource.data.status &&
+          request.resource.data.userId == resource.data.userId);
+      allow delete: if isAdmin() || isContactOwner();
+    }
+
+    match /paymentEvents/{eventId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /webhookEvents/{eventId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if false;
     }
 
     match /{document=**} {

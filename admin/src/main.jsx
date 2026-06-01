@@ -93,7 +93,7 @@ import "./styles.css";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const STAFF_COUNT = 3;
 const DAILY_CONFIRMED_LIMIT = 35;
-const BOOKING_START_HOUR = 7;
+const BOOKING_START_HOUR = 6;
 const BOOKING_END_HOUR = 23;
 const LUNCH_START_HOUR = 13;
 const LUNCH_END_HOUR = 14;
@@ -162,7 +162,7 @@ const defaultSalonProfile = {
   slug: "santosh",
   phone: "+91 98765 43210",
   address: "Main Market Road, Near City Chowk",
-  openingTime: "07:00",
+  openingTime: "06:00",
   closingTime: "23:00",
   manualShopClosed: false,
   manualCloseReason: ""
@@ -515,6 +515,7 @@ function App() {
   const [usersLoading, setUsersLoading] = useState(true);
   const [refundRequests, setRefundRequests] = useState([]);
   const [refundsLoading, setRefundsLoading] = useState(true);
+  const [openMessageCount, setOpenMessageCount] = useState(0);
   const [editingBookingId, setEditingBookingId] = useState("");
   const [bookingDraft, setBookingDraft] = useState(null);
   const [adminBookingMode, setAdminBookingMode] = useState(false);
@@ -732,6 +733,23 @@ function App() {
         setRefundRequests([]);
         setRefundsLoading(false);
       }
+    );
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setOpenMessageCount(0);
+      return undefined;
+    }
+
+    const messagesRef = query(
+      collection(db, "contactIssues"),
+      where("status", "in", ["open", "pending", "in_progress"])
+    );
+    return onSnapshot(
+      messagesRef,
+      (snapshot) => setOpenMessageCount(snapshot.size),
+      () => setOpenMessageCount(0)
     );
   }, [user]);
 
@@ -2101,7 +2119,12 @@ function App() {
                 type="button"
               >
                 <Icon size={19} />
-                {label}
+                <span className="flex-1">{label}</span>
+                {key === "messages" && openMessageCount ? (
+                  <span className="rounded-full bg-[#f9c66d] px-2 py-0.5 text-xs font-black text-[#081311]">
+                    {openMessageCount}
+                  </span>
+                ) : null}
               </button>
             ))}
           </nav>
@@ -2242,7 +2265,12 @@ function App() {
                     type="button"
                   >
                     <Icon size={19} />
-                    {label}
+                    <span className="flex-1">{label}</span>
+                    {key === "messages" && openMessageCount ? (
+                      <span className="rounded-full bg-[#f9c66d] px-2 py-0.5 text-xs font-black text-[#081311]">
+                        {openMessageCount}
+                      </span>
+                    ) : null}
                   </button>
                 ))}
               </nav>
@@ -2700,110 +2728,95 @@ function App() {
                   </div>
                 </div>
 
-                <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
-                  <div className="rounded-3xl bg-[#101a18] p-4 lg:col-span-2">
-                    <p className="text-sm font-bold text-[#9db2ad]">
-                      Today active bookings
-                    </p>
-                    <p className="mt-1 text-3xl font-black text-[#f4fbf8]">
-                      {String(activeQueueItems.length).padStart(2, "0")}
-                    </p>
-                  </div>
-                  <div className="rounded-3xl bg-[#fff7ed] p-4 lg:col-span-2">
-                    <p className="text-sm font-bold text-[#9a3412]">
-                      Tomorrow bookings
-                    </p>
-                    <p className="mt-1 text-3xl font-black text-[#f4fbf8]">
-                      {String(tomorrowBookingCount).padStart(2, "0")}
-                    </p>
-                    <p className="mt-1 text-xs font-black text-[#9a3412]">
-                      {getDisplayDate(tomorrowQueueDate)}
-                    </p>
-                  </div>
-                </div>
+                <div className="mx-4 mt-5 grid gap-4 rounded-3xl border border-[#35201f] bg-[#101a18] p-4 sm:mx-6 sm:p-5 xl:grid-cols-[1fr_430px] xl:items-stretch">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-[#fca5a5]">
+                          Queue status
+                        </p>
+                        <p className="mt-1 text-sm font-bold text-[#9db2ad]">
+                          {selectedQueueTab.label} view
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-[#2a1111] px-3 py-1 text-xs font-black text-[#f9c66d]">
+                        Token {currentCustomer?.token || "-"}
+                      </span>
+                    </div>
+                    <div className="queue-control-scroll mt-4 flex gap-2 overflow-x-auto pb-1">
+                      {queueStatusTabs.map((tab) => {
+                        const count = todaysQueueItems.filter((item) =>
+                          tab.statuses.includes(
+                            String(item.status || "").toLowerCase()
+                          )
+                        ).length;
+                        const active = queueStatusTab === tab.key;
 
-                <div className="mx-4 mt-2 grid gap-4 rounded-3xl bg-[#101a18] p-3 sm:mx-6 sm:p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#991b1b]">
-                      Queue status
-                    </p>
-                    <p className="text-xs font-bold text-[#9db2ad]">
-                      {selectedQueueTab.label} view
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
-                    {queueStatusTabs.map((tab) => {
-                      const count = todaysQueueItems.filter((item) =>
-                        tab.statuses.includes(
-                          String(item.status || "").toLowerCase()
-                        )
-                      ).length;
-                      const active = queueStatusTab === tab.key;
-
-                      return (
-                        <button
-                          className={`flex min-h-14 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-black transition sm:text-base ${
-                            active
-                              ? "bg-[#991b1b] text-white shadow-lg shadow-[#991b1b]/15"
-                              : "bg-white text-[#f4fbf8] hover:bg-[#24170d]"
-                          }`}
-                          key={tab.key}
-                          onClick={() => setQueueStatusTab(tab.key)}
-                          type="button"
-                        >
-                          <span className="truncate">{tab.label}</span>
-                          <span
-                            className={`grid h-6 min-w-6 place-items-center rounded-full px-2 text-xs ${
+                        return (
+                          <button
+                            className={`flex min-h-12 min-w-[132px] items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition sm:min-w-[150px] ${
                               active
-                                ? "bg-white/20 text-white"
-                                : "bg-[#24170d] text-[#991b1b]"
+                                ? "bg-[#991b1b] text-white shadow-lg shadow-[#991b1b]/15"
+                                : "bg-[#0b1714] text-[#f4fbf8] hover:bg-[#24170d]"
                             }`}
+                            key={tab.key}
+                            onClick={() => setQueueStatusTab(tab.key)}
+                            type="button"
                           >
-                            {count}
-                          </span>
-                        </button>
-                      );
-                    })}
+                            <span className="truncate">{tab.label}</span>
+                            <span
+                              className={`grid h-6 min-w-6 place-items-center rounded-full px-2 text-xs ${
+                                active
+                                  ? "bg-white/20 text-white"
+                                  : "bg-[#2a1111] text-[#f9c66d]"
+                              }`}
+                            >
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
 
-                <div className="mx-4 mt-4 rounded-3xl bg-white p-3 ring-1 ring-[#35201f] sm:mx-6 sm:p-4">
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#991b1b]">
-                      Current controls
-                    </p>
-                    <p className="text-xs font-bold text-[#9db2ad]">
-                      Token {currentCustomer?.token || "-"}
-                    </p>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <button
-                      className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 font-black text-white shadow-lg shadow-[#991b1b]/15 disabled:opacity-60"
-                      disabled={actionLoading.startsWith("customer-")}
-                      onClick={callNextCustomer}
-                      type="button"
-                    >
-                      {actionLoading.startsWith("customer-") ? <ButtonSpinner /> : <PhoneCall size={19} />}
-                      Call
-                    </button>
-                    <button
-                      className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#fff7ed] px-5 font-black text-[#c2410c] disabled:opacity-60"
-                      disabled={!currentCustomer || actionLoading === `customer-${currentCustomer.id}-skipped`}
-                      onClick={() => updateCustomerStatus(currentCustomer, "skipped")}
-                      type="button"
-                    >
-                      {actionLoading === `customer-${currentCustomer?.id}-skipped` ? <ButtonSpinner dark /> : <SkipForward size={19} />}
-                      Skip
-                    </button>
-                    <button
-                      className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#2a1111] px-5 font-black text-[#fca5a5] disabled:opacity-60"
-                      disabled={!currentCustomer || actionLoading === `customer-${currentCustomer.id}-completed`}
-                      onClick={() => updateCustomerStatus(currentCustomer, "completed")}
-                      type="button"
-                    >
-                      {actionLoading === `customer-${currentCustomer?.id}-completed` ? <ButtonSpinner dark /> : <CheckCircle2 size={19} />}
-                      Complete
-                    </button>
+                  <div className="rounded-3xl border border-[#5a2525]/70 bg-[#0b1714] p-3">
+                    <div className="mb-3 flex items-center justify-between gap-3 px-1">
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#fca5a5]">
+                        Current controls
+                      </p>
+                      <p className="truncate text-xs font-bold text-[#9db2ad]">
+                        {currentCustomer?.name || "No active customer"}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-3 text-sm font-black text-white shadow-lg shadow-[#991b1b]/15 disabled:opacity-60"
+                        disabled={actionLoading.startsWith("customer-")}
+                        onClick={callNextCustomer}
+                        type="button"
+                      >
+                        {actionLoading.startsWith("customer-") ? <ButtonSpinner /> : <PhoneCall size={18} />}
+                        <span className="hidden sm:inline">Call</span>
+                      </button>
+                      <button
+                        className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#24170d] px-3 text-sm font-black text-[#f9c66d] disabled:opacity-60"
+                        disabled={!currentCustomer || actionLoading === `customer-${currentCustomer.id}-skipped`}
+                        onClick={() => updateCustomerStatus(currentCustomer, "skipped")}
+                        type="button"
+                      >
+                        {actionLoading === `customer-${currentCustomer?.id}-skipped` ? <ButtonSpinner dark /> : <SkipForward size={18} />}
+                        <span className="hidden sm:inline">Skip</span>
+                      </button>
+                      <button
+                        className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#2a1111] px-3 text-sm font-black text-[#fca5a5] disabled:opacity-60"
+                        disabled={!currentCustomer || actionLoading === `customer-${currentCustomer.id}-completed`}
+                        onClick={() => updateCustomerStatus(currentCustomer, "completed")}
+                        type="button"
+                      >
+                        {actionLoading === `customer-${currentCustomer?.id}-completed` ? <ButtonSpinner dark /> : <CheckCircle2 size={18} />}
+                        <span className="hidden sm:inline">Done</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 

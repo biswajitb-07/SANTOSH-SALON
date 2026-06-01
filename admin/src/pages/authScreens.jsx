@@ -10,14 +10,33 @@ const toastOptions = {
   }
 };
 
+function DottedCircleLoader() {
+  return (
+    <div
+      aria-label="Checking login"
+      className="relative mx-auto h-16 w-16 animate-spin"
+      role="status"
+    >
+      {Array.from({ length: 12 }).map((_, index) => (
+        <span
+          className="absolute left-1/2 top-1/2 h-2.5 w-2.5 rounded-full bg-[#f9c66d]"
+          key={index}
+          style={{
+            opacity: 0.25 + index * 0.06,
+            transform: `rotate(${index * 30}deg) translateY(-28px)`
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function AdminLoadingScreen() {
   return (
     <main className="grid min-h-screen place-items-center bg-[#06100e] px-4">
-      <div className="soft-shadow rounded-3xl bg-white p-6 text-center">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#f9c66d] text-[#991b1b]">
-          <Scissors size={26} />
-        </span>
-        <p className="mt-4 font-black">Checking login...</p>
+      <div className="soft-shadow rounded-3xl border border-[#35201f] bg-[#101a18]/90 p-7 text-center backdrop-blur">
+        <DottedCircleLoader />
+        <p className="mt-5 font-black text-[#f4fbf8]">Checking login...</p>
       </div>
     </main>
   );

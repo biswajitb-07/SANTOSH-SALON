@@ -164,70 +164,94 @@ export function ContactIssuesPage() {
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-3xl border border-[#5a2525]/60">
-        <div className="grid min-w-[960px] grid-cols-[1.2fr_1fr_2fr_0.8fr_1.3fr] bg-[#13201d] px-5 py-4 text-sm font-black text-[#a9bfba]">
-          <span>Customer</span>
-          <span>Contact</span>
-          <span>Message</span>
-          <span>Status</span>
-          <span>Actions</span>
-        </div>
-        <div className="overflow-x-auto">
-          <div className="min-w-[960px] divide-y divide-[#5a2525]/50">
+      <div className="mt-6 overflow-x-auto rounded-3xl border border-[#5a2525]/60">
+        <table className="w-full min-w-[1240px] table-fixed border-collapse text-left">
+          <colgroup>
+            <col className="w-[210px]" />
+            <col className="w-[150px]" />
+            <col className="w-[250px]" />
+            <col className="w-[310px]" />
+            <col className="w-[130px]" />
+            <col className="w-[320px]" />
+          </colgroup>
+          <thead>
+            <tr className="bg-[#13201d] text-sm font-black text-[#a9bfba]">
+              <th className="px-5 py-4">Customer</th>
+              <th className="px-5 py-4">Mobile</th>
+              <th className="px-5 py-4">Email</th>
+              <th className="px-5 py-4">Message</th>
+              <th className="px-5 py-4">Status</th>
+              <th className="px-5 py-4">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#5a2525]/50 bg-[#081311]">
             {visibleIssues.map((issue) => (
-              <div
-                className="grid grid-cols-[1.2fr_1fr_2fr_0.8fr_1.3fr] items-center gap-4 px-5 py-4"
-                key={issue.id}
-              >
-                <div>
+              <tr key={issue.id}>
+                <td className="px-5 py-5 align-middle">
                   <p className="font-black text-white">{issue.name}</p>
-                  <p className="mt-1 text-sm font-bold text-[#a9bfba]">{formatIssueTime(issue.createdAt)}</p>
-                </div>
-                <div className="space-y-1 text-sm font-bold text-[#d9e5df]">
-                  <p className="flex items-center gap-2"><Phone size={15} /> {issue.mobile}</p>
-                  <p className="flex items-center gap-2"><Mail size={15} /> {issue.email}</p>
-                </div>
-                <p className="line-clamp-3 font-bold leading-6 text-[#d9e5df]">{issue.message}</p>
-                <span
-                  className={`w-fit rounded-full px-3 py-1 text-xs font-black ${
-                    statusClass[issue.status] || statusClass.open
-                  }`}
-                >
-                  {statusCopy[issue.status] || "Open"}
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    className="flex min-h-11 items-center gap-2 rounded-2xl bg-[#2b1d10] px-4 font-bold text-[#ffcc70] disabled:opacity-60"
-                    disabled={actionLoading === `${issue.id}-in_progress`}
-                    onClick={() => updateIssueStatus(issue.id, "in_progress")}
-                    type="button"
+                  <p className="mt-1 text-sm font-bold text-[#a9bfba]">
+                    {formatIssueTime(issue.createdAt)}
+                  </p>
+                </td>
+                <td className="px-5 py-5 align-middle">
+                  <p className="flex items-center gap-2 text-sm font-bold text-[#d9e5df]">
+                    <Phone size={15} /> {issue.mobile}
+                  </p>
+                </td>
+                <td className="px-5 py-5 align-middle">
+                  <p className="flex items-center gap-2 break-words text-sm font-bold leading-6 text-[#d9e5df]">
+                    <Mail className="shrink-0" size={15} /> {issue.email}
+                  </p>
+                </td>
+                <td className="px-5 py-5 align-middle">
+                  <p className="line-clamp-3 font-bold leading-6 text-[#d9e5df]">
+                    {issue.message}
+                  </p>
+                </td>
+                <td className="px-5 py-5 align-middle">
+                  <span
+                    className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${
+                      statusClass[issue.status] || statusClass.open
+                    }`}
                   >
-                    {actionLoading === `${issue.id}-in_progress` ? <ButtonSpinner /> : <Clock3 size={16} />}
-                    Working
-                  </button>
-                  <button
-                    className="flex min-h-11 items-center gap-2 rounded-2xl bg-[#10281f] px-4 font-bold text-[#7de2ae] disabled:opacity-60"
-                    disabled={actionLoading === `${issue.id}-resolved`}
-                    onClick={() => updateIssueStatus(issue.id, "resolved")}
-                    type="button"
-                  >
-                    {actionLoading === `${issue.id}-resolved` ? <ButtonSpinner /> : <CheckCircle2 size={16} />}
-                    Resolve
-                  </button>
-                  <button
-                    className="flex min-h-11 items-center gap-2 rounded-2xl bg-[#451011] px-4 font-bold text-[#ffb4b4] disabled:opacity-60"
-                    disabled={actionLoading === `${issue.id}-delete`}
-                    onClick={() => deleteIssue(issue.id)}
-                    type="button"
-                  >
-                    {actionLoading === `${issue.id}-delete` ? <ButtonSpinner /> : <Trash2 size={16} />}
-                    Delete
-                  </button>
-                </div>
-              </div>
+                    {statusCopy[issue.status] || "Open"}
+                  </span>
+                </td>
+                <td className="px-5 py-5 align-middle">
+                  <div className="flex items-center gap-2 whitespace-nowrap">
+                    <button
+                      className="flex min-h-10 items-center gap-2 rounded-2xl bg-[#2b1d10] px-3 font-bold text-[#ffcc70] disabled:opacity-60"
+                      disabled={actionLoading === `${issue.id}-in_progress`}
+                      onClick={() => updateIssueStatus(issue.id, "in_progress")}
+                      type="button"
+                    >
+                      {actionLoading === `${issue.id}-in_progress` ? <ButtonSpinner /> : <Clock3 size={16} />}
+                      Working
+                    </button>
+                    <button
+                      className="flex min-h-10 items-center gap-2 rounded-2xl bg-[#10281f] px-3 font-bold text-[#7de2ae] disabled:opacity-60"
+                      disabled={actionLoading === `${issue.id}-resolved`}
+                      onClick={() => updateIssueStatus(issue.id, "resolved")}
+                      type="button"
+                    >
+                      {actionLoading === `${issue.id}-resolved` ? <ButtonSpinner /> : <CheckCircle2 size={16} />}
+                      Resolve
+                    </button>
+                    <button
+                      className="flex min-h-10 items-center gap-2 rounded-2xl bg-[#451011] px-3 font-bold text-[#ffb4b4] disabled:opacity-60"
+                      disabled={actionLoading === `${issue.id}-delete`}
+                      onClick={() => deleteIssue(issue.id)}
+                      type="button"
+                    >
+                      {actionLoading === `${issue.id}-delete` ? <ButtonSpinner /> : <Trash2 size={16} />}
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
             ))}
-          </div>
-        </div>
+          </tbody>
+        </table>
       </div>
 
       {loading ? (

@@ -49,7 +49,7 @@ export function AboutPage() {
         {[
           ["Fast Tokens", "First come, first serve flow with clear token number."],
           ["Clean Service", "Haircut, beard, wash, and grooming in one place."],
-          ["Long Hours", "Open daily from 7 AM to 11 PM for easy visits."]
+          ["Long Hours", "Open daily from 6 AM to 11 PM for easy visits."]
         ].map(([title, text]) => (
           <article className="luxury-glass rounded-3xl p-5 queue-shadow" key={title}>
             <Star className="text-[#f9c66d]" size={24} />
@@ -333,7 +333,7 @@ export function ContactPage({ user }) {
             [MapPin, "Main Market Road, Near City Chowk"],
             [Phone, "+91 98765 43210"],
             [Mail, "hello@santoshsalon.local"],
-            [Clock3, "Open daily, 7 AM - 11 PM"]
+            [Clock3, "Open daily, 6 AM - 11 PM"]
           ].map(([Icon, label]) => (
             <div className="flex items-center gap-3 rounded-2xl bg-white/10 p-4" key={label}>
               <Icon className="text-[#f9c66d]" size={20} />
@@ -476,6 +476,128 @@ export function ContactPage({ user }) {
           )}
         </div>
       </form>
+    </section>
+  );
+}
+
+const pageShellClass = "mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8";
+
+export function PricingPage() {
+  const plans = [
+    ["Classic Haircut", "Rs. 120", "Token booking with live queue status."],
+    ["Beard Styling", "Rs. 80", "Quick grooming slot with clear turn tracking."],
+    ["Hair Wash", "Rs. 70", "Fresh wash service with time slot booking."],
+    ["Facial Grooming", "Rs. 250", "Premium grooming service with online payment option."]
+  ];
+
+  return (
+    <section className={pageShellClass}>
+      <div className="luxury-red-glass rounded-[2rem] p-6 queue-shadow sm:p-8">
+        <p className="section-kicker">Pricing</p>
+        <h1 className="mt-2 text-4xl font-black leading-tight sm:text-5xl">
+          Transparent grooming prices.
+        </h1>
+        <p className="mt-3 max-w-3xl text-[#b9c7c3]">
+          Final online payable amount can include the Cashfree charge shown at checkout.
+          Cash at salon bookings pay the service amount at the counter.
+        </p>
+        <div className="mt-7 grid gap-4 md:grid-cols-2">
+          {plans.map(([title, price, text]) => (
+            <article className="rounded-3xl border border-[#5a2525] bg-[#101a18] p-5" key={title}>
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-[#f9c66d]">
+                {title}
+              </p>
+              <h2 className="mt-3 text-3xl font-black text-white">{price}</h2>
+              <p className="mt-2 text-[#9db2ad]">{text}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function GalleryPage() {
+  const gallery = [
+    ["/assets/salon-hero.png", "Santosh Salon interior"],
+    ["/assets/haircut-feature.png", "Haircut station"],
+    ["/assets/haircut-styles.png", "Haircut style wall"],
+    ["/assets/owner-santosh-portrait.png", "Owner portrait"]
+  ];
+
+  return (
+    <section className={pageShellClass}>
+      <div className="luxury-glass rounded-[2rem] p-6 queue-shadow sm:p-8">
+        <p className="section-kicker">Gallery</p>
+        <h1 className="mt-2 text-4xl font-black leading-tight sm:text-5xl">
+          Salon visuals before you visit.
+        </h1>
+        <div className="mt-7 grid gap-4 sm:grid-cols-2">
+          {gallery.map(([src, alt]) => (
+            <figure className="overflow-hidden rounded-3xl border border-[#35201f] bg-[#101a18]" key={src}>
+              <img alt={alt} className="h-64 w-full object-cover" src={src} />
+              <figcaption className="p-4 font-black text-[#f4fbf8]">{alt}</figcaption>
+            </figure>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function StaffPage() {
+  return (
+    <section className={pageShellClass}>
+      <div className="luxury-glass rounded-[2rem] p-6 queue-shadow sm:p-8">
+        <p className="section-kicker">Staff</p>
+        <h1 className="mt-2 text-4xl font-black leading-tight sm:text-5xl">
+          Three-chair service capacity.
+        </h1>
+        <p className="mt-3 max-w-3xl text-[#9db2ad]">
+          Santosh Salon uses staff capacity to calculate live slot availability,
+          waiting list movement, and estimated queue time.
+        </p>
+        <div className="mt-7 grid gap-4 md:grid-cols-3">
+          {["Haircut specialist", "Beard stylist", "Grooming assistant"].map((role, index) => (
+            <article className="rounded-3xl border border-[#35201f] bg-[#101a18] p-5" key={role}>
+              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#2a1111] text-xl font-black text-[#f9c66d]">
+                {index + 1}
+              </span>
+              <h2 className="mt-4 text-xl font-black text-white">{role}</h2>
+              <p className="mt-2 text-[#9db2ad]">Live queue work is coordinated through the owner dashboard.</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function FaqPage() {
+  const faqs = [
+    ["Can I book without OTP?", "Yes. Login is Google-based and checkout asks for name and mobile number."],
+    ["Can I book for another person?", "Yes. One checkout can include you and one guest."],
+    ["When does waiting list start?", "After confirmed daily capacity is full, eligible online bookings can move to waiting list."],
+    ["Are Cashfree charges refundable?", "No. Refunds cover eligible service amount only; Cashfree charges are non-refundable."],
+    ["What if payment fails but money is debited?", "Wait for provider or bank auto-reversal, or contact the salon with payment/order ID."]
+  ];
+
+  return (
+    <section className={pageShellClass}>
+      <div className="luxury-glass rounded-[2rem] p-6 queue-shadow sm:p-8">
+        <p className="section-kicker">FAQ</p>
+        <h1 className="mt-2 text-4xl font-black leading-tight sm:text-5xl">
+          Common booking questions.
+        </h1>
+        <div className="mt-7 grid gap-4">
+          {faqs.map(([question, answer]) => (
+            <article className="rounded-3xl border border-[#35201f] bg-[#101a18] p-5" key={question}>
+              <h2 className="text-xl font-black text-white">{question}</h2>
+              <p className="mt-2 leading-7 text-[#9db2ad]">{answer}</p>
+            </article>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }

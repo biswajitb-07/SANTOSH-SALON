@@ -8,6 +8,7 @@ import {
 import { saveRazorpaySubscription } from "../paymentStatus.js";
 import { requireAdminUser } from "../middleware/security.js";
 import { cleanString, requireFields } from "../middleware/validation.js";
+import { logWebhookEvent } from "../webhookLogs.js";
 
 export const subscriptionsRouter = express.Router();
 
@@ -87,6 +88,17 @@ subscriptionsRouter.post("/razorpay/webhook", async (req, res, next) => {
     });
 
     if (!valid) {
+      await logWebhookEvent({
+        provider: "razorpay",
+        eventType: req.body?.event || "invalid",
+        valid: false,
+        payload: req.body,
+        headers: {
+          signature: req.header("x-razorpay-signature"),
+          eventId: req.header("x-razorpay-event-id")
+        },
+        result: { error: "Invalid Razorpay webhook signature" }
+      });
       return res.status(401).json({ error: "Invalid Razorpay webhook signature" });
     }
 
@@ -108,6 +120,17 @@ subscriptionsRouter.post("/razorpay/webhook", async (req, res, next) => {
         source: "razorpay-webhook"
       });
     }
+    await logWebhookEvent({
+      provider: "razorpay",
+      eventType: event?.event,
+      eventId: req.header("x-razorpay-event-id") || paymentEntity?.id || orderEntity?.id,
+      valid: true,
+      payload: event,
+      headers: {
+        eventId: req.header("x-razorpay-event-id")
+      },
+      result: { firestore }
+    });
 
     res.json({ ok: true, firestore });
   } catch (error) {

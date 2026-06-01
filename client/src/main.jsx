@@ -44,25 +44,34 @@ import { useRevealOnScroll } from "./lib/animations.js";
 import { defaultServices, getServiceImageUrl } from "./lib/services.js";
 import { BookingPage, HomePage } from "./pages/bookingPages.jsx";
 import { ProfilePage } from "./pages/ProfilePage.jsx";
-import { AboutPage, ContactPage, LegalPage } from "./pages/staticPages.jsx";
+import {
+  AboutPage,
+  ContactPage,
+  FaqPage,
+  GalleryPage,
+  LegalPage,
+  PricingPage,
+  StaffPage
+} from "./pages/staticPages.jsx";
 import { store } from "./store/store.js";
 import "./styles.css";
 
 const pages = ["home", "booking", "about", "contact"];
+const businessPages = ["pricing", "gallery", "staff", "faq"];
 const legalPages = [
   "privacy-policy",
   "terms-and-conditions",
   "cancellation-refund-policy",
   "payment-policy"
 ];
-const routedPages = [...pages, "profile", "my-bookings", ...legalPages];
+const routedPages = [...pages, ...businessPages, "profile", "my-bookings", ...legalPages];
 const SALON_SLUG = import.meta.env.VITE_SALON_SLUG || "santosh";
 const BOOKING_CLOSED_MESSAGE =
   "Booking is currently closed by the owner. Please try again later.";
 const STAFF_COUNT = 3;
 const DAILY_CONFIRMED_LIMIT = 35;
 const WAITLIST_LIMIT = 10;
-const BOOKING_START_HOUR = 7;
+const BOOKING_START_HOUR = 6;
 const BOOKING_END_HOUR = 23;
 const LUNCH_START_HOUR = 13;
 const LUNCH_END_HOUR = 14;
@@ -1228,7 +1237,7 @@ function App() {
     loading: true,
     open: false,
     message: "Checking salon booking status...",
-    openingTime: "07:00",
+    openingTime: "06:00",
     closingTime: "23:00",
     manualShopClosed: false,
     premiumActive: false
@@ -1258,6 +1267,23 @@ function App() {
     window.addEventListener("popstate", syncRoute);
     return () => window.removeEventListener("popstate", syncRoute);
   }, []);
+
+  useEffect(() => {
+    const pageTitle = titleCase(page);
+    document.title =
+      page === "home"
+        ? "Santosh Salon Queue | Book Haircut Tokens Online"
+        : `${pageTitle} | Santosh Salon Queue`;
+    const description = document.querySelector("meta[name='description']");
+    if (description) {
+      description.setAttribute(
+        "content",
+        page === "booking"
+          ? "Choose a salon service, pick an available time slot, pay online or cash at salon, and track your queue token."
+          : "Santosh Salon Queue helps customers book grooming services, track live queue tokens, and contact the salon team."
+      );
+    }
+  }, [page]);
 
   useEffect(() => {
     if (!["home", "booking"].includes(page)) {
@@ -1385,7 +1411,7 @@ function App() {
             loading: false,
             open: false,
             message: BOOKING_CLOSED_MESSAGE,
-            openingTime: "07:00",
+            openingTime: "06:00",
             closingTime: "23:00",
             manualShopClosed: false,
             premiumActive: false
@@ -1402,7 +1428,7 @@ function App() {
           salon.paymentStatus === "active" &&
           (!premiumUntilTime || premiumUntilTime > Date.now());
         const scheduleGate = {
-          openingTime: salon.openingTime || "07:00",
+          openingTime: salon.openingTime || "06:00",
           closingTime: salon.closingTime || "23:00"
         };
         const manualClosed = salon.manualShopClosed === true;
@@ -1432,7 +1458,7 @@ function App() {
           loading: false,
           open: false,
           message: BOOKING_CLOSED_MESSAGE,
-          openingTime: "07:00",
+          openingTime: "06:00",
           closingTime: "23:00",
           manualShopClosed: false,
           premiumActive: false
@@ -1633,6 +1659,10 @@ function App() {
       ) : null}
       {page === "about" ? <AboutPage /> : null}
       {page === "contact" ? <ContactPage user={user} /> : null}
+      {page === "pricing" ? <PricingPage /> : null}
+      {page === "gallery" ? <GalleryPage /> : null}
+      {page === "staff" ? <StaffPage /> : null}
+      {page === "faq" ? <FaqPage /> : null}
       {legalPages.includes(page) ? <LegalPage page={page} /> : null}
       {page === "profile" ? (
         <ProfilePage
@@ -1680,10 +1710,10 @@ function App() {
         <div className="mx-auto grid max-w-7xl gap-4 text-sm text-[#9db2ad] md:grid-cols-[1fr_auto] md:items-center">
           <div>
             <p className="font-bold text-[#f4fbf8]">Santosh Salon Queue</p>
-            <p className="mt-1">Open daily, 7 AM - 11 PM</p>
+            <p className="mt-1">Open daily, 6 AM - 11 PM</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {[...legalPages, "contact"].map((item) => (
+            {[...businessPages, ...legalPages, "contact"].map((item) => (
               <button
                 className="rounded-full border border-[#35201f] bg-[#101a18] px-4 py-2 font-bold text-[#f4fbf8] transition hover:border-[#f9c66d]/35 hover:text-[#f9c66d]"
                 key={item}

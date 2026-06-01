@@ -442,7 +442,7 @@ function HaircutFeature() {
         </p>
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           {[
-            ["7 AM", "Opening"],
+            ["6 AM", "Opening"],
             ["11 PM", "Closing"],
             ["Live", "Queue"]
           ].map(([value, label]) => (
