@@ -43,6 +43,7 @@ import {
   CreditCard,
   Edit,
   Download,
+  Eye,
   ImagePlus,
   LayoutDashboard,
   LogOut,
@@ -64,6 +65,7 @@ import {
 } from "lucide-react";
 import { auth, db, googleProvider } from "./lib/firebase.js";
 import { getAuthHeader } from "./lib/apiAuth.js";
+import { getSafeErrorMessage } from "./lib/errors.js";
 import { applyAdminSeo } from "./lib/seo.js";
 import { getAdminRoute, writeAdminRoute } from "./lib/routing.js";
 import {
@@ -71,6 +73,7 @@ import {
   ConfirmDialog,
   PaginationControls,
   UserAvatar,
+  useBodyScrollLock,
   useDragScroll
 } from "./components/common.jsx";
 import { StatCard } from "./components/dashboard.jsx";
@@ -382,11 +385,13 @@ const normalizeUser = (snapshotDoc) => {
 
   return {
     id: snapshotDoc.id,
+    uid: data.uid || snapshotDoc.id,
     name: data.name || "Customer",
     email: data.email || "-",
     phone: data.phone || data.mobile || "-",
     photoURL: data.photoURL || "",
     provider: data.provider || "google.com",
+    blocked: data.blocked === true,
     updatedAt: data.updatedAt
   };
 };
@@ -507,6 +512,7 @@ function App() {
   const [serviceDraft, setServiceDraft] = useState(defaultServiceDraft);
   const [editingServiceId, setEditingServiceId] = useState("");
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
+  const [photoPreviewService, setPhotoPreviewService] = useState(null);
   const [registeredUsers, setRegisteredUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [refundRequests, setRefundRequests] = useState([]);
@@ -530,6 +536,7 @@ function App() {
   const [subscriptionStatus, setSubscriptionStatus] = useState("");
   const reindexingDatesRef = useRef(new Set());
   const queueTabDragScroll = useDragScroll({ enabled: true });
+  useBodyScrollLock(Boolean(photoPreviewService));
 
   useEffect(() => {
     return onAuthStateChanged(auth, (currentUser) => {
@@ -787,7 +794,10 @@ function App() {
       await signInWithPopup(auth, googleProvider);
       toast.success("Admin login successful.");
     } catch (error) {
-      const message = error.message || "Google login failed";
+      const message = getSafeErrorMessage(
+        error,
+        "Google login failed. Please try again."
+      );
       setAuthError(message);
       toast.error(message);
     } finally {
@@ -802,7 +812,7 @@ function App() {
       setConfirmDialog(null);
       toast.success("Admin logout successful.");
     } catch (error) {
-      toast.error(error.message || "Admin logout failed.");
+      toast.error(getSafeErrorMessage(error, "Admin logout failed."));
     } finally {
       setActionLoading("");
     }
@@ -1324,7 +1334,7 @@ function App() {
       setNotice(message);
       toast.success(message);
     } catch (error) {
-      const message = error.message || "Unable to update queue status.";
+      const message = getSafeErrorMessage(error, "Unable to update queue status.");
       setNotice(message);
       toast.error(message);
     } finally {
@@ -1512,7 +1522,7 @@ function App() {
       setBookingDraft(null);
       toast.success("Booking updated.");
     } catch (error) {
-      toast.error(error.message || "Unable to update booking.");
+      toast.error(getSafeErrorMessage(error, "Unable to update booking."));
     } finally {
       setActionLoading("");
     }
@@ -1533,7 +1543,7 @@ function App() {
       setConfirmDialog(null);
       toast.success(`Token ${customer.token} deleted.`);
     } catch (error) {
-      toast.error(error.message || "Unable to delete booking.");
+      toast.error(getSafeErrorMessage(error, "Unable to delete booking."));
     } finally {
       setActionLoading("");
     }
@@ -1560,7 +1570,7 @@ function App() {
       setConfirmDialog(null);
       toast.success(`${selectedBookings.length} bookings deleted.`);
     } catch (error) {
-      toast.error(error.message || "Selected bookings could not be deleted.");
+      toast.error(getSafeErrorMessage(error, "Selected bookings could not be deleted."));
     } finally {
       setActionLoading("");
     }
@@ -1708,7 +1718,7 @@ function App() {
       }
       resetServiceForm();
     } catch (error) {
-      toast.error(error.message || "Unable to save haircut design.");
+      toast.error(getSafeErrorMessage(error, "Unable to save haircut design."));
     } finally {
       setActionLoading("");
     }
@@ -1726,7 +1736,7 @@ function App() {
       toast.success("Haircut design deleted.");
       if (editingServiceId === service.id) resetServiceForm();
     } catch (error) {
-      toast.error(error.message || "Unable to delete haircut design.");
+      toast.error(getSafeErrorMessage(error, "Unable to delete haircut design."));
     } finally {
       setActionLoading("");
     }
@@ -1751,7 +1761,7 @@ function App() {
       setConfirmDialog(null);
       toast.success(`${selectedServices.length} services deleted.`);
     } catch (error) {
-      toast.error(error.message || "Selected services could not be deleted.");
+      toast.error(getSafeErrorMessage(error, "Selected services could not be deleted."));
     } finally {
       setActionLoading("");
     }
@@ -1768,7 +1778,7 @@ function App() {
       setConfirmDialog(null);
       toast.success("Refund request deleted.");
     } catch (error) {
-      toast.error(error.message || "Refund request could not be deleted.");
+      toast.error(getSafeErrorMessage(error, "Refund request could not be deleted."));
     } finally {
       setActionLoading("");
     }
@@ -1788,7 +1798,80 @@ function App() {
       setConfirmDialog(null);
       toast.success(`${selectedRefunds.length} refund requests deleted.`);
     } catch (error) {
-      toast.error(error.message || "Selected refund requests could not be deleted.");
+      toast.error(getSafeErrorMessage(error, "Selected refund requests could not be deleted."));
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const updateUserBlockStatus = async (customer) => {
+    if (!customer?.id) return;
+
+    const nextBlocked = !customer.blocked;
+    const loadingKey = `user-${customer.id}-block`;
+    setActionLoading(loadingKey);
+    try {
+      const authHeader = await getAuthHeader();
+      const response = await fetch(`${API_URL}/api/admin/users/${customer.uid || customer.id}/block`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader
+        },
+        body: JSON.stringify({ blocked: nextBlocked })
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || "User block status could not be updated.");
+      }
+
+      toast.success(
+        nextBlocked
+          ? `${customer.name} is blocked from booking.`
+          : `${customer.name} can book again.`
+      );
+    } catch (error) {
+      toast.error(
+        getSafeErrorMessage(error, "User block status could not be updated.")
+      );
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const deleteUserAndRelatedData = async (customer) => {
+    if (!customer?.id) return;
+
+    const loadingKey = `user-${customer.id}-delete`;
+    setActionLoading(loadingKey);
+    try {
+      const authHeader = await getAuthHeader();
+      const response = await fetch(`${API_URL}/api/admin/users/${customer.uid || customer.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader
+        },
+        body: JSON.stringify({
+          email: customer.email,
+          phone: customer.phone
+        })
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || "User related data could not be deleted.");
+      }
+
+      setConfirmDialog(null);
+      toast.success(
+        `${customer.name} deleted with ${data.deletedDocs || 0} related records.`
+      );
+    } catch (error) {
+      toast.error(
+        getSafeErrorMessage(error, "User related data could not be deleted.")
+      );
     } finally {
       setActionLoading("");
     }
@@ -1886,7 +1969,7 @@ function App() {
       }
       toast.success(`Refund marked ${statusLabel(status)}.`);
     } catch (error) {
-      toast.error(error.message || "Unable to update refund request.");
+      toast.error(getSafeErrorMessage(error, "Unable to update refund request."));
     } finally {
       setActionLoading("");
     }
@@ -1924,7 +2007,7 @@ function App() {
           : `Cashfree refund status synced: ${statusLabel(data.status)}.`
       );
     } catch (error) {
-      toast.error(error.message || "Unable to sync Cashfree refund status.");
+      toast.error(getSafeErrorMessage(error, "Unable to sync Cashfree refund status."));
     } finally {
       setActionLoading("");
     }
@@ -2035,7 +2118,7 @@ function App() {
         "Bookings transferred to tomorrow. Non-paid waitlist bookings were cancelled."
       );
     } catch (error) {
-      toast.error(error.message || "Day close transfer failed.");
+      toast.error(getSafeErrorMessage(error, "Day close transfer failed."));
     } finally {
       setActionLoading("");
     }
@@ -2089,7 +2172,7 @@ function App() {
       setNotice("Salon settings saved.");
       toast.success("Salon settings saved.");
     } catch (error) {
-      const message = error.message || "Unable to save salon settings.";
+      const message = getSafeErrorMessage(error, "Unable to save salon settings.");
       setNotice(message);
       toast.error(message);
     } finally {
@@ -2112,7 +2195,7 @@ function App() {
       setSettingsDraft((current) => ({ ...current, ...payload }));
       toast.success(closed ? "Shop closed for booking." : "Shop opened for booking.");
     } catch (error) {
-      toast.error(error.message || "Unable to update shop status.");
+      toast.error(getSafeErrorMessage(error, "Unable to update shop status."));
     } finally {
       setActionLoading("");
     }
@@ -2155,8 +2238,10 @@ function App() {
         { merge: true }
       ).catch((error) => {
         toast.warning(
-          error.message ||
+          getSafeErrorMessage(
+            error,
             "Salon profile save failed, payment checkout will still continue."
+          )
         );
       });
 
@@ -2295,9 +2380,9 @@ function App() {
   return (
     <main className="h-screen overflow-hidden bg-[#06100e] text-[#f4fbf8]">
       <Toaster
-        position="top-right"
+        position="top-center"
         className="app-toaster"
-        offset="76px"
+        offset="92px"
         richColors
         closeButton
         toastOptions={{
@@ -3307,11 +3392,28 @@ function App() {
                           />
                         </label>
                         {service.imageUrl ? (
-                          <img
-                            alt={service.title}
-                            className="h-44 w-full object-cover"
-                            src={service.imageUrl}
-                          />
+                          <div className="group relative h-44 overflow-hidden">
+                            <button
+                              aria-label={`View ${service.title} photo`}
+                              className="block h-full w-full cursor-pointer"
+                              onClick={() => setPhotoPreviewService(service)}
+                              type="button"
+                            >
+                              <img
+                                alt={service.title}
+                                className="h-full w-full object-cover transition duration-300 group-hover:scale-105 group-hover:brightness-75"
+                                src={service.imageUrl}
+                              />
+                            </button>
+                            <button
+                              aria-label={`Open ${service.title} photo`}
+                              className="absolute right-3 top-3 z-10 grid h-11 w-11 place-items-center rounded-2xl border border-[#ffcc70]/50 bg-[#06100e]/80 text-[#ffcc70] shadow-xl backdrop-blur transition hover:scale-105 hover:bg-[#991b1b] hover:text-white"
+                              onClick={() => setPhotoPreviewService(service)}
+                              type="button"
+                            >
+                              <Eye size={19} />
+                            </button>
+                          </div>
                         ) : (
                           <div className="grid h-44 place-items-center bg-[#101a18] text-[#991b1b]">
                             <ImagePlus size={30} />
@@ -3580,8 +3682,19 @@ function App() {
 
             {activePage === "users" ? (
               <UsersPage
+                actionLoading={actionLoading}
                 filteredUsers={filteredUsers}
                 googleUsers={googleUsers}
+                onDeleteUser={(customer) =>
+                  setConfirmDialog({
+                    title: "Delete user and related data",
+                    message: `Delete ${customer.name}, their bookings, refund requests, and contact messages? This cannot be undone.`,
+                    confirmLabel: "Delete user",
+                    loadingKey: `user-${customer.id}-delete`,
+                    onConfirm: () => deleteUserAndRelatedData(customer)
+                  })
+                }
+                onToggleUserBlock={updateUserBlockStatus}
                 paginatedUsers={paginatedUsers}
                 registeredUsers={registeredUsers}
                 safeUsersPage={safeUsersPage}
@@ -3661,7 +3774,43 @@ function App() {
         timeSlotValue={adminBookingTimeSlotValue}
         timeSlots={adminBookingSlots}
         todayDateValue={todayDateValue}
-      />      {confirmDialog ? (
+      />
+      {photoPreviewService ? (
+        <div
+          aria-modal="true"
+          className="fixed inset-0 z-[120] grid place-items-center bg-[#020807]/85 p-3 backdrop-blur-xl sm:p-6"
+          role="dialog"
+        >
+          <section className="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-[#5a2525]/70 bg-[#07110f] shadow-[0_30px_120px_rgba(0,0,0,0.55)]">
+            <div className="flex items-center justify-between gap-4 border-b border-[#5a2525]/60 px-4 py-4 sm:px-6">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-[#ff9e9e]">
+                  Service photo
+                </p>
+                <h3 className="mt-1 text-2xl font-black text-white">
+                  {photoPreviewService.title}
+                </h3>
+              </div>
+              <button
+                aria-label="Close photo preview"
+                className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-[#5a2525]/70 bg-[#111f1b] text-white transition hover:bg-[#991b1b]"
+                onClick={() => setPhotoPreviewService(null)}
+                type="button"
+              >
+                <X size={22} />
+              </button>
+            </div>
+            <div className="grid min-h-0 flex-1 place-items-center bg-[#030907] p-3 sm:p-5">
+              <img
+                alt={photoPreviewService.title}
+                className="max-h-[72vh] w-full rounded-3xl object-contain"
+                src={photoPreviewService.imageUrl}
+              />
+            </div>
+          </section>
+        </div>
+      ) : null}
+      {confirmDialog ? (
         <ConfirmDialog
           confirmLabel={confirmDialog.confirmLabel}
           loading={actionLoading === confirmDialog.loadingKey}

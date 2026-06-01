@@ -6,6 +6,7 @@ import {
   CalendarCheck2,
   CheckCircle2,
   Clock3,
+  Eye,
   Gem,
   MapPin,
   Scissors,
@@ -111,6 +112,7 @@ export function HomePage({
   user,
   onLogin,
   onNavigate,
+  onPhotoPreview,
   onServiceSelect,
   loginLoading,
   bookingGate,
@@ -258,6 +260,7 @@ export function HomePage({
         loginLoading={loginLoading}
         mobileSlider
         onLogin={onLogin}
+        onPhotoPreview={onPhotoPreview}
         onServiceSelect={onServiceSelect}
         services={services}
         user={user}
@@ -317,6 +320,7 @@ function HowItWorksSection() {
 function ServicesSection({
   user,
   onLogin,
+  onPhotoPreview,
   onServiceSelect,
   loginLoading,
   bookingGate,
@@ -360,6 +364,10 @@ function ServicesSection({
         {...(mobileSlider ? dragScroll : {})}
       >
         {services.map((service) => {
+          const previewService = {
+            ...service,
+            imageUrl: service.imageUrl || getServiceImageUrl(service.title)
+          };
           const bookingClosed = !bookingGate.loading && !bookingGate.open;
           const buttonLabel = bookingGate.loading
             ? "Checking..."
@@ -375,14 +383,29 @@ function ServicesSection({
               key={service.title}
             >
               <div className="relative overflow-hidden">
-                <img
-                  alt={service.title}
-                  className="h-40 w-full object-cover object-center transition duration-500 hover:scale-105 sm:h-44"
-                  src={service.imageUrl || getServiceImageUrl(service.title)}
-                />
+                <button
+                  aria-label={`View ${service.title} photo`}
+                  className="group block h-40 w-full cursor-pointer sm:h-44"
+                  onClick={() => onPhotoPreview?.(previewService)}
+                  type="button"
+                >
+                  <img
+                    alt={service.title}
+                    className="h-full w-full object-cover object-center transition duration-500 group-hover:scale-105 group-hover:brightness-75"
+                    src={service.imageUrl || getServiceImageUrl(service.title)}
+                  />
+                </button>
                 <span className="absolute left-3 top-3 grid h-10 w-10 place-items-center rounded-2xl border border-[#f9c66d]/20 bg-[#06100e]/78 text-[#f9c66d] shadow-lg backdrop-blur sm:left-4 sm:top-4 sm:h-12 sm:w-12">
                   <Scissors size={18} className="sm:h-[21px] sm:w-[21px]" />
                 </span>
+                <button
+                  aria-label={`Open ${service.title} photo`}
+                  className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-2xl border border-[#f9c66d]/30 bg-[#06100e]/78 text-[#f9c66d] shadow-lg backdrop-blur transition hover:scale-105 hover:bg-[#991b1b] hover:text-white sm:h-12 sm:w-12"
+                  onClick={() => onPhotoPreview?.(previewService)}
+                  type="button"
+                >
+                  <Eye size={18} className="sm:h-[21px] sm:w-[21px]" />
+                </button>
               </div>
               <div className="p-3 sm:p-5">
               <h3 className="mt-2 truncate text-base font-black sm:mt-5 sm:text-xl" title={service.title}>
@@ -584,6 +607,7 @@ function LuxuryPromiseSection() {
 export function BookingPage({
   user,
   onLogin,
+  onPhotoPreview,
   onServiceSelect,
   loginLoading,
   bookingGate,
@@ -639,6 +663,7 @@ export function BookingPage({
       bookingGate={bookingGate}
       loginLoading={loginLoading}
       onLogin={onLogin}
+      onPhotoPreview={onPhotoPreview}
       onServiceSelect={onServiceSelect}
       pagination={{
         page: safeServicePage,

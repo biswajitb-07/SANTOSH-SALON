@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { ButtonSpinner } from "../components/common.jsx";
 import { db } from "../lib/firebase.js";
+import { getSafeErrorMessage } from "../lib/errors.js";
 
 export function AboutPage() {
   return (
@@ -160,7 +161,7 @@ export function ContactPage({ user }) {
       setIssueHistory(issues);
       return issues;
     } catch (error) {
-      toast.error(error.message || "Issue history could not be loaded.");
+      toast.error(getSafeErrorMessage(error, "Issue history could not be loaded."));
       return [];
     } finally {
       setHistoryLoading(false);
@@ -284,7 +285,7 @@ export function ContactPage({ user }) {
         message: ""
       }));
     } catch (error) {
-      toast.error(error.message || "Message could not be sent.");
+      toast.error(getSafeErrorMessage(error, "Message could not be sent."));
     } finally {
       setSubmitting(false);
     }
@@ -313,7 +314,7 @@ export function ContactPage({ user }) {
       toast.success("Message deleted. You can send a new issue now.");
       await loadIssueHistory();
     } catch (error) {
-      toast.error(error.message || "Message could not be deleted.");
+      toast.error(getSafeErrorMessage(error, "Message could not be deleted."));
     } finally {
       setDeletingIssueId("");
     }

@@ -13,6 +13,7 @@ import {
 import { CheckCircle2, Clock3, Mail, MessageSquare, Phone, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { db } from "../lib/firebase.js";
+import { getSafeErrorMessage } from "../lib/errors.js";
 import {
   ButtonSpinner,
   ConfirmDialog,
@@ -92,7 +93,7 @@ export function ContactIssuesPage() {
       (error) => {
         setIssues([]);
         setLoading(false);
-        toast.error(error.message || "Contact messages could not be loaded.");
+        toast.error(getSafeErrorMessage(error, "Contact messages could not be loaded."));
       }
     );
   }, []);
@@ -153,7 +154,7 @@ export function ContactIssuesPage() {
           : "Message status updated."
       );
     } catch (error) {
-      toast.error(error.message || "Message status could not be updated.");
+      toast.error(getSafeErrorMessage(error, "Message status could not be updated."));
     } finally {
       setActionLoading("");
     }
@@ -168,7 +169,7 @@ export function ContactIssuesPage() {
       setConfirmDialog(null);
       toast.success("Message deleted.");
     } catch (error) {
-      toast.error(error.message || "Message could not be deleted.");
+      toast.error(getSafeErrorMessage(error, "Message could not be deleted."));
     } finally {
       setActionLoading("");
     }
@@ -188,7 +189,7 @@ export function ContactIssuesPage() {
       setConfirmDialog(null);
       toast.success(`${selectedIssues.length} messages deleted.`);
     } catch (error) {
-      toast.error(error.message || "Selected messages could not be deleted.");
+      toast.error(getSafeErrorMessage(error, "Selected messages could not be deleted."));
     } finally {
       setActionLoading("");
     }

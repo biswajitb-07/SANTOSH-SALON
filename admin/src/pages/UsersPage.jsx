@@ -1,9 +1,12 @@
-import { Search } from "lucide-react";
-import { PaginationControls } from "../components/common.jsx";
+import { Ban, Search, Trash2, Unlock } from "lucide-react";
+import { ButtonSpinner, PaginationControls } from "../components/common.jsx";
 
 export function UsersPage({
+  actionLoading,
   filteredUsers,
   googleUsers,
+  onDeleteUser,
+  onToggleUserBlock,
   paginatedUsers,
   registeredUsers,
   safeUsersPage,
@@ -54,8 +57,8 @@ export function UsersPage({
           value={userSearchTerm}
         />
       </div>
-      <div className="mt-5 overflow-x-auto">
-        <table className="w-full min-w-[760px] border-collapse text-left">
+      <div className="mt-5 overflow-x-auto rounded-[1.75rem] border border-[#5a2525]/60">
+        <table className="w-full min-w-[1080px] border-collapse text-left">
           <thead>
             <tr className="bg-[#101a18] text-sm text-[#9db2ad]">
               <th className="px-5 py-4">User</th>
@@ -63,6 +66,8 @@ export function UsersPage({
               <th className="px-5 py-4">Phone</th>
               <th className="px-5 py-4">Provider</th>
               <th className="px-5 py-4">Updated</th>
+              <th className="px-5 py-4">Status</th>
+              <th className="px-5 py-4">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -91,6 +96,51 @@ export function UsersPage({
                   {customer.updatedAt?.toDate
                     ? customer.updatedAt.toDate().toLocaleString("en-IN")
                     : "-"}
+                </td>
+                <td className="px-5 py-4">
+                  <span
+                    className={
+                      customer.blocked
+                        ? "status-action-chip status-action-failed"
+                        : "status-action-chip status-action-refunded"
+                    }
+                  >
+                    {customer.blocked ? "Blocked" : "Active"}
+                  </span>
+                </td>
+                <td className="px-5 py-4">
+                  <div className="flex min-w-[230px] items-center gap-2">
+                    <button
+                      className={`action-chip min-h-10 min-w-[104px] px-3 text-sm ${
+                        customer.blocked ? "action-done" : "action-skip"
+                      }`}
+                      disabled={actionLoading === `user-${customer.id}-block`}
+                      onClick={() => onToggleUserBlock(customer)}
+                      type="button"
+                    >
+                      {actionLoading === `user-${customer.id}-block` ? (
+                        <ButtonSpinner />
+                      ) : customer.blocked ? (
+                        <Unlock size={16} />
+                      ) : (
+                        <Ban size={16} />
+                      )}
+                      {customer.blocked ? "Unblock" : "Block"}
+                    </button>
+                    <button
+                      className="action-chip action-delete min-h-10 min-w-[104px] px-3 text-sm"
+                      disabled={actionLoading === `user-${customer.id}-delete`}
+                      onClick={() => onDeleteUser(customer)}
+                      type="button"
+                    >
+                      {actionLoading === `user-${customer.id}-delete` ? (
+                        <ButtonSpinner />
+                      ) : (
+                        <Trash2 size={16} />
+                      )}
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

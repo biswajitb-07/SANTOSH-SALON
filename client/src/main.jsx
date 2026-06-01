@@ -22,6 +22,7 @@ import {
   X
 } from "lucide-react";
 import { auth, db, googleProvider } from "./lib/firebase.js";
+import { getSafeErrorMessage } from "./lib/errors.js";
 import {
   useCreateCustomerPaymentOrderMutation,
   useVerifyCustomerPaymentMutation
@@ -233,11 +234,13 @@ function getBookingOption(day) {
 }
 
 const getRequestErrorMessage = (error, fallback) =>
-  error?.data?.error ||
-  error?.error ||
-  error?.message ||
-  error?.details?.error?.description ||
-  fallback;
+  getSafeErrorMessage(
+    error?.data?.error ||
+      error?.error ||
+      error?.message ||
+      error?.details?.error?.description,
+    fallback
+  );
 
 const getCashfreeChargePreview = (amount, peopleCount = 1) => {
   const serviceAmount =
@@ -398,6 +401,7 @@ function CheckoutModal({
   bookingGate,
   service,
   user,
+  userAccount,
   onBookingSuccess,
   onClose
 }) {
@@ -541,6 +545,17 @@ function CheckoutModal({
 
     if (!isCustomerBookingWindowOpen(bookingGate)) {
       const message = getBookingWindowMessage(bookingGate);
+      setStatus({
+        type: "error",
+        message
+      });
+      toast.error(message);
+      return;
+    }
+
+    if (userAccount?.blocked) {
+      const message =
+        "Your booking access is blocked by the salon. Please contact the salon team.";
       setStatus({
         type: "error",
         message
@@ -1183,11 +1198,13 @@ function App() {
   const initialRoute = getClientRoute();
   const [page, setPage] = useState(initialRoute.page);
   const [user, setUser] = useState(null);
+  const [userAccount, setUserAccount] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const [selectedService, setSelectedService] = useState(null);
+  const [photoPreviewService, setPhotoPreviewService] = useState(null);
   const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [scrollBadgeVisible, setScrollBadgeVisible] = useState(false);
@@ -1212,6 +1229,8 @@ function App() {
     premiumActive: false
   });
 
+  useBodyScrollLock(Boolean(photoPreviewService));
+
   useRevealOnScroll(page);
 
   useEffect(() => {
@@ -1223,6 +1242,21 @@ function App() {
 
     });
   }, []);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setUserAccount(null);
+      return undefined;
+    }
+
+    return onSnapshot(
+      doc(db, "users", user.uid),
+      (snapshot) => {
+        setUserAccount(snapshot.exists() ? snapshot.data() : null);
+      },
+      () => setUserAccount(null)
+    );
+  }, [user?.uid]);
 
   useEffect(() => {
     writeClientRoute({ page }, true);
@@ -1498,7 +1532,7 @@ function App() {
       await signInWithPopup(auth, googleProvider);
       toast.success("Login successful.");
     } catch (error) {
-      const message = error.message || "Login failed";
+      const message = getSafeErrorMessage(error, "Login failed. Please try again.");
       setAuthError(message);
       toast.error(message);
       setLoginLoading(false);
@@ -1516,7 +1550,7 @@ function App() {
         navigatePage("home");
       }
     } catch (error) {
-      const message = error.message || "Logout failed";
+      const message = getSafeErrorMessage(error, "Logout failed. Please try again.");
       setAuthError(message);
       toast.error(message);
       setLogoutLoading(false);
@@ -1534,6 +1568,11 @@ function App() {
   const requestServiceSelection = (service) => {
     if (bookingGate.loading) {
       toast.info("Checking salon booking status...");
+      return;
+    }
+
+    if (userAccount?.blocked) {
+      toast.error("Your booking access is blocked by the salon.");
       return;
     }
 
@@ -1557,9 +1596,9 @@ function App() {
   return (
     <main className="min-h-screen bg-[#06100e] text-[#f4fbf8]">
       <Toaster
-        position="top-right"
+        position="top-center"
         className="app-toaster"
-        offset="76px"
+        offset="92px"
         richColors
         closeButton
         toastOptions={{
@@ -1593,8 +1632,9 @@ function App() {
         <HomePage
           bookingGate={bookingGate}
           loginLoading={loginLoading}
-          onLogin={login}
-          onNavigate={navigatePage}
+        onLogin={login}
+        onNavigate={navigatePage}
+        onPhotoPreview={setPhotoPreviewService}
         onServiceSelect={requestServiceSelection}
         queueItems={queueItems}
         queueStats={queueStats}
@@ -1608,6 +1648,7 @@ function App() {
           bookingGate={bookingGate}
           loginLoading={loginLoading}
           onLogin={login}
+          onPhotoPreview={setPhotoPreviewService}
           onServiceSelect={requestServiceSelection}
           services={salonServices}
           user={user}
@@ -1646,7 +1687,43 @@ function App() {
         onClose={() => setSelectedService(null)}
         service={selectedService}
         user={user}
+        userAccount={userAccount}
       />
+      {photoPreviewService ? (
+        <div
+          aria-modal="true"
+          className="fixed inset-0 z-[120] grid place-items-center bg-[#020807]/85 p-3 backdrop-blur-xl sm:p-6"
+          role="dialog"
+        >
+          <section className="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-[#5a2525]/70 bg-[#07110f] shadow-[0_30px_120px_rgba(0,0,0,0.55)]">
+            <div className="flex items-center justify-between gap-4 border-b border-[#5a2525]/60 px-4 py-4 sm:px-6">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-[#ff9e9e]">
+                  Service photo
+                </p>
+                <h3 className="mt-1 text-2xl font-black text-white">
+                  {photoPreviewService.title}
+                </h3>
+              </div>
+              <button
+                aria-label="Close photo preview"
+                className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-[#5a2525]/70 bg-[#111f1b] text-white transition hover:bg-[#991b1b]"
+                onClick={() => setPhotoPreviewService(null)}
+                type="button"
+              >
+                <X size={22} />
+              </button>
+            </div>
+            <div className="grid min-h-0 flex-1 place-items-center bg-[#030907] p-3 sm:p-5">
+              <img
+                alt={photoPreviewService.title}
+                className="max-h-[72vh] w-full rounded-3xl object-contain"
+                src={photoPreviewService.imageUrl || ""}
+              />
+            </div>
+          </section>
+        </div>
+      ) : null}
       {confirmLogoutOpen ? (
         <ConfirmDialog
           confirmLabel="Logout"
@@ -1740,4 +1817,3 @@ createRoot(document.getElementById("root")).render(
     </Provider>
   </React.StrictMode>
 );
-

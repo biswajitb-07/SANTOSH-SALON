@@ -23,7 +23,7 @@ function DottedCircleLoader() {
 
   return (
     <div
-      aria-label="Checking login"
+      aria-label="loading please wait"
       className="mx-auto grid h-16 w-16 place-items-center"
       role="status"
     >
@@ -53,7 +53,7 @@ export function AdminLoadingScreen() {
     <main className="grid min-h-screen place-items-center bg-[#06100e] px-4">
       <div className="soft-shadow rounded-3xl border border-[#35201f] bg-[#101a18]/90 p-7 text-center backdrop-blur">
         <DottedCircleLoader />
-        <p className="mt-5 font-black text-[#f4fbf8]">Checking login...</p>
+        <p className="mt-5 font-black text-[#f4fbf8]">loading please wait...</p>
       </div>
     </main>
   );
@@ -67,7 +67,9 @@ export function AdminLoginScreen({
   return (
     <main className="min-h-screen bg-[#06100e] px-3 py-4 sm:px-6 lg:grid lg:place-items-center lg:px-8">
       <Toaster
-        position="top-right"
+        position="top-center"
+        className="app-toaster"
+        offset="24px"
         richColors
         closeButton
         toastOptions={toastOptions}
@@ -164,7 +166,9 @@ export function AdminAccessBlockedScreen({ actionLoading, onLogout, user }) {
   return (
     <main className="grid min-h-screen place-items-center bg-[#06100e] px-4">
       <Toaster
-        position="top-right"
+        position="top-center"
+        className="app-toaster"
+        offset="24px"
         richColors
         closeButton
         toastOptions={toastOptions}

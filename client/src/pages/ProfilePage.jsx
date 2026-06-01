@@ -28,6 +28,7 @@ import {
   useBodyScrollLock
 } from "../components/common.jsx";
 import { db } from "../lib/firebase.js";
+import { getSafeErrorMessage } from "../lib/errors.js";
 import {
   formatBookingStatus,
   formatMoney,
@@ -260,7 +261,7 @@ function RefundRequestDialog({ booking, user, onClose }) {
       toast.success("Refund request sent. You will receive an update after admin review.");
       onClose();
     } catch (error) {
-      toast.error(error.message || "Refund request could not be sent.");
+      toast.error(getSafeErrorMessage(error, "Refund request could not be sent."));
     } finally {
       setSubmitting(false);
     }
@@ -473,7 +474,7 @@ export function ProfilePage({
         toast.success("Booking cancelled.");
       }
     } catch (error) {
-      toast.error(error.message || "Booking could not be cancelled.");
+      toast.error(getSafeErrorMessage(error, "Booking could not be cancelled."));
     } finally {
       setCancelBookingId("");
     }

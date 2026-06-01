@@ -6,6 +6,7 @@ import { config } from "./config.js";
 import { subscriptionsRouter } from "./routes/subscriptions.js";
 import { customerPaymentsRouter } from "./routes/customerPayments.js";
 import { cloudinaryRouter } from "./routes/cloudinary.js";
+import { adminUsersRouter } from "./routes/adminUsers.js";
 import {
   createRateLimiter,
   securityHeaders
@@ -77,6 +78,7 @@ app.head(["/health", "/api/health"], (_req, res) => {
 app.use("/api/subscriptions", subscriptionsRouter);
 app.use("/api/customer-payments", customerPaymentsRouter);
 app.use("/api/cloudinary", cloudinaryRouter);
+app.use("/api/admin/users", adminUsersRouter);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
