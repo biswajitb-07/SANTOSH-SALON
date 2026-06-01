@@ -71,7 +71,7 @@ export function AdminLoginScreen({
             </div>
           </div>
           <div className="relative z-10 mt-10 max-w-2xl lg:mt-0">
-            <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-2 text-xs font-bold text-[#f9c66d] ring-1 ring-white/20 sm:mb-4 sm:px-4 sm:text-sm">
+            <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-bold text-[#f9c66d] ring-1 ring-white/20 sm:mb-4 sm:px-4 sm:text-sm">
               <Sparkles size={16} />
               Google owner login
             </p>
@@ -152,7 +152,7 @@ export function AdminAccessBlockedScreen({ actionLoading, onLogout, user }) {
         closeButton
         toastOptions={toastOptions}
       />
-      <section className="soft-shadow w-full max-w-md rounded-[2rem] bg-white p-6 text-center sm:p-8">
+      <section className="soft-shadow w-full max-w-md rounded-[2rem] bg-[var(--color-surface)] p-6 text-center sm:p-8">
         <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#fee2e2] text-[#b91c1c]">
           <XCircle size={26} />
         </span>

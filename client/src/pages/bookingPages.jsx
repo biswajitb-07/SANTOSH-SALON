@@ -15,7 +15,7 @@ import {
   WalletCards,
   UsersRound
 } from "lucide-react";
-import { ButtonSpinner, PaginationControls } from "../components/common.jsx";
+import { ButtonSpinner, PaginationControls, useDragScroll } from "../components/common.jsx";
 import { defaultServices, getServiceImageUrl } from "../lib/services.js";
 
 const STAFF_COUNT = 3;
@@ -145,7 +145,7 @@ export function HomePage({
                 Choose Service <CalendarCheck2 size={19} />
               </button>
               <button
-                className="flex min-h-[52px] items-center justify-center gap-2 rounded-full border border-[#f9c66d]/20 bg-white/10 px-6 py-4 font-black backdrop-blur transition hover:bg-[#2a0f12]/70"
+                className="flex min-h-[52px] items-center justify-center gap-2 rounded-full border border-[#f9c66d]/20 bg-[rgba(255,255,255,0.08)] px-6 py-4 font-black backdrop-blur transition hover:bg-[#2a0f12]/70"
                 onClick={() => onNavigate("about")}
                 type="button"
               >
@@ -244,7 +244,7 @@ export function HomePage({
             Login, choose service, take token, and watch live queue status while
             you travel to the salon.
           </p>
-          <div className="mt-5 flex items-center gap-3 rounded-2xl bg-white/10 p-4">
+          <div className="mt-5 flex items-center gap-3 rounded-2xl bg-[rgba(255,255,255,0.08)] p-4">
             <CheckCircle2 className="text-[#f9c66d]" />
             <span className="text-sm font-bold">Mobile responsive ready</span>
           </div>
@@ -324,8 +324,9 @@ function ServicesSection({
   services,
   pagination = null
 }) {
+  const dragScroll = useDragScroll({ enabled: mobileSlider });
   const listClassName = mobileSlider
-    ? "services-slider flex snap-x gap-4 overflow-x-auto pb-4 pl-1 pr-5 sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-4"
+    ? "services-slider drag-scroll flex snap-x gap-4 overflow-x-auto pb-4 pl-1 pr-5 sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-4"
     : "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4";
   const cardClassName = mobileSlider
     ? "queue-shadow luxury-glass min-w-[82vw] snap-start overflow-hidden rounded-3xl transition hover:-translate-y-1 sm:min-w-0"
@@ -347,7 +348,7 @@ function ServicesSection({
           checkout.
         </p>
       </div>
-      <div className={listClassName}>
+      <div className={listClassName} {...(mobileSlider ? dragScroll : {})}>
         {services.map((service) => {
           const bookingClosed = !bookingGate.loading && !bookingGate.open;
           const buttonLabel = bookingGate.loading
@@ -491,7 +492,7 @@ function HaircutStylesSection({
         </p>
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           {["Classic", "Fade", "Beard"].map((style) => (
-            <div className="rounded-2xl bg-white/10 p-4" key={style}>
+            <div className="rounded-2xl bg-[rgba(255,255,255,0.08)] p-4" key={style}>
               <Scissors className="text-[#f9c66d]" size={22} />
               <p className="mt-3 font-black">{style}</p>
             </div>
@@ -501,7 +502,7 @@ function HaircutStylesSection({
           className={`mt-6 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-black disabled:cursor-not-allowed disabled:opacity-70 sm:w-fit ${
             bookingClosed
               ? "bg-[#fee2e2] text-[#991b1b]"
-              : "bg-[#f9c66d] text-[#102b28]"
+              : "bg-[#f9c66d] text-[#140707]"
           }`}
           disabled={bookingGate.loading || (!user && loginLoading)}
           onClick={() => {
@@ -613,7 +614,7 @@ export function BookingPage({
             [CalendarCheck2, "Choose Service"],
             [BellRing, "Payment Details"]
           ].map(([Icon, label]) => (
-            <div className="rounded-2xl bg-white/10 p-2.5 sm:p-3" key={label}>
+            <div className="rounded-2xl bg-[rgba(255,255,255,0.08)] p-2.5 sm:p-3" key={label}>
               <Icon className="text-[#f9c66d]" size={19} />
               <p className="mt-2 text-[11px] font-black leading-tight sm:text-base">
                 {label}

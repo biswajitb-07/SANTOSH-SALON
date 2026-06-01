@@ -30,7 +30,8 @@ import {
   ButtonSpinner,
   ConfirmDialog,
   getUserPhotoUrl,
-  useBodyScrollLock
+  useBodyScrollLock,
+  useDragScroll
 } from "./components/common.jsx";
 import {
   Header,
@@ -419,6 +420,7 @@ function CheckoutModal({
     confirmedCount: 0,
     waitlistCount: 0
   });
+  const slotDragScroll = useDragScroll({ enabled: true });
 
   useBodyScrollLock(Boolean(service));
 
@@ -1013,7 +1015,10 @@ function CheckoutModal({
           </div>
           <div>
             <span className="mb-2 block text-sm font-bold">Time Slot</span>
-            <div className="services-slider -mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-3">
+            <div
+              className="services-slider drag-scroll -mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-3"
+              {...slotDragScroll}
+            >
               {slotState.loading ? (
                 Array.from({ length: 3 }).map((_, index) => (
                   <div
@@ -1161,7 +1166,7 @@ function CheckoutModal({
               status.type === "success"
                 ? "bg-[#2a1111] text-[#fca5a5]"
                 : status.type === "info"
-                  ? "bg-[#e0f2fe] text-[#075985]"
+                  ? "bg-[#24170d] text-[#f9c66d]"
                 : "bg-[#fee2e2] text-[#b91c1c]"
             }`}
           >
@@ -1559,8 +1564,8 @@ function App() {
         toastOptions={{
           style: {
             borderRadius: "18px",
-            border: "1px solid #d9e5df",
-            boxShadow: "0 18px 60px rgba(18, 57, 52, 0.16)",
+            border: "1px solid #35201f",
+            boxShadow: "0 18px 60px rgba(0, 0, 0, 0.28)",
             zIndex: 100000
           }
         }}
@@ -1687,3 +1692,4 @@ createRoot(document.getElementById("root")).render(
     </Provider>
   </React.StrictMode>
 );
+

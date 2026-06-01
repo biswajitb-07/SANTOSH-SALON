@@ -15,7 +15,7 @@ export function UsersPage({
   usersWithPhone
 }) {
   return (
-    <section className="soft-shadow rounded-3xl bg-white p-5 sm:p-6">
+    <section className="soft-shadow rounded-3xl bg-[var(--color-surface)] p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
@@ -45,7 +45,7 @@ export function UsersPage({
           </div>
         ))}
       </div>
-      <div className="mt-4 flex items-center gap-3 rounded-2xl border border-[#35201f] bg-white px-4 py-3 text-[#9db2ad] sm:hidden">
+      <div className="mt-4 flex items-center gap-3 rounded-2xl border border-[#35201f] bg-[var(--color-surface)] px-4 py-3 text-[#9db2ad] sm:hidden">
         <Search size={18} />
         <input
           className="w-full border-0 bg-transparent outline-none"

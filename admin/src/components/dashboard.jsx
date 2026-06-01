@@ -1,6 +1,6 @@
 export function StatCard({ icon: Icon, label, value, trend, tone }) {
   return (
-    <article className="soft-shadow rounded-3xl bg-white p-5">
+    <article className="soft-shadow rounded-3xl bg-[var(--color-surface)] p-5">
       <div className="flex items-start justify-between gap-3">
         <span className={`grid h-12 w-12 place-items-center rounded-2xl ${tone}`}>
           <Icon size={22} />

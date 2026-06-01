@@ -22,7 +22,7 @@ export function ServiceDialog({
   return (
     <div className="fixed inset-0 z-[9999] grid place-items-center bg-[#081311]/70 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
       <form
-        className="soft-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-5 sm:max-h-[90vh] sm:max-w-2xl sm:p-6"
+        className="soft-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl bg-[var(--color-surface)] p-5 sm:max-h-[90vh] sm:max-w-2xl sm:p-6"
         onSubmit={onSubmit}
       >
         <div className="flex items-start justify-between gap-3">
@@ -87,7 +87,7 @@ export function ServiceDialog({
             </span>
             <input
               accept="image/*"
-              className="h-12 w-full rounded-2xl border border-[#35201f] bg-white px-4 py-2 file:mr-4 file:rounded-xl file:border-0 file:bg-[#991b1b] file:px-4 file:py-2 file:font-black file:text-white outline-none focus:border-[#991b1b]"
+              className="h-12 w-full rounded-2xl border border-[#35201f] bg-[var(--color-surface)] px-4 py-2 file:mr-4 file:rounded-xl file:border-0 file:bg-[#991b1b] file:px-4 file:py-2 file:font-black file:text-white outline-none focus:border-[#991b1b]"
               onChange={onImageChange}
               type="file"
             />
@@ -168,7 +168,7 @@ export function BookingDialog({
   return (
     <div className="fixed inset-0 z-[9999] grid place-items-center bg-[#081311]/70 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
       <form
-        className="soft-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-5 sm:max-h-[90vh] sm:max-w-2xl sm:p-6"
+        className="soft-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl bg-[var(--color-surface)] p-5 sm:max-h-[90vh] sm:max-w-2xl sm:p-6"
         onSubmit={onSubmit}
       >
         <div className="flex items-start justify-between gap-3">
@@ -224,7 +224,7 @@ export function BookingDialog({
               Service
             </span>
             <select
-              className="h-12 w-full rounded-2xl border border-[#35201f] bg-white px-4 outline-none focus:border-[#991b1b]"
+              className="h-12 w-full rounded-2xl border border-[#35201f] bg-[var(--color-surface)] px-4 outline-none focus:border-[#991b1b]"
               onChange={(event) => {
                 const selectedService = serviceItems.find(
                   (service) => service.title === event.target.value

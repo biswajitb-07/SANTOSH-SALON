@@ -17,7 +17,7 @@ export function PublicLinkPage({
 }) {
   return (
     <section className="grid gap-5 lg:grid-cols-[1fr_360px]">
-      <article className="soft-shadow rounded-3xl bg-white p-5 sm:p-6">
+      <article className="soft-shadow rounded-3xl bg-[var(--color-surface)] p-5 sm:p-6">
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
           Public Link
         </p>
@@ -71,7 +71,7 @@ export function PlansPage({
   subscriptionStatus
 }) {
   return (
-    <section className="soft-shadow grid gap-5 rounded-3xl bg-white p-5 sm:p-6 lg:grid-cols-[1fr_380px] lg:items-center">
+    <section className="soft-shadow grid gap-5 rounded-3xl bg-[var(--color-surface)] p-5 sm:p-6 lg:grid-cols-[1fr_380px] lg:items-center">
       <div>
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
           Plans
@@ -159,7 +159,7 @@ export function SettingsPage({
   toggleShopClosed
 }) {
   return (
-    <section className="soft-shadow rounded-3xl bg-white p-5 sm:p-6">
+    <section className="soft-shadow rounded-3xl bg-[var(--color-surface)] p-5 sm:p-6">
       <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
         Settings
       </p>
@@ -212,7 +212,7 @@ export function SettingsPage({
             Close Message
           </span>
           <input
-            className="h-12 w-full rounded-2xl border border-[#35201f] bg-white px-4 outline-none focus:border-[#991b1b]"
+            className="h-12 w-full rounded-2xl border border-[#35201f] bg-[var(--color-surface)] px-4 outline-none focus:border-[#991b1b]"
             onChange={(event) =>
               setSettingsDraft((value) => ({
                 ...value,
@@ -238,7 +238,7 @@ export function SettingsPage({
               {label}
             </span>
             <input
-              className="h-12 w-full rounded-2xl border border-[#35201f] bg-white px-4 outline-none focus:border-[#991b1b]"
+              className="h-12 w-full rounded-2xl border border-[#35201f] bg-[var(--color-surface)] px-4 outline-none focus:border-[#991b1b]"
               onChange={(event) =>
                 setSettingsDraft((value) => ({
                   ...value,

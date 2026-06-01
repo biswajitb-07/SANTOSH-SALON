@@ -335,7 +335,7 @@ export function ContactPage({ user }) {
             [Mail, "hello@santoshsalon.local"],
             [Clock3, "Open daily, 6 AM - 11 PM"]
           ].map(([Icon, label]) => (
-            <div className="flex items-center gap-3 rounded-2xl bg-white/10 p-4" key={label}>
+            <div className="flex items-center gap-3 rounded-2xl bg-[rgba(255,255,255,0.08)] p-4" key={label}>
               <Icon className="text-[#f9c66d]" size={20} />
               <span className="font-bold">{label}</span>
             </div>

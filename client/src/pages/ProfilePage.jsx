@@ -677,7 +677,7 @@ export function ProfilePage({
                           {formatMoney(group.totalAmount)}
                         </span>
                         {group.totalCashfreeFee > 0 ? (
-                          <span className="rounded-full bg-[#fff7ed] px-3 py-2 text-[#c2410c]">
+                          <span className="rounded-full bg-[#24170d] px-3 py-2 text-[#f9c66d]">
                             Cashfree charge {formatMoney(group.totalCashfreeFee)}
                           </span>
                         ) : null}
@@ -718,8 +718,8 @@ export function ProfilePage({
       </div>
       ) : null}
       {bookingsOnly && selectedBookingGroup && typeof document !== "undefined" ? createPortal(
-        <div className="modal-fade fixed inset-0 z-[9999] flex items-end justify-center bg-black/70 px-3 py-3 backdrop-blur-md sm:items-center sm:px-4 sm:py-6">
-          <div className="queue-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-[#f9c66d]/15 bg-[#081311]/95 text-[#f4fbf8] sm:max-h-[90vh] sm:max-w-2xl sm:rounded-[2rem]">
+        <div className="modal-fade fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-3 py-3 backdrop-blur-md sm:px-5 sm:py-6">
+          <div className="queue-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-[1180px] overflow-y-auto rounded-3xl border border-[#f9c66d]/15 bg-[#081311]/95 text-[#f4fbf8] sm:max-h-[calc(100dvh-3rem)] sm:rounded-[2rem]">
             <div className="sticky top-0 z-10 border-b border-[#35201f] bg-[#081311]/95 p-4 backdrop-blur sm:p-6">
               <button
                 className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-full bg-[#0b1714] text-[#f4fbf8] transition hover:bg-[#2a1111] sm:right-6 sm:top-6"
@@ -881,7 +881,7 @@ export function ProfilePage({
                       </p>
                     ) : null}
                     {booking.cashfreeFee > 0 ? (
-                      <p className="mt-3 rounded-2xl bg-[#fff7ed] px-3 py-2 text-xs font-black text-[#c2410c]">
+                      <p className="mt-3 rounded-2xl bg-[#24170d] px-3 py-2 text-xs font-black text-[#f9c66d]">
                         Refund eligible amount is {formatMoney(booking.refundableAmount)}.
                         Cashfree charge {formatMoney(booking.cashfreeFee)} is
                         non-refundable.
@@ -905,3 +905,4 @@ export function ProfilePage({
     </section>
   );
 }
+

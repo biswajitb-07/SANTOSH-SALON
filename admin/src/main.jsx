@@ -69,7 +69,8 @@ import {
   ButtonSpinner,
   ConfirmDialog,
   PaginationControls,
-  UserAvatar
+  UserAvatar,
+  useDragScroll
 } from "./components/common.jsx";
 import { StatCard } from "./components/dashboard.jsx";
 import { BookingDialog, ServiceDialog } from "./components/dialogs.jsx";
@@ -516,6 +517,7 @@ function App() {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState("");
   const reindexingDatesRef = useRef(new Set());
+  const queueTabDragScroll = useDragScroll({ enabled: true });
 
   useEffect(() => {
     return onAuthStateChanged(auth, (currentUser) => {
@@ -2102,7 +2104,7 @@ function App() {
                 className={`flex h-12 w-full items-center gap-3 rounded-2xl px-4 text-left font-bold transition ${
                   activePage === key
                     ? "bg-[#991b1b] text-white shadow-lg shadow-[#991b1b]/25"
-                    : "text-white/72 hover:bg-white/10 hover:text-white"
+                    : "text-white/72 hover:bg-[rgba(255,255,255,0.08)] hover:text-white"
                 }`}
                 key={key}
                 onClick={() => navigateAdminPage(key)}
@@ -2135,7 +2137,7 @@ function App() {
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <button
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white shadow-sm lg:hidden"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[var(--color-surface)] shadow-sm lg:hidden"
                   onClick={() => setMobileMenuOpen((value) => !value)}
                   type="button"
                 >
@@ -2160,20 +2162,20 @@ function App() {
                 </span>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <div className="hidden items-center gap-2 rounded-2xl bg-white px-3 py-2 shadow-sm md:flex">
+                <div className="hidden items-center gap-2 rounded-2xl bg-[var(--color-surface)] px-3 py-2 shadow-sm md:flex">
                   <span className="text-xs font-bold text-[#9db2ad]">Today</span>
                   <span className="font-black text-[#f4fbf8]">
                     {String(activeQueueItems.length).padStart(2, "0")}
                   </span>
                 </div>
-                <div className="hidden items-center gap-2 rounded-2xl bg-white px-3 py-2 shadow-sm md:flex">
+                <div className="hidden items-center gap-2 rounded-2xl bg-[var(--color-surface)] px-3 py-2 shadow-sm md:flex">
                   <span className="text-xs font-bold text-[#9db2ad]">Tomorrow</span>
                   <span className="font-black text-[#f4fbf8]">
                     {String(tomorrowBookingCount).padStart(2, "0")}
                   </span>
                 </div>
                 {activePage === "users" ? (
-                  <div className="hidden min-w-[260px] items-center gap-3 rounded-2xl bg-white px-4 py-3 text-[#9db2ad] shadow-sm sm:flex">
+                  <div className="hidden min-w-[260px] items-center gap-3 rounded-2xl bg-[var(--color-surface)] px-4 py-3 text-[#9db2ad] shadow-sm sm:flex">
                     <Search size={18} />
                     <input
                       className="w-full border-0 bg-transparent outline-none"
@@ -2184,14 +2186,14 @@ function App() {
                   </div>
                 ) : null}
                 <button
-                  className="grid h-11 w-11 place-items-center rounded-2xl bg-white shadow-sm"
+                  className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--color-surface)] shadow-sm"
                   type="button"
                 >
                   <BellRing size={19} />
                 </button>
                 <button
                   aria-label="Owner profile"
-                  className="grid h-12 w-12 place-items-center rounded-2xl bg-white p-1 shadow-sm transition hover:bg-[#101a18]"
+                  className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--color-surface)] p-1 shadow-sm transition hover:bg-[#101a18]"
                   onClick={() => navigateAdminPage("settings")}
                   type="button"
                 >
@@ -2215,7 +2217,7 @@ function App() {
               type="button"
             />
             <aside
-              className={`absolute left-0 top-0 flex h-dvh w-[86vw] max-w-sm flex-col bg-white p-4 shadow-2xl transition-transform duration-300 ease-out ${
+              className={`absolute left-0 top-0 flex h-dvh w-[86vw] max-w-sm flex-col bg-[var(--color-surface)] p-4 shadow-2xl transition-transform duration-300 ease-out ${
                 mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
               }`}
             >
@@ -2278,7 +2280,7 @@ function App() {
 
           <div className="px-4 py-5 sm:px-6 lg:px-8">
             {notice ? (
-              <p className="mb-5 rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#f4fbf8] soft-shadow">
+              <p className="mb-5 rounded-2xl bg-[var(--color-surface)] px-4 py-3 text-sm font-black text-[#f4fbf8] soft-shadow">
                 {notice}
               </p>
             ) : null}
@@ -2287,7 +2289,7 @@ function App() {
             <section className="admin-hero soft-shadow overflow-hidden rounded-[2rem] p-5 text-white sm:p-7">
               <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
                 <div>
-                  <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/12 px-4 py-2 text-sm font-bold text-[#f9c66d] ring-1 ring-white/20">
+                  <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[rgba(255,255,255,0.08)] px-4 py-2 text-sm font-bold text-[#f9c66d] ring-1 ring-white/20">
                     <Sparkles size={16} />
                     Real-time dashboard
                   </div>
@@ -2299,11 +2301,11 @@ function App() {
                     public queue link with customers.
                   </p>
                 </div>
-                <div className="rounded-3xl bg-white/14 p-4 backdrop-blur">
+                <div className="rounded-3xl bg-[rgba(255,255,255,0.08)] p-4 backdrop-blur">
                   <p className="text-sm font-bold text-white/72">
                     Public queue link
                   </p>
-                  <div className="mt-3 flex items-center gap-2 rounded-2xl bg-white px-3 py-3 text-[#f4fbf8]">
+                  <div className="mt-3 flex items-center gap-2 rounded-2xl bg-[var(--color-surface)] px-3 py-3 text-[#f4fbf8]">
                     <p className="min-w-0 flex-1 truncate text-sm font-bold">
                       santosh-salon.web.app/q/santosh
                     </p>
@@ -2345,7 +2347,7 @@ function App() {
             </section>
 
             <section className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_0.9fr]">
-              <article className="chart-card soft-shadow rounded-3xl bg-white p-4 sm:p-6">
+              <article className="chart-card soft-shadow rounded-3xl bg-[var(--color-surface)] p-4 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
@@ -2404,7 +2406,7 @@ function App() {
                 )}
               </article>
 
-              <article className="soft-shadow rounded-3xl bg-white p-4 sm:p-6">
+              <article className="soft-shadow rounded-3xl bg-[var(--color-surface)] p-4 sm:p-6">
                 <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
                   Today money
                 </p>
@@ -2445,7 +2447,7 @@ function App() {
             </section>
 
             <section className="mt-5 grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-              <article className="soft-shadow rounded-3xl bg-white p-4 sm:p-6">
+              <article className="soft-shadow rounded-3xl bg-[var(--color-surface)] p-4 sm:p-6">
                 <h3 className="text-2xl font-black">Service split</h3>
                 {hasServiceSplit ? (
                   <div className="mt-4 grid gap-4 sm:grid-cols-[180px_1fr] sm:items-center">
@@ -2496,7 +2498,7 @@ function App() {
                 )}
               </article>
 
-              <article className="chart-card soft-shadow rounded-3xl bg-white p-4 sm:p-6">
+              <article className="chart-card soft-shadow rounded-3xl bg-[var(--color-surface)] p-4 sm:p-6">
                 <h3 className="text-2xl font-black">Hourly bookings today</h3>
                 {hasHourlyRush ? (
                   <div className="mt-4 h-48">
@@ -2521,7 +2523,7 @@ function App() {
             </section>
 
             <section className="mt-5 grid gap-5 xl:grid-cols-2">
-              <article className="soft-shadow rounded-3xl bg-white p-4 sm:p-6">
+              <article className="soft-shadow rounded-3xl bg-[var(--color-surface)] p-4 sm:p-6">
                 <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
                   Queue health
                 </p>
@@ -2575,7 +2577,7 @@ function App() {
                 )}
               </article>
 
-              <article className="soft-shadow rounded-3xl bg-white p-4 sm:p-6">
+              <article className="soft-shadow rounded-3xl bg-[var(--color-surface)] p-4 sm:p-6">
                 <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
                   Payments
                 </p>
@@ -2601,7 +2603,7 @@ function App() {
                 )}
               </article>
 
-              <article className="soft-shadow rounded-3xl bg-white p-4 sm:p-6 xl:col-span-2">
+              <article className="soft-shadow rounded-3xl bg-[var(--color-surface)] p-4 sm:p-6 xl:col-span-2">
                 <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
                   Refunds
                 </p>
@@ -2628,7 +2630,7 @@ function App() {
               </article>
             </section>
 
-            <section className="soft-shadow mt-5 grid gap-4 rounded-3xl bg-white p-4 sm:p-6 lg:grid-cols-[1fr_1.2fr] lg:items-center">
+            <section className="soft-shadow mt-5 grid gap-4 rounded-3xl bg-[var(--color-surface)] p-4 sm:p-6 lg:grid-cols-[1fr_1.2fr] lg:items-center">
               <div className="rounded-3xl bg-[#101a18] p-5">
                 <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
                   Now serving
@@ -2658,7 +2660,7 @@ function App() {
                   Call Next
                 </button>
                 <button
-                  className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#fff7ed] px-5 font-black text-[#c2410c] disabled:opacity-60"
+                  className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#24170d] px-5 font-black text-[#f9c66d] disabled:opacity-60"
                   disabled={!currentCustomer || actionLoading === `customer-${currentCustomer.id}-skipped`}
                   onClick={() => updateCustomerStatus(currentCustomer, "skipped")}
                   type="button"
@@ -2681,7 +2683,7 @@ function App() {
             </div>
 
             {activePage === "queue" ? (
-              <section className="soft-shadow overflow-hidden rounded-3xl bg-white">
+              <section className="soft-shadow overflow-hidden rounded-3xl bg-[var(--color-surface)]">
                 <div className="grid gap-4 border-b border-[#35201f] p-4 sm:p-6 xl:grid-cols-[1fr_auto] xl:items-center">
                   <div>
                     <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
@@ -2707,7 +2709,7 @@ function App() {
                       Add Booking
                     </button>
                     <button
-                      className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#fff7ed] px-4 font-black text-[#c2410c] disabled:opacity-60"
+                      className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#24170d] px-4 font-black text-[#f9c66d] disabled:opacity-60"
                       disabled={actionLoading === "close-day"}
                       onClick={closeDayAndTransferBookings}
                       type="button"
@@ -2733,7 +2735,10 @@ function App() {
                         Token {currentCustomer?.token || "-"}
                       </span>
                     </div>
-                    <div className="queue-control-scroll mt-4 flex gap-2 overflow-x-auto pb-1">
+                    <div
+                      className="queue-control-scroll drag-scroll mt-4 flex gap-2 overflow-x-auto pb-1"
+                      {...queueTabDragScroll}
+                    >
                       {queueStatusTabs.map((tab) => {
                         const count = todaysQueueItems.filter((item) =>
                           tab.statuses.includes(
@@ -2757,7 +2762,7 @@ function App() {
                             <span
                               className={`grid h-6 min-w-6 place-items-center rounded-full px-2 text-xs ${
                                 active
-                                  ? "bg-white/20 text-white"
+                                  ? "bg-[rgba(255,255,255,0.10)] text-white"
                                   : "bg-[#2a1111] text-[#f9c66d]"
                               }`}
                             >
@@ -2872,7 +2877,7 @@ function App() {
                                 {actionLoading === `customer-${customer.id}-in_chair` ? <ButtonSpinner dark /> : "Call"}
                               </button>
                               <button
-                                className="grid h-11 place-items-center rounded-xl bg-[#fff7ed] px-2 text-xs font-black text-[#c2410c] disabled:opacity-60"
+                                className="grid h-11 place-items-center rounded-xl bg-[#24170d] px-2 text-xs font-black text-[#f9c66d] disabled:opacity-60"
                                 disabled={
                                   !["waiting", "in_chair"].includes(
                                     String(customer.status || "").toLowerCase()
@@ -2944,7 +2949,7 @@ function App() {
             ) : null}
 
             {activePage === "services" ? (
-              <section className="soft-shadow rounded-3xl bg-white p-5 sm:p-6">
+              <section className="soft-shadow rounded-3xl bg-[var(--color-surface)] p-5 sm:p-6">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
@@ -2975,7 +2980,7 @@ function App() {
                   <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                     {paginatedServices.map((service) => (
                       <article
-                        className="overflow-hidden rounded-3xl border border-[#35201f] bg-white shadow-sm"
+                        className="overflow-hidden rounded-3xl border border-[#35201f] bg-[var(--color-surface)] shadow-sm"
                         key={service.id}
                       >
                         {service.imageUrl ? (
@@ -3050,7 +3055,7 @@ function App() {
             ) : null}
 
             {activePage === "refunds" ? (
-              <section className="soft-shadow rounded-3xl bg-white p-5 sm:p-6">
+              <section className="soft-shadow rounded-3xl bg-[var(--color-surface)] p-5 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
@@ -3096,7 +3101,7 @@ function App() {
                               {refund.customerEmail}
                             </p>
                             {Number(refund.bookingGroupSize || 1) > 1 ? (
-                              <p className="mt-1 text-xs font-black text-[#c2410c]">
+                              <p className="mt-1 text-xs font-black text-[#f9c66d]">
                                 Partial refund: person {refund.bookingGroupIndex}/
                                 {refund.bookingGroupSize}
                               </p>
@@ -3108,7 +3113,7 @@ function App() {
                           <td className="px-5 py-5 font-black text-[#991b1b]">
                             Rs. {Number(refund.amount || 0).toFixed(2)}
                             {Number(refund.cashfreeFee || 0) > 0 ? (
-                              <p className="mt-1 text-xs font-bold text-[#c2410c]">
+                              <p className="mt-1 text-xs font-bold text-[#f9c66d]">
                                 Fee not refunded: Rs.{" "}
                                 {Number(refund.cashfreeFee || 0).toFixed(2)}
                               </p>
@@ -3129,7 +3134,7 @@ function App() {
                                     ? "bg-[#fee2e2] text-[#b91c1c]"
                                     : refund.status === "processing"
                                       ? "bg-[#24170d] text-[#0369a1]"
-                                      : "bg-[#fff7ed] text-[#c2410c]"
+                                      : "bg-[#24170d] text-[#f9c66d]"
                               }`}
                             >
                               {statusLabel(refund.status)}
@@ -3300,3 +3305,4 @@ createRoot(document.getElementById("root")).render(
     </Provider>
   </React.StrictMode>
 );
+

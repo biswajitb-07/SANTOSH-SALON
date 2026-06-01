@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 export const getUserPhotoUrl = (user) =>
   user?.photoURL ||
@@ -55,6 +55,7 @@ export function UserAvatar({ user, size = "h-10 w-10" }) {
 export function ButtonSpinner({ dark = false }) {
   return (
     <span
+      aria-hidden="true"
       className={`h-4 w-4 animate-spin rounded-full border-2 ${
         dark
           ? "border-[#f9c66d]/25 border-t-[#f9c66d]"
@@ -62,6 +63,266 @@ export function ButtonSpinner({ dark = false }) {
       }`}
     />
   );
+}
+
+const buttonVariants = {
+  primary: "button-primary",
+  secondary: "button-secondary",
+  gold: "button-gold",
+  danger: "button-danger",
+  ghost: "button-ghost",
+  icon: "button-icon"
+};
+
+export function Button({
+  as: Component = "button",
+  children,
+  className = "",
+  disabled = false,
+  fullWidth = false,
+  icon,
+  loading = false,
+  loadingLabel = "Please wait...",
+  type = "button",
+  variant = "primary",
+  ...props
+}) {
+  return (
+    <Component
+      className={`ui-button ${buttonVariants[variant] || buttonVariants.primary} ${
+        fullWidth ? "w-full" : ""
+      } ${className}`}
+      disabled={disabled || loading}
+      type={Component === "button" ? type : undefined}
+      {...props}
+    >
+      {loading ? <ButtonSpinner dark={variant === "gold"} /> : icon}
+      <span>{loading ? loadingLabel : children}</span>
+    </Component>
+  );
+}
+
+export function Field({ children, className = "" }) {
+  return <label className={`ui-field ${className}`}>{children}</label>;
+}
+
+export function FieldLabel({ children, required = false }) {
+  return (
+    <span className="ui-field-label">
+      {children}
+      {required ? <span aria-hidden="true"> *</span> : null}
+    </span>
+  );
+}
+
+export function FieldInput({ as: Component = "input", error, className = "", ...props }) {
+  return (
+    <Component
+      aria-invalid={error ? "true" : undefined}
+      className={`ui-input ${error ? "ui-input-error" : ""} ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function FieldHelper({ children, id }) {
+  if (!children) return null;
+  return (
+    <span className="ui-field-helper" id={id}>
+      {children}
+    </span>
+  );
+}
+
+export function FieldError({ children, id }) {
+  if (!children) return null;
+  return (
+    <span className="ui-field-error" id={id} role="alert">
+      {children}
+    </span>
+  );
+}
+
+const modalSizes = {
+  sm: "max-w-[480px]",
+  md: "max-w-[640px]",
+  lg: "max-w-[860px]",
+  xl: "max-w-[1100px]"
+};
+
+export function ModalShell({
+  children,
+  footer,
+  isOpen,
+  onClose,
+  size = "md",
+  title,
+  closeLabel = "Close dialog",
+  closeOnBackdrop = true
+}) {
+  const titleId = useId();
+  const dialogRef = useRef(null);
+  const lastFocusRef = useRef(null);
+
+  useBodyScrollLock(isOpen);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    lastFocusRef.current = document.activeElement;
+    const dialog = dialogRef.current;
+    const focusable = dialog?.querySelector(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    focusable?.focus?.();
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        onClose?.();
+        return;
+      }
+      if (event.key !== "Tab" || !dialog) return;
+      const items = Array.from(
+        dialog.querySelectorAll(
+          'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+        )
+      );
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      lastFocusRef.current?.focus?.();
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="modal-overlay"
+      onMouseDown={(event) => {
+        if (closeOnBackdrop && event.target === event.currentTarget) onClose?.();
+      }}
+    >
+      <section
+        aria-labelledby={titleId}
+        aria-modal="true"
+        className={`modal-card ${modalSizes[size] || modalSizes.md}`}
+        ref={dialogRef}
+        role="dialog"
+      >
+        <header className="modal-header">
+          <h2 className="modal-title" id={titleId}>
+            {title}
+          </h2>
+          <button aria-label={closeLabel} className="modal-close" onClick={onClose} type="button">
+            X
+          </button>
+        </header>
+        <div className="modal-body">{children}</div>
+        {footer ? <footer className="modal-footer">{footer}</footer> : null}
+      </section>
+    </div>
+  );
+}
+
+const statusLabels = {
+  pending: "Pending",
+  confirmed: "Confirmed",
+  waiting: "Confirmed",
+  waitlist: "Waiting",
+  serving: "Serving",
+  in_chair: "In Chair",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  refunded: "Refunded",
+  processing: "Processing",
+  reviewing: "Review",
+  rejected: "Rejected",
+  open: "Open",
+  working: "Working",
+  in_progress: "Working",
+  resolved: "Resolved"
+};
+
+export function StatusPill({ status, children, className = "" }) {
+  const normalized = String(status || "pending").toLowerCase();
+  return (
+    <span className={`status-pill status-${normalized} ${className}`}>
+      {normalized === "serving" || normalized === "in_chair" ? (
+        <span className="status-dot" aria-hidden="true" />
+      ) : null}
+      {children || statusLabels[normalized] || status}
+    </span>
+  );
+}
+
+export function Skeleton({ className = "" }) {
+  return <span aria-hidden="true" className={`skeleton ${className}`} />;
+}
+
+export function useDragScroll({ enabled = true } = {}) {
+  const dragRef = useRef({
+    active: false,
+    dragged: false,
+    scrollLeft: 0,
+    startX: 0
+  });
+
+  const endDrag = (event) => {
+    const state = dragRef.current;
+    state.active = false;
+    event.currentTarget.classList.remove("is-dragging");
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  };
+
+  return {
+    onClickCapture: (event) => {
+      const state = dragRef.current;
+      if (!state.dragged) return;
+      event.preventDefault();
+      event.stopPropagation();
+      state.dragged = false;
+    },
+    onPointerCancel: endDrag,
+    onPointerDown: (event) => {
+      if (!enabled || (event.button !== undefined && event.button !== 0)) return;
+      const element = event.currentTarget;
+      if (element.scrollWidth <= element.clientWidth) return;
+
+      dragRef.current = {
+        active: true,
+        dragged: false,
+        scrollLeft: element.scrollLeft,
+        startX: event.clientX
+      };
+      element.classList.add("is-dragging");
+      element.setPointerCapture?.(event.pointerId);
+    },
+    onPointerLeave: (event) => {
+      if (dragRef.current.active) endDrag(event);
+    },
+    onPointerMove: (event) => {
+      const state = dragRef.current;
+      if (!enabled || !state.active) return;
+
+      const distance = event.clientX - state.startX;
+      if (Math.abs(distance) > 5) state.dragged = true;
+      event.currentTarget.scrollLeft = state.scrollLeft - distance;
+      if (state.dragged) event.preventDefault();
+    },
+    onPointerUp: endDrag
+  };
 }
 
 export function useBodyScrollLock(locked) {
@@ -133,35 +394,22 @@ export function ConfirmDialog({
   onCancel,
   onConfirm
 }) {
-  useBodyScrollLock(true);
-
   return (
-    <div className="fixed inset-0 z-[9999] grid place-items-center bg-black/65 px-3 py-3 backdrop-blur-md sm:px-4 sm:py-6">
-      <div className="queue-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-[2rem] border border-[#f9c66d]/15 bg-[#081311]/95 p-5 text-[#f4fbf8] sm:max-h-[90vh] sm:max-w-2xl sm:p-6">
-        <h2 className="text-2xl font-black text-[#f4fbf8]">{title}</h2>
-        <p className="mt-3 leading-7 text-[#9db2ad]">{message}</p>
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <button
-            className="min-h-12 rounded-2xl border border-[#35201f] bg-[#101a18] px-5 font-black text-[#f4fbf8]"
-            disabled={loading}
-            onClick={onCancel}
-            type="button"
-          >
-            Cancel
-          </button>
-          <button
-            className={`flex min-h-12 items-center justify-center gap-2 rounded-2xl px-5 font-black text-white disabled:opacity-60 ${
-              tone === "danger" ? "bg-[#7f1d1d]" : "bg-[#991b1b]"
-            }`}
-            disabled={loading}
-            onClick={onConfirm}
-            type="button"
-          >
-            {loading ? <ButtonSpinner /> : null}
-            {loading ? "Please wait..." : confirmLabel}
-          </button>
-        </div>
+    <ModalShell isOpen onClose={onCancel} size="sm" title={title}>
+      <p className="leading-7 text-[var(--color-muted)]">{message}</p>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <Button disabled={loading} onClick={onCancel} variant="secondary">
+          Cancel
+        </Button>
+        <Button
+          loading={loading}
+          loadingLabel="Please wait..."
+          onClick={onConfirm}
+          variant={tone === "danger" ? "danger" : "primary"}
+        >
+          {confirmLabel}
+        </Button>
       </div>
-    </div>
+    </ModalShell>
   );
 }

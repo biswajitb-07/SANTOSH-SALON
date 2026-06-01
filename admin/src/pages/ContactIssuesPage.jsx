@@ -29,7 +29,7 @@ const statusClass = {
   open: "bg-[#451011] text-[#ffb4b4]",
   pending: "bg-[#451011] text-[#ffb4b4]",
   in_progress: "bg-[#3a2a16] text-[#ffd279]",
-  resolved: "bg-[#10281f] text-[#7de2ae]",
+  resolved: "bg-[#24170d] text-[#f9c66d]",
   deleted: "bg-[#241f1f] text-[#aebfba]"
 };
 
@@ -229,7 +229,7 @@ export function ContactIssuesPage() {
                       Working
                     </button>
                     <button
-                      className="flex min-h-10 items-center gap-2 rounded-2xl bg-[#10281f] px-3 font-bold text-[#7de2ae] disabled:opacity-60"
+                      className="flex min-h-10 items-center gap-2 rounded-2xl bg-[#24170d] px-3 font-bold text-[#f9c66d] disabled:opacity-60"
                       disabled={actionLoading === `${issue.id}-resolved`}
                       onClick={() => updateIssueStatus(issue.id, "resolved")}
                       type="button"
