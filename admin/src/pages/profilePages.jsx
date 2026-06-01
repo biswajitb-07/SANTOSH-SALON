@@ -4,10 +4,10 @@ import {
   Copy,
   CreditCard,
   ExternalLink,
-  QrCode,
   Save,
   XCircle
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { ButtonSpinner } from "../components/common.jsx";
 
 export function PublicLinkPage({
@@ -15,8 +15,12 @@ export function PublicLinkPage({
   copyPublicLink,
   publicQueueLink
 }) {
+  const originalWebsiteLink = publicQueueLink.includes("/q/")
+    ? publicQueueLink.split("/q/")[0]
+    : publicQueueLink;
+
   return (
-    <section className="grid gap-5 lg:grid-cols-[1fr_360px]">
+    <section className="grid gap-5 lg:grid-cols-[1fr_390px]">
       <article className="soft-shadow rounded-3xl bg-[var(--color-surface)] p-5 sm:p-6">
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
           Public Link
@@ -26,12 +30,40 @@ export function PublicLinkPage({
           Customers can use this link to open the salon page, choose a
           service, pay, and join the queue.
         </p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <a
+            className="rounded-3xl border border-[#5a2525]/70 bg-[#0b1714] p-4 transition hover:border-[#f9c66d]/40"
+            href={originalWebsiteLink}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#fca5a5]">
+              Original website
+            </p>
+            <p className="mt-2 break-all text-sm font-black text-white">
+              {originalWebsiteLink}
+            </p>
+          </a>
+          <a
+            className="rounded-3xl border border-[#5a2525]/70 bg-[#0b1714] p-4 transition hover:border-[#f9c66d]/40"
+            href={publicQueueLink}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#fca5a5]">
+              Queue booking page
+            </p>
+            <p className="mt-2 break-all text-sm font-black text-white">
+              {publicQueueLink}
+            </p>
+          </a>
+        </div>
         <div className="mt-5 flex flex-col gap-3 rounded-3xl bg-[#101a18] p-4 sm:flex-row sm:items-center">
           <p className="min-w-0 flex-1 break-all font-black text-[#f4fbf8]">
             {publicQueueLink}
           </p>
           <button
-            className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#081311] px-4 font-black text-white disabled:opacity-60"
+            className="action-chip action-copy h-11 px-4 disabled:opacity-60"
             disabled={actionLoading === "copy-link"}
             onClick={copyPublicLink}
             type="button"
@@ -42,20 +74,39 @@ export function PublicLinkPage({
         </div>
       </article>
       <article className="soft-shadow rounded-3xl border border-[#f9c66d]/15 bg-[#101a18] p-5 text-[#f4fbf8] sm:p-6">
-        <QrCode className="text-[#f9c66d]" size={34} />
-        <h3 className="mt-5 text-2xl font-black text-[#f4fbf8]">QR placeholder</h3>
+        <div className="rounded-[1.75rem] border border-[#f9c66d]/25 bg-[#f6f1e5] p-4 shadow-2xl shadow-black/30">
+          <QRCodeSVG
+            bgColor="#f6f1e5"
+            fgColor="#07110f"
+            includeMargin
+            level="H"
+            size={240}
+            style={{ height: "auto", width: "100%" }}
+            value={publicQueueLink}
+          />
+        </div>
+        <h3 className="mt-5 text-2xl font-black text-[#f4fbf8]">Scan to book</h3>
         <p className="mt-2 leading-7 text-[#9db2ad]">
-          QR generation library can be added next; the link itself is
-          already copy-ready.
+          This QR opens the live customer queue page directly.
         </p>
-        <a
-          className="mt-5 flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/20 bg-[#24170d] px-4 font-black text-[#f9c66d] transition hover:bg-[#2a1111]"
-          href={publicQueueLink}
-          rel="noreferrer"
-          target="_blank"
-        >
-          <ExternalLink size={18} /> Open Link
-        </a>
+        <div className="mt-5 grid gap-3">
+          <a
+            className="action-chip action-call h-11 px-4"
+            href={publicQueueLink}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <ExternalLink size={18} /> Open Queue Link
+          </a>
+          <a
+            className="action-chip action-export h-11 px-4"
+            href={originalWebsiteLink}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <ExternalLink size={18} /> Open Website
+          </a>
+        </div>
       </article>
     </section>
   );

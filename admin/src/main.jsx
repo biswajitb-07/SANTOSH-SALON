@@ -96,7 +96,7 @@ import "./styles.css";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const STAFF_COUNT = 3;
 const DAILY_CONFIRMED_LIMIT = 35;
-const BOOKING_START_HOUR = 6;
+const SLOT_START_HOUR = 7;
 const BOOKING_END_HOUR = 23;
 const LUNCH_START_HOUR = 13;
 const LUNCH_END_HOUR = 14;
@@ -112,7 +112,9 @@ const queueStatusTabs = [
   { key: "skipped", label: "Skip", statuses: ["skipped"] }
 ];
 
-const CLIENT_URL = import.meta.env.VITE_CLIENT_URL || "http://localhost:5173";
+const CLIENT_URL =
+  import.meta.env.VITE_CLIENT_URL ||
+  "https://santosh-salon.web.app";
 const ADMIN_ALLOWED_EMAILS = (import.meta.env.VITE_ADMIN_ALLOWED_EMAILS || "")
   .split(",")
   .map((email) => email.trim().toLowerCase())
@@ -149,7 +151,7 @@ const defaultSalonProfile = {
   slug: "santosh",
   phone: "+91 98765 43210",
   address: "Main Market Road, Near City Chowk",
-  openingTime: "06:00",
+  openingTime: "07:00",
   closingTime: "23:00",
   manualShopClosed: false,
   manualCloseReason: ""
@@ -186,7 +188,7 @@ const formatSlotTime = (hour, minute) => {
 const createTimeSlots = () => {
   const slots = [];
 
-  for (let hour = BOOKING_START_HOUR; hour < BOOKING_END_HOUR; hour += 1) {
+  for (let hour = SLOT_START_HOUR; hour < BOOKING_END_HOUR; hour += 1) {
     if (hour >= LUNCH_START_HOUR && hour < LUNCH_END_HOUR) continue;
 
     for (let minute = 0; minute < 60; minute += SLOT_MINUTES) {
@@ -434,6 +436,11 @@ const statusLabel = (status) =>
   String(status || "waiting")
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const statusTone = (status) =>
+  String(status || "pending")
+    .toLowerCase()
+    .replace(/\s+/g, "_");
 
 const getRequestErrorMessage = (error, fallback) =>
   error?.data?.error ||
@@ -2635,7 +2642,7 @@ function App() {
                 ) : (
                   <ChartEmpty
                     className="mt-4 h-60"
-                    text="Cashfree, COD, and admin-created booking mix will show here."
+                    text="Cashfree, pay at salon, and admin-created booking mix will show here."
                     title="No payment data yet"
                   />
                 )}
@@ -2682,14 +2689,14 @@ function App() {
                       {currentCustomer?.name || "No active customer"}
                     </p>
                   </div>
-                  <span className="rounded-full bg-[#2a1111] px-4 py-2 text-sm font-black text-[#fca5a5]">
+                  <span className={`status-action-chip status-action-${statusTone(currentCustomer?.status || "open")}`}>
                     {currentCustomer ? statusLabel(currentCustomer.status) : "Idle"}
                   </span>
                 </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
                 <button
-                  className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 font-black text-white shadow-lg shadow-[#991b1b]/20 disabled:opacity-60"
+                  className="action-chip action-call min-h-14 px-5 disabled:opacity-60"
                   disabled={actionLoading.startsWith("customer-")}
                   onClick={callNextCustomer}
                   type="button"
@@ -2698,7 +2705,7 @@ function App() {
                   Call Next
                 </button>
                 <button
-                  className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#24170d] px-5 font-black text-[#f9c66d] disabled:opacity-60"
+                  className="action-chip action-skip min-h-14 px-5 disabled:opacity-60"
                   disabled={!currentCustomer || actionLoading === `customer-${currentCustomer.id}-skipped`}
                   onClick={() => updateCustomerStatus(currentCustomer, "skipped")}
                   type="button"
@@ -2707,7 +2714,7 @@ function App() {
                   Skip
                 </button>
                 <button
-                  className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#2a1111] px-5 font-black text-[#fca5a5] disabled:opacity-60"
+                  className="action-chip action-done min-h-14 px-5 disabled:opacity-60"
                   disabled={!currentCustomer || actionLoading === `customer-${currentCustomer.id}-completed`}
                   onClick={() => updateCustomerStatus(currentCustomer, "completed")}
                   type="button"
@@ -2731,7 +2738,7 @@ function App() {
                   </div>
                   <div className="grid gap-2 sm:grid-cols-3">
                     <button
-                      className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#081311] px-4 font-black text-white"
+                      className="action-chip action-export min-h-12 px-4"
                       onClick={exportQueue}
                       type="button"
                     >
@@ -2739,7 +2746,7 @@ function App() {
                       Export
                     </button>
                     <button
-                      className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-4 font-black text-white"
+                      className="action-chip action-add min-h-12 px-4"
                       onClick={openAdminBookingDialog}
                       type="button"
                     >
@@ -2747,7 +2754,7 @@ function App() {
                       Add Booking
                     </button>
                     <button
-                      className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#24170d] px-4 font-black text-[#f9c66d] disabled:opacity-60"
+                      className="action-chip action-close min-h-12 px-4 disabled:opacity-60"
                       disabled={actionLoading === "close-day"}
                       onClick={closeDayAndTransferBookings}
                       type="button"
@@ -2823,7 +2830,7 @@ function App() {
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       <button
-                        className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-3 text-sm font-black text-white shadow-lg shadow-[#991b1b]/15 disabled:opacity-60"
+                        className="action-chip action-call min-h-12 px-3 text-sm disabled:opacity-60"
                         disabled={actionLoading.startsWith("customer-")}
                         onClick={callNextCustomer}
                         type="button"
@@ -2832,7 +2839,7 @@ function App() {
                         <span className="hidden sm:inline">Call</span>
                       </button>
                       <button
-                        className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#24170d] px-3 text-sm font-black text-[#f9c66d] disabled:opacity-60"
+                        className="action-chip action-skip min-h-12 px-3 text-sm disabled:opacity-60"
                         disabled={!currentCustomer || actionLoading === `customer-${currentCustomer.id}-skipped`}
                         onClick={() => updateCustomerStatus(currentCustomer, "skipped")}
                         type="button"
@@ -2841,7 +2848,7 @@ function App() {
                         <span className="hidden sm:inline">Skip</span>
                       </button>
                       <button
-                        className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#2a1111] px-3 text-sm font-black text-[#fca5a5] disabled:opacity-60"
+                        className="action-chip action-done min-h-12 px-3 text-sm disabled:opacity-60"
                         disabled={!currentCustomer || actionLoading === `customer-${currentCustomer.id}-completed`}
                         onClick={() => updateCustomerStatus(currentCustomer, "completed")}
                         type="button"
@@ -2896,14 +2903,14 @@ function App() {
                             {statusLabel(customer.paymentStatus)}
                           </td>
                           <td className="px-4 py-4">
-                            <span className="inline-flex h-8 min-w-24 items-center justify-center rounded-full bg-[#24170d] px-3 text-xs font-black text-[#991b1b]">
+                            <span className={`status-action-chip status-action-${statusTone(customer.status)} text-xs`}>
                               {statusLabel(customer.status)}
                             </span>
                           </td>
                           <td className="px-4 py-4">
                             <div className="grid grid-cols-[56px_56px_62px_56px_66px] gap-2">
                               <button
-                                className="grid h-11 place-items-center rounded-xl bg-[#2a1111] px-2 text-xs font-black text-[#fca5a5] disabled:opacity-60"
+                                className="action-chip action-compact action-call h-11 rounded-xl text-xs disabled:opacity-60"
                                 disabled={
                                   String(customer.status || "").toLowerCase() !==
                                     "waiting" ||
@@ -2915,7 +2922,7 @@ function App() {
                                 {actionLoading === `customer-${customer.id}-in_chair` ? <ButtonSpinner dark /> : "Call"}
                               </button>
                               <button
-                                className="grid h-11 place-items-center rounded-xl bg-[#24170d] px-2 text-xs font-black text-[#f9c66d] disabled:opacity-60"
+                                className="action-chip action-compact action-skip h-11 rounded-xl text-xs disabled:opacity-60"
                                 disabled={
                                   !["waiting", "in_chair"].includes(
                                     String(customer.status || "").toLowerCase()
@@ -2928,7 +2935,7 @@ function App() {
                                 {actionLoading === `customer-${customer.id}-skipped` ? <ButtonSpinner dark /> : "Skip"}
                               </button>
                               <button
-                                className="grid h-11 place-items-center rounded-xl bg-[#24170d] px-2 text-xs font-black text-[#f9c66d] disabled:opacity-60"
+                                className="action-chip action-compact action-done h-11 rounded-xl text-xs disabled:opacity-60"
                                 disabled={
                                   !["waiting", "in_chair"].includes(
                                     String(customer.status || "").toLowerCase()
@@ -2941,14 +2948,14 @@ function App() {
                                 {actionLoading === `customer-${customer.id}-completed` ? <ButtonSpinner dark /> : "Done"}
                               </button>
                               <button
-                                className="grid h-11 place-items-center rounded-xl bg-[#101a18] px-2 text-xs font-black text-[#f4fbf8]"
+                                className="action-chip action-compact action-edit h-11 rounded-xl text-xs"
                                 onClick={() => openBookingEditor(customer)}
                                 type="button"
                               >
                                 Edit
                               </button>
                               <button
-                                className="grid h-11 place-items-center rounded-xl bg-[#fee2e2] px-2 text-xs font-black text-[#b91c1c] disabled:opacity-60"
+                                className="action-chip action-compact action-delete h-11 rounded-xl text-xs disabled:opacity-60"
                                 disabled={actionLoading === `booking-delete-${customer.id}`}
                                 onClick={() =>
                                   setConfirmDialog({
@@ -3046,7 +3053,7 @@ function App() {
                         </div>
                           <div className="mt-4 grid grid-cols-2 gap-2">
                             <button
-                              className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#101a18] text-sm font-black text-[#f4fbf8]"
+                              className="action-chip action-edit h-11 text-sm"
                               onClick={() => editService(service)}
                               type="button"
                             >
@@ -3054,7 +3061,7 @@ function App() {
                               Edit
                             </button>
                             <button
-                              className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#fee2e2] text-sm font-black text-[#b91c1c] disabled:opacity-60"
+                              className="action-chip action-delete h-11 text-sm disabled:opacity-60"
                               disabled={actionLoading === `service-delete-${service.id}`}
                               onClick={() =>
                                 setConfirmDialog({
@@ -3164,24 +3171,14 @@ function App() {
                             {refund.orderId || "-"}
                           </td>
                           <td className="px-5 py-5">
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-black ${
-                                refund.status === "completed"
-                                  ? "bg-[#2a1111] text-[#fca5a5]"
-                                  : ["rejected", "failed"].includes(refund.status)
-                                    ? "bg-[#fee2e2] text-[#b91c1c]"
-                                    : refund.status === "processing"
-                                      ? "bg-[#24170d] text-[#f9c66d]"
-                                      : "bg-[#24170d] text-[#f9c66d]"
-                              }`}
-                            >
+                            <span className={`status-action-chip status-action-${statusTone(refund.status)} text-xs`}>
                               {statusLabel(refund.status)}
                             </span>
                           </td>
                           <td className="px-5 py-5">
                             <div className="flex min-w-max items-center gap-2">
                               <button
-                                className="flex min-h-10 items-center gap-2 rounded-2xl bg-[#24170d] px-4 py-2 text-sm font-black text-[#f9c66d] disabled:opacity-60"
+                                className="action-chip action-check min-h-10 px-4 py-2 text-sm disabled:opacity-60"
                                 disabled={actionLoading === `refund-${refund.id}-sync`}
                                 onClick={() => syncCashfreeRefundStatus(refund)}
                                 type="button"
@@ -3198,12 +3195,14 @@ function App() {
                                 ["rejected", "Reject"]
                               ].map(([status, label]) => (
                                 <button
-                                  className={`flex min-h-10 items-center gap-2 rounded-2xl px-4 py-2 text-sm font-black disabled:opacity-60 ${
+                                  className={`action-chip min-h-10 px-4 py-2 text-sm disabled:opacity-60 ${
                                     status === "rejected"
-                                      ? "bg-[#fee2e2] text-[#b91c1c]"
+                                      ? "action-reject"
                                       : status === "completed"
-                                        ? "bg-[#2a1111] text-[#fca5a5]"
-                                        : "bg-[#101a18] text-[#f4fbf8]"
+                                        ? "action-refund"
+                                        : status === "processing"
+                                          ? "action-processing"
+                                          : "action-review"
                                   }`}
                                   disabled={actionLoading === `refund-${refund.id}-${status}`}
                                   key={status}

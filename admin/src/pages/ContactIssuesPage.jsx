@@ -26,11 +26,11 @@ const statusCopy = {
 };
 
 const statusClass = {
-  open: "bg-[#451011] text-[#ffb4b4]",
-  pending: "bg-[#451011] text-[#ffb4b4]",
-  in_progress: "bg-[#3a2a16] text-[#ffd279]",
-  resolved: "bg-[#24170d] text-[#f9c66d]",
-  deleted: "bg-[#241f1f] text-[#aebfba]"
+  open: "status-action-chip status-action-open",
+  pending: "status-action-chip status-action-pending",
+  in_progress: "status-action-chip status-action-in_progress",
+  resolved: "status-action-chip status-action-resolved",
+  deleted: "status-action-chip status-action-deleted"
 };
 
 const getIssueTime = (value) => {
@@ -164,15 +164,15 @@ export function ContactIssuesPage() {
         </div>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-3xl border border-[#5a2525]/60">
-        <table className="w-full min-w-[1240px] table-fixed border-collapse text-left">
+      <div className="mt-6 overflow-x-auto rounded-3xl border border-[#5a2525]/60 bg-[#081311]">
+        <table className="w-full min-w-[1320px] table-fixed border-collapse text-left">
           <colgroup>
             <col className="w-[210px]" />
             <col className="w-[150px]" />
             <col className="w-[250px]" />
             <col className="w-[310px]" />
             <col className="w-[130px]" />
-            <col className="w-[320px]" />
+            <col className="w-[270px]" />
           </colgroup>
           <thead>
             <tr className="bg-[#13201d] text-sm font-black text-[#a9bfba]">
@@ -209,18 +209,14 @@ export function ContactIssuesPage() {
                   </p>
                 </td>
                 <td className="px-5 py-5 align-middle">
-                  <span
-                    className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${
-                      statusClass[issue.status] || statusClass.open
-                    }`}
-                  >
+                  <span className={`${statusClass[issue.status] || statusClass.open} text-xs`}>
                     {statusCopy[issue.status] || "Open"}
                   </span>
                 </td>
-                <td className="px-5 py-5 align-middle">
-                  <div className="flex items-center gap-2 whitespace-nowrap">
+                <td className="bg-[#081311] px-5 py-5 align-middle">
+                  <div className="grid grid-cols-3 gap-2 whitespace-nowrap">
                     <button
-                      className="flex min-h-10 items-center gap-2 rounded-2xl bg-[#2b1d10] px-3 font-bold text-[#ffcc70] disabled:opacity-60"
+                      className="action-chip action-working min-h-10 px-2 text-xs disabled:opacity-60"
                       disabled={actionLoading === `${issue.id}-in_progress`}
                       onClick={() => updateIssueStatus(issue.id, "in_progress")}
                       type="button"
@@ -229,7 +225,7 @@ export function ContactIssuesPage() {
                       Working
                     </button>
                     <button
-                      className="flex min-h-10 items-center gap-2 rounded-2xl bg-[#24170d] px-3 font-bold text-[#f9c66d] disabled:opacity-60"
+                      className="action-chip action-resolve min-h-10 px-2 text-xs disabled:opacity-60"
                       disabled={actionLoading === `${issue.id}-resolved`}
                       onClick={() => updateIssueStatus(issue.id, "resolved")}
                       type="button"
@@ -238,7 +234,7 @@ export function ContactIssuesPage() {
                       Resolve
                     </button>
                     <button
-                      className="flex min-h-10 items-center gap-2 rounded-2xl bg-[#451011] px-3 font-bold text-[#ffb4b4] disabled:opacity-60"
+                      className="action-chip action-delete min-h-10 px-2 text-xs disabled:opacity-60"
                       disabled={actionLoading === `${issue.id}-delete`}
                       onClick={() => deleteIssue(issue.id)}
                       type="button"

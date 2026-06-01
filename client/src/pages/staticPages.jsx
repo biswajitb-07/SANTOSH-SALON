@@ -49,7 +49,7 @@ export function AboutPage() {
         {[
           ["Fast Tokens", "First come, first serve flow with clear token number."],
           ["Clean Service", "Haircut, beard, wash, and grooming in one place."],
-          ["Long Hours", "Open daily from 6 AM to 11 PM for easy visits."]
+          ["Long Hours", "Open daily from 7 AM to 11 PM for easy visits."]
         ].map(([title, text]) => (
           <article className="luxury-glass rounded-3xl p-5 queue-shadow" key={title}>
             <Star className="text-[#f9c66d]" size={24} />
@@ -333,7 +333,7 @@ export function ContactPage({ user }) {
             [MapPin, "Main Market Road, Near City Chowk"],
             [Phone, "+91 98765 43210"],
             [Mail, "hello@santoshsalon.local"],
-            [Clock3, "Open daily, 6 AM - 11 PM"]
+            [Clock3, "Open daily, 7 AM - 11 PM"]
           ].map(([Icon, label]) => (
             <div className="flex items-center gap-3 rounded-2xl bg-[rgba(255,255,255,0.08)] p-4" key={label}>
               <Icon className="text-[#f9c66d]" size={20} />
@@ -657,7 +657,7 @@ const legalContent = {
       ],
       [
         "Payments",
-        "Customers may pay online or choose cash on delivery/cash at salon where available. Online payment confirmation depends on the payment provider response."
+        "Customers may pay online or choose pay at salon where available. Online payment confirmation depends on the payment provider response."
       ],
       [
         "Changes",
@@ -703,7 +703,7 @@ const legalContent = {
     sections: [
       [
         "Accepted payment modes",
-        "Customer service bookings may support Cashfree online checkout and cash on delivery/cash at salon."
+        "Customer service bookings may support Cashfree online checkout and pay at salon."
       ],
       [
         "Charges",

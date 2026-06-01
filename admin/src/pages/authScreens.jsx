@@ -11,24 +11,39 @@ const toastOptions = {
 };
 
 function DottedCircleLoader() {
+  const dots = Array.from({ length: 12 }, (_, index) => {
+    const angle = (index * Math.PI * 2) / 12;
+    const radius = 22;
+    return {
+      cx: 32 + Math.sin(angle) * radius,
+      cy: 32 - Math.cos(angle) * radius,
+      opacity: 0.28 + index * 0.055
+    };
+  });
+
   return (
     <div
       aria-label="Checking login"
-      className="relative mx-auto grid h-16 w-16 place-items-center"
+      className="mx-auto grid h-16 w-16 place-items-center"
       role="status"
     >
-      <div className="relative h-14 w-14 animate-spin">
-        {Array.from({ length: 12 }).map((_, index) => (
-          <span
-            className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f9c66d]"
+      <svg
+        aria-hidden="true"
+        className="h-14 w-14 animate-spin"
+        style={{ transformBox: "fill-box", transformOrigin: "center" }}
+        viewBox="0 0 64 64"
+      >
+        {dots.map((dot, index) => (
+          <circle
+            cx={dot.cx}
+            cy={dot.cy}
+            fill="#f9c66d"
             key={index}
-            style={{
-              opacity: 0.25 + index * 0.06,
-              transform: `translate(-50%, -50%) rotate(${index * 30}deg) translateY(-24px)`
-            }}
+            opacity={dot.opacity}
+            r="4.5"
           />
         ))}
-      </div>
+      </svg>
     </div>
   );
 }

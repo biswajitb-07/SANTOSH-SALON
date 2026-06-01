@@ -71,7 +71,8 @@ const BOOKING_CLOSED_MESSAGE =
 const STAFF_COUNT = 3;
 const DAILY_CONFIRMED_LIMIT = 35;
 const WAITLIST_LIMIT = 10;
-const BOOKING_START_HOUR = 6;
+const ONLINE_BOOKING_START_HOUR = 6;
+const SLOT_START_HOUR = 7;
 const BOOKING_END_HOUR = 23;
 const LUNCH_START_HOUR = 13;
 const LUNCH_END_HOUR = 14;
@@ -149,7 +150,7 @@ const formatSlotTime = (hour, minute) => {
 const createTimeSlots = () => {
   const slots = [];
 
-  for (let hour = BOOKING_START_HOUR; hour < BOOKING_END_HOUR; hour += 1) {
+  for (let hour = SLOT_START_HOUR; hour < BOOKING_END_HOUR; hour += 1) {
     if (hour >= LUNCH_START_HOUR && hour < LUNCH_END_HOUR) continue;
 
     for (let minute = 0; minute < 60; minute += SLOT_MINUTES) {
@@ -198,17 +199,17 @@ const getVisibleTimeSlots = (bookingDay, slots = timeSlots) => {
 
 const getBookingWindowMessage = (gate = {}) =>
   `Online booking is open from ${formatTimeValue(
-    gate.openingTime,
-    BOOKING_START_HOUR
+    null,
+    ONLINE_BOOKING_START_HOUR
   )} to ${formatTimeValue(
     gate.closingTime,
     BOOKING_END_HOUR
-  )}. Lunch/rest break is 1 PM to 2 PM.`;
+  )}. First haircut slot starts at ${formatTimeValue(null, SLOT_START_HOUR)}. Lunch/rest break is 1 PM to 2 PM.`;
 
 const isCustomerBookingWindowOpen = (gate = {}) => {
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const openingMinutes = parseTimeToMinutes(gate.openingTime, BOOKING_START_HOUR);
+  const openingMinutes = ONLINE_BOOKING_START_HOUR * 60;
   const closingMinutes = parseTimeToMinutes(gate.closingTime, BOOKING_END_HOUR);
   return currentMinutes >= openingMinutes && currentMinutes < closingMinutes;
 };
@@ -822,7 +823,7 @@ function CheckoutModal({
         type: "success",
         message: `${
           form.paymentMethod === "cod"
-            ? "COD booking confirmed"
+            ? "Pay at salon booking confirmed"
             : "Cashfree payment verified"
         }. Turn ${firstTurn}${
           bookedTurns.length > 1 ? `-${lastTurn}` : ""
@@ -1067,7 +1068,7 @@ function CheckoutModal({
             <div className="grid gap-3 sm:grid-cols-2">
               {[
                 ["online", "Online Payment", "Cashfree secure checkout"],
-                ["cod", "Cash on Delivery", "Pay cash at the salon"]
+                ["cod", "Pay at Salon", "Pay after your haircut"]
               ].map(([method, label, helper]) => {
                 const active = form.paymentMethod === method;
 
@@ -1152,7 +1153,7 @@ function CheckoutModal({
             ) : (
               <>
                 {form.paymentMethod === "cod"
-                  ? "Confirm COD Booking"
+                  ? "Confirm Pay at Salon Booking"
                   : "Continue to Payment"}{" "}
                 <ArrowRight size={19} />
               </>
@@ -1205,7 +1206,7 @@ function App() {
     loading: true,
     open: false,
     message: "Checking salon booking status...",
-    openingTime: "06:00",
+    openingTime: "07:00",
     closingTime: "23:00",
     manualShopClosed: false,
     premiumActive: false
@@ -1366,7 +1367,7 @@ function App() {
             loading: false,
             open: false,
             message: BOOKING_CLOSED_MESSAGE,
-            openingTime: "06:00",
+            openingTime: "07:00",
             closingTime: "23:00",
             manualShopClosed: false,
             premiumActive: false
@@ -1383,7 +1384,7 @@ function App() {
           salon.paymentStatus === "active" &&
           (!premiumUntilTime || premiumUntilTime > Date.now());
         const scheduleGate = {
-          openingTime: salon.openingTime || "06:00",
+          openingTime: salon.openingTime || "07:00",
           closingTime: salon.closingTime || "23:00"
         };
         const manualClosed = salon.manualShopClosed === true;
@@ -1413,7 +1414,7 @@ function App() {
           loading: false,
           open: false,
           message: BOOKING_CLOSED_MESSAGE,
-          openingTime: "06:00",
+          openingTime: "07:00",
           closingTime: "23:00",
           manualShopClosed: false,
           premiumActive: false
@@ -1661,23 +1662,70 @@ function App() {
         value={scrollProgress}
         visible={scrollBadgeVisible || routeProgressActive}
       />
-      <footer className="mt-8 border-t border-[#35201f] bg-[#06100e]/95 px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-7xl gap-4 text-sm text-[#9db2ad] md:grid-cols-[1fr_auto] md:items-center">
-          <div>
-            <p className="font-bold text-[#f4fbf8]">Santosh Salon Queue</p>
-            <p className="mt-1">Open daily, 6 AM - 11 PM</p>
+      <footer className="mt-10 border-t border-[#5a2525]/60 bg-[#050d0b] px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="grid gap-6 rounded-[2rem] border border-[#5a2525]/60 bg-[#0b1714]/90 p-5 shadow-2xl shadow-black/30 sm:p-6 lg:grid-cols-[1.2fr_1fr_1fr]">
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#a5161a] text-lg font-black text-white">
+                  S
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-[#ffb4b4]">
+                    Santosh
+                  </p>
+                  <p className="text-lg font-black text-white">Salon Queue</p>
+                </div>
+              </div>
+              <p className="mt-4 max-w-md text-sm font-bold leading-7 text-[#a9bfba]">
+                Book grooming services, track your token live, and reach the salon
+                at the right time.
+              </p>
+              <div className="mt-4 inline-flex rounded-full border border-[#f9c66d]/20 bg-[#24170d] px-4 py-2 text-sm font-black text-[#ffcc70]">
+                Open daily, 7 AM - 11 PM
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#ffb4b4]">
+                Explore
+              </p>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {[...businessPages, "contact"].map((item) => (
+                  <button
+                    className="rounded-2xl border border-[#35201f] bg-[#101a18] px-3 py-2 text-left text-sm font-black text-white transition hover:border-[#f9c66d]/40 hover:bg-[#24170d]"
+                    key={item}
+                    onClick={() => navigatePage(item)}
+                    type="button"
+                  >
+                    {titleCase(item)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#ffb4b4]">
+                Legal
+              </p>
+              <div className="mt-4 grid gap-2">
+                {legalPages.map((item) => (
+                  <button
+                    className="rounded-2xl border border-[#35201f] bg-[#101a18] px-3 py-2 text-left text-sm font-black text-white transition hover:border-[#f9c66d]/40 hover:bg-[#24170d]"
+                    key={item}
+                    onClick={() => navigatePage(item)}
+                    type="button"
+                  >
+                    {titleCase(item)}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {[...businessPages, ...legalPages, "contact"].map((item) => (
-              <button
-                className="rounded-full border border-[#35201f] bg-[#101a18] px-4 py-2 font-bold text-[#f4fbf8] transition hover:border-[#f9c66d]/35 hover:text-[#f9c66d]"
-                key={item}
-                onClick={() => navigatePage(item)}
-                type="button"
-              >
-                {titleCase(item)}
-              </button>
-            ))}
+
+          <div className="flex flex-col gap-2 px-2 pt-5 text-xs font-bold text-[#6f8580] sm:flex-row sm:items-center sm:justify-between">
+            <p>© {new Date().getFullYear()} Santosh Salon Queue. All rights reserved.</p>
+            <p>Secure Google login, Cashfree payments, and live queue updates.</p>
           </div>
         </div>
       </footer>

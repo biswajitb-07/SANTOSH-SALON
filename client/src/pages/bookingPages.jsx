@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   BadgeCheck,
@@ -155,7 +155,7 @@ export function HomePage({
             <div className="mt-7 grid gap-3 sm:grid-cols-3">
               {[
                 [Gem, "Luxury Finish", "Sharp, polished cuts"],
-                [WalletCards, "Flexible Pay", "Cashfree or COD"],
+                [WalletCards, "Flexible Pay", "Cashfree or pay at salon"],
                 [MapPin, "Walk In Ready", "Reach near your turn"]
               ].map(([Icon, title, text]) => (
                 <div
@@ -324,13 +324,19 @@ function ServicesSection({
   services,
   pagination = null
 }) {
+  const sliderRef = useRef(null);
   const dragScroll = useDragScroll({ enabled: mobileSlider });
   const listClassName = mobileSlider
-    ? "services-slider drag-scroll flex snap-x gap-4 overflow-x-auto pb-4 pl-1 pr-5 sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-4"
+    ? "services-slider drag-scroll flex snap-x gap-3 overflow-x-auto pb-4 pl-1 pr-[24vw] sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-4"
     : "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4";
   const cardClassName = mobileSlider
-    ? "queue-shadow luxury-glass min-w-[82vw] snap-start overflow-hidden rounded-3xl transition hover:-translate-y-1 sm:min-w-0"
+    ? "queue-shadow luxury-glass min-w-[68vw] max-w-[68vw] shrink-0 snap-start overflow-hidden rounded-3xl transition hover:-translate-y-1 sm:min-w-0 sm:max-w-none sm:shrink"
     : "queue-shadow luxury-glass overflow-hidden rounded-3xl transition hover:-translate-y-1";
+
+  useEffect(() => {
+    if (!mobileSlider || !sliderRef.current) return;
+    sliderRef.current.scrollLeft = 0;
+  }, [mobileSlider, services.length, user?.uid]);
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -348,7 +354,11 @@ function ServicesSection({
           checkout.
         </p>
       </div>
-      <div className={listClassName} {...(mobileSlider ? dragScroll : {})}>
+      <div
+        className={listClassName}
+        ref={sliderRef}
+        {...(mobileSlider ? dragScroll : {})}
+      >
         {services.map((service) => {
           const bookingClosed = !bookingGate.loading && !bookingGate.open;
           const buttonLabel = bookingGate.loading
@@ -367,7 +377,7 @@ function ServicesSection({
               <div className="relative overflow-hidden">
                 <img
                   alt={service.title}
-                  className="h-28 w-full object-cover transition duration-500 hover:scale-105 sm:h-44"
+                  className="h-40 w-full object-cover object-center transition duration-500 hover:scale-105 sm:h-44"
                   src={service.imageUrl || getServiceImageUrl(service.title)}
                 />
                 <span className="absolute left-3 top-3 grid h-10 w-10 place-items-center rounded-2xl border border-[#f9c66d]/20 bg-[#06100e]/78 text-[#f9c66d] shadow-lg backdrop-blur sm:left-4 sm:top-4 sm:h-12 sm:w-12">
@@ -443,7 +453,7 @@ function HaircutFeature() {
         </p>
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           {[
-            ["6 AM", "Opening"],
+            ["7 AM", "Opening"],
             ["11 PM", "Closing"],
             ["Live", "Queue"]
           ].map(([value, label]) => (
@@ -545,7 +555,7 @@ function LuxuryPromiseSection() {
             A calm premium flow for busy salon days.
           </h2>
           <p className="mt-4 leading-8 text-[#9db2ad]">
-            Tokens, slots, online payment, COD, guest booking, and refund
+            Tokens, slots, online payment, pay at salon, guest booking, and refund
             requests stay organized in one experience so customers know exactly
             what happens next.
           </p>

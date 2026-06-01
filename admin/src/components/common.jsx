@@ -275,6 +275,7 @@ export function useDragScroll({ enabled = true } = {}) {
   const dragRef = useRef({
     active: false,
     dragged: false,
+    lastX: 0,
     scrollLeft: 0,
     startX: 0
   });
@@ -284,6 +285,7 @@ export function useDragScroll({ enabled = true } = {}) {
     state.active = false;
     event.currentTarget.classList.remove("is-dragging");
     event.currentTarget.releasePointerCapture?.(event.pointerId);
+    window.getSelection?.()?.removeAllRanges?.();
   };
 
   return {
@@ -303,6 +305,7 @@ export function useDragScroll({ enabled = true } = {}) {
       dragRef.current = {
         active: true,
         dragged: false,
+        lastX: event.clientX,
         scrollLeft: element.scrollLeft,
         startX: event.clientX
       };
@@ -317,8 +320,10 @@ export function useDragScroll({ enabled = true } = {}) {
       if (!enabled || !state.active) return;
 
       const distance = event.clientX - state.startX;
+      const frameDistance = event.clientX - state.lastX;
       if (Math.abs(distance) > 5) state.dragged = true;
-      event.currentTarget.scrollLeft = state.scrollLeft - distance;
+      event.currentTarget.scrollLeft -= frameDistance;
+      state.lastX = event.clientX;
       if (state.dragged) event.preventDefault();
     },
     onPointerUp: endDrag
