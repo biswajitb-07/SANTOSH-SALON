@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { LogIn, Menu, Scissors, X } from "lucide-react";
 import { ButtonSpinner, UserAvatar } from "./common.jsx";
+import { drawerVariants, navigationVariants } from "../lib/animationVariants";
 
 const pages = ["home", "booking", "about", "contact"];
 
@@ -45,24 +47,36 @@ function TopProgress({ routeProgress, routeProgressActive, scrollProgress }) {
   const progress = routeProgressActive ? routeProgress : scrollProgress;
 
   return (
-    <div className="h-1.5 w-full bg-[#101a18]">
-      <div
-        className="h-full rounded-r-full bg-[#f9c66d] transition-[width] duration-300 ease-out"
+    <motion.div
+      className="h-1 w-full bg-gradient-to-r from-[#06100e] via-[#101a18] to-[#06100e]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      <motion.div
+        className="h-full bg-gradient-to-r from-[#f9c66d] via-[#fca5a5] to-[#f9c66d] rounded-r-full"
         style={{ width: `${progress}%` }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
       />
-    </div>
+    </motion.div>
   );
 }
 
 export function ScrollPercentBadge({ visible, value }) {
   return (
-    <div
-      className={`pointer-events-none fixed bottom-5 right-4 z-40 grid h-14 w-14 place-items-center rounded-full border border-[#f9c66d]/30 bg-[#101a18] text-sm font-black text-[#f9c66d] shadow-2xl shadow-black/40 ring-4 ring-black/30 transition-all duration-300 sm:bottom-6 sm:right-6 ${
-        visible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
-      }`}
-    >
-      {Math.round(value)}%
-    </div>
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          className="pointer-events-none fixed bottom-5 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-[#f9c66d]/40 bg-gradient-to-br from-[#101a18] to-[#0b1714] text-sm font-black text-[#f9c66d] shadow-xl shadow-[#f9c66d]/20 ring-1 ring-[#f9c66d]/20 sm:bottom-6 sm:right-6"
+          initial={{ opacity: 0, scale: 0.8, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.8, y: 20 }}
+          transition={{ duration: 0.3 }}
+        >
+          {Math.round(value)}%
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -104,77 +118,129 @@ export function Header({
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-[#35201f] bg-[#06100e]/85 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 sm:h-16 sm:px-6 lg:px-8">
-        <button
-          className="flex items-center gap-3 text-left"
-          onClick={() => go("home")}
-          type="button"
-        >
-          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#991b1b] text-white shadow-lg shadow-[#991b1b]/20">
-            <Scissors size={20} />
-          </span>
-          <span>
-            <span className="block text-xs font-black uppercase tracking-[0.18em] text-[#991b1b]">
-              Santosh
+      <header className="sticky top-0 z-50 border-b border-[#35201f] bg-gradient-to-b from-[#06100e]/95 to-[#06100e]/85 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:h-18 sm:px-6 lg:px-8">
+          {/* Logo */}
+          <motion.button
+            className="flex items-center gap-2 text-left transition-colors duration-300 hover:opacity-80"
+            onClick={() => go("home")}
+            type="button"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <motion.span
+              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#991b1b] to-[#7f1d1d] text-white shadow-lg shadow-[#991b1b]/30"
+              whileHover={{ boxShadow: "0 12px 32px rgba(153, 27, 27, 0.4)" }}
+            >
+              <Scissors size={22} strokeWidth={2.5} />
+            </motion.span>
+            <span className="hidden sm:block">
+              <p className="text-xs font-black uppercase tracking-widest text-[#f9c66d]">
+                Santosh
+              </p>
+              <p className="text-sm font-black leading-tight text-white">
+                Salon Queue
+              </p>
             </span>
-            <span className="block text-base font-black leading-none sm:text-lg">
-              Salon Queue
-            </span>
-          </span>
-        </button>
+          </motion.button>
 
-        <nav className="hidden items-center gap-1 rounded-full border border-[#35201f] bg-[#101a18]/88 p-1 shadow-sm lg:flex">
-          {navPages.map((item) => (
-            <button
-              className={`h-9 rounded-full px-4 text-sm font-bold transition ${
-                page === item
-                  ? "bg-[#991b1b] text-white"
-                  : "text-[#9db2ad] hover:bg-[#2a1111] hover:text-white"
-              }`}
-              key={item}
-              onClick={() => go(item)}
-              type="button"
-            >
-              {titleCase(item)}
-            </button>
-          ))}
-        </nav>
+          {/* Desktop Navigation */}
+          <motion.nav
+            className="hidden items-center gap-1 rounded-full border border-[#35201f] bg-[#101a18]/50 p-1.5 backdrop-blur lg:flex"
+            initial="hidden"
+            animate="visible"
+            variants={navigationVariants}
+          >
+            {navPages.map((item, index) => (
+              <motion.button
+                className={`min-h-10 rounded-full px-5 text-sm font-bold transition-all duration-200 ${
+                  page === item
+                    ? "bg-gradient-to-r from-[#991b1b] to-[#7f1d1d] text-white shadow-lg shadow-[#991b1b]/20"
+                    : "text-[#9db2ad] hover:text-white hover:bg-[#2a1111]/50"
+                }`}
+                key={item}
+                onClick={() => go(item)}
+                type="button"
+                whileHover={{ y: -2 }}
+                whileTap={{ y: 0 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                {titleCase(item)}
+              </motion.button>
+            ))}
+          </motion.nav>
 
-        <div className="hidden items-center gap-2 lg:flex">
-          {authLoading ? (
-            <div className="skeleton h-12 w-12 rounded-2xl" />
-          ) : user ? (
-            <button
-              aria-label="Open profile"
-              className="grid h-10 w-10 place-items-center rounded-full border border-[#35201f] bg-[#101a18] p-1 font-black text-white shadow-sm transition hover:bg-[#2a1111]"
-              onClick={() => go("profile")}
-              type="button"
-            >
-              <UserAvatar size="h-8 w-8" user={user} />
-            </button>
-          ) : (
-            <button
-              className="flex h-10 items-center gap-2 rounded-full border border-[#35201f] bg-[#101a18] px-4 text-sm font-black text-white transition hover:bg-[#2a1111] disabled:opacity-70"
-              disabled={loginLoading}
-              onClick={onLogin}
-              type="button"
-            >
-              {loginLoading ? <ButtonSpinner /> : <LogIn size={18} />}
-              {loginLoading ? "Logging in..." : "Login"}
-            </button>
-          )}
+          {/* Desktop Auth Section */}
+          <motion.div
+            className="hidden items-center gap-3 lg:flex"
+            initial="hidden"
+            animate="visible"
+            variants={navigationVariants}
+          >
+            {authLoading ? (
+              <div className="skeleton h-11 w-11 rounded-full" />
+            ) : user ? (
+              <motion.button
+                aria-label="Open profile"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-[#35201f] bg-[#101a18]/50 p-1 font-black text-white transition-all duration-200 hover:bg-[#2a1111] hover:border-[#f9c66d]/30"
+                onClick={() => go("profile")}
+                type="button"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <UserAvatar size="h-9 w-9" user={user} />
+              </motion.button>
+            ) : (
+              <motion.button
+                className="flex h-11 items-center gap-2 rounded-full border border-[#f9c66d]/30 bg-gradient-to-r from-[#991b1b] to-[#7f1d1d] px-5 text-sm font-bold text-white shadow-lg shadow-[#991b1b]/20 transition-all duration-200 hover:border-[#f9c66d]/50 hover:shadow-lg hover:shadow-[#991b1b]/40 disabled:opacity-70"
+                disabled={loginLoading}
+                onClick={onLogin}
+                type="button"
+                whileHover={{ y: -2 }}
+                whileTap={{ y: 0 }}
+              >
+                {loginLoading ? <ButtonSpinner /> : <LogIn size={18} />}
+                {loginLoading ? "Logging in..." : "Login"}
+              </motion.button>
+            )}
+          </motion.div>
+
+          {/* Mobile Menu Button */}
+          <motion.button
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#35201f] bg-[#101a18]/50 text-white transition-all duration-200 hover:bg-[#2a1111] lg:hidden"
+            onClick={() => setMenuOpen((value) => !value)}
+            type="button"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            aria-label="Toggle menu"
+          >
+            <AnimatePresence mode="wait">
+              {menuOpen ? (
+                <motion.div
+                  key="close"
+                  initial={{ rotate: -90, opacity: 0 }}
+                  animate={{ rotate: 0, opacity: 1 }}
+                  exit={{ rotate: 90, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <X size={20} />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="menu"
+                  initial={{ rotate: 90, opacity: 0 }}
+                  animate={{ rotate: 0, opacity: 1 }}
+                  exit={{ rotate: -90, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Menu size={20} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.button>
         </div>
 
-        <button
-          className="grid h-10 w-10 place-items-center rounded-2xl border border-[#35201f] bg-[#101a18] shadow-sm lg:hidden"
-          onClick={() => setMenuOpen((value) => !value)}
-          type="button"
-        >
-          {menuOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-      </div>
-
+        {/* Progress Bar */}
         <TopProgress
           routeProgress={routeProgress}
           routeProgressActive={routeProgressActive}
@@ -182,81 +248,134 @@ export function Header({
         />
       </header>
 
-      <div
-        className={`fixed inset-0 z-[80] lg:hidden ${
-          menuOpen ? "pointer-events-auto" : "pointer-events-none"
-        }`}
-      >
-        <button
-          aria-label="Close menu"
-          className={`absolute inset-0 z-0 bg-black/50 transition-opacity duration-300 ${
-            menuOpen ? "opacity-100" : "opacity-0"
-          }`}
-          onClick={() => setMenuOpen(false)}
-          style={{
-            backdropFilter: "blur(18px) saturate(105%)",
-            WebkitBackdropFilter: "blur(18px) saturate(105%)"
-          }}
-          type="button"
-        />
-        <aside
-          className={`absolute left-0 top-0 z-10 flex h-dvh w-[86vw] max-w-[320px] flex-col border-r border-[#35201f] bg-[#101a18] p-4 shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-            menuOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
-        >
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#991b1b] text-white">
-                <Scissors size={22} />
-              </span>
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#991b1b]">
-                  Santosh
-                </p>
-                <p className="font-black text-white">Salon Queue</p>
-              </div>
-            </div>
-            <button
-              className="grid h-10 w-10 place-items-center rounded-full bg-[#0b1714]"
+      {/* Mobile Drawer */}
+      <AnimatePresence>
+        {menuOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="backdrop"
+              className="fixed inset-0 z-40 lg:hidden"
               onClick={() => setMenuOpen(false)}
-              type="button"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              style={{
+                backdropFilter: "blur(12px) saturate(105%)",
+                WebkitBackdropFilter: "blur(12px) saturate(105%)",
+                backgroundColor: "rgba(0, 0, 0, 0.5)"
+              }}
+            />
+
+            {/* Drawer */}
+            <motion.aside
+              key="drawer"
+              className="fixed left-0 top-0 z-50 flex h-dvh w-[86vw] max-w-[320px] flex-col border-r border-[#35201f] bg-gradient-to-b from-[#101a18] to-[#0b1714] shadow-2xl shadow-black/50 lg:hidden"
+              variants={drawerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
             >
-              <X size={20} />
-            </button>
-          </div>
-          <div className="grid gap-2">
-            {navPages.map((item) => (
-              <button
-                className={`min-h-12 rounded-2xl px-4 text-left text-lg font-bold transition ${
-                  page === item
-                    ? "bg-[#991b1b] text-white"
-                    : "bg-[#0b1714] text-[#9db2ad] hover:bg-[#1f1113] hover:text-white"
-                }`}
-                key={item}
-                onClick={() => go(item)}
-                type="button"
+              {/* Drawer Header */}
+              <motion.div
+                className="mb-6 flex items-center justify-between border-b border-[#35201f] gap-3 p-4"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.3 }}
               >
-                {titleCase(item)}
-              </button>
-            ))}
-            <button
-              className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-[#991b1b] font-black text-white"
-              disabled={loginLoading}
-              onClick={user ? () => go("profile") : onLogin}
-              type="button"
-            >
-              {user ? (
-                <UserAvatar size="h-8 w-8" user={user} />
-              ) : loginLoading ? (
-                <ButtonSpinner />
-              ) : (
-                <LogIn size={18} />
-              )}
-              {user ? "Profile" : loginLoading ? "Logging in..." : "Login"}
-            </button>
-          </div>
-        </aside>
-      </div>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#991b1b] to-[#7f1d1d] text-white shadow-lg">
+                    <Scissors size={24} strokeWidth={2} />
+                  </span>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wider text-[#f9c66d]">
+                      Santosh
+                    </p>
+                    <p className="font-black text-white">Salon Queue</p>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Drawer Navigation */}
+              <motion.div
+                className="flex-1 space-y-2 px-3"
+                variants={{
+                  hidden: { opacity: 0 },
+                  visible: {
+                    opacity: 1,
+                    transition: {
+                      staggerChildren: 0.06,
+                      delayChildren: 0.15
+                    }
+                  }
+                }}
+                initial="hidden"
+                animate="visible"
+              >
+                {navPages.map((item) => (
+                  <motion.button
+                    className={`w-full min-h-12 rounded-2xl px-4 text-left text-base font-bold transition-all duration-200 ${
+                      page === item
+                        ? "bg-gradient-to-r from-[#991b1b] to-[#7f1d1d] text-white shadow-lg shadow-[#991b1b]/20"
+                        : "bg-[#0b1714] text-[#9db2ad] hover:bg-[#1f1113] hover:text-white"
+                    }`}
+                    key={item}
+                    onClick={() => go(item)}
+                    type="button"
+                    variants={{
+                      hidden: { opacity: 0, x: -20 },
+                      visible: { opacity: 1, x: 0 }
+                    }}
+                    whileHover={{ x: 4 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {titleCase(item)}
+                  </motion.button>
+                ))}
+              </motion.div>
+
+              {/* Drawer Auth Section */}
+              <motion.div
+                className="border-t border-[#35201f] p-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.3 }}
+              >
+                {authLoading ? (
+                  <div className="skeleton h-12 rounded-full" />
+                ) : (
+                  <motion.button
+                    className="w-full flex h-12 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#991b1b] to-[#7f1d1d] font-black text-white shadow-lg shadow-[#991b1b]/20 transition-all duration-200 hover:shadow-lg hover:shadow-[#991b1b]/40"
+                    disabled={loginLoading}
+                    onClick={user ? () => go("profile") : onLogin}
+                    type="button"
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {user ? (
+                      <>
+                        <UserAvatar size="h-8 w-8" user={user} />
+                        <span>Profile</span>
+                      </>
+                    ) : loginLoading ? (
+                      <>
+                        <ButtonSpinner />
+                        <span>Logging in...</span>
+                      </>
+                    ) : (
+                      <>
+                        <LogIn size={18} />
+                        <span>Login</span>
+                      </>
+                    )}
+                  </motion.button>
+                )}
+              </motion.div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 }
