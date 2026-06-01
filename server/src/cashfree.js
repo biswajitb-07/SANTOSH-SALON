@@ -198,6 +198,27 @@ export const getCashfreeRefund = async ({ orderId, refundId }) => {
   return data;
 };
 
+export const getCashfreeOrderRefunds = async (orderId) => {
+  const response = await fetch(
+    `${config.cashfree.baseUrl}/orders/${encodeURIComponent(orderId)}/refunds`,
+    {
+      method: "GET",
+      headers: cashfreeHeaders()
+    }
+  );
+
+  const data = await response.json();
+  if (!response.ok) {
+    const message = data?.message || "Cashfree refunds lookup failed";
+    const error = new Error(message);
+    error.statusCode = response.status;
+    error.details = data;
+    throw error;
+  }
+
+  return Array.isArray(data) ? data : [];
+};
+
 export const verifyCashfreeWebhook = ({ signature, timestamp, rawBody }) => {
   if (!signature || !timestamp || !rawBody) return false;
 

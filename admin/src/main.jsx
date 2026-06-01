@@ -1730,6 +1730,44 @@ function App() {
     }
   };
 
+  const syncCashfreeRefundStatus = async (refund) => {
+    const loadingKey = `refund-${refund.id}-sync`;
+    setActionLoading(loadingKey);
+    try {
+      if (!refund.orderId || refund.orderId === "-") {
+        throw new Error("Cashfree order ID is required to check refund status.");
+      }
+
+      const authHeader = await getAuthHeader();
+      const response = await fetch(`${API_URL}/api/customer-payments/cashfree/refund/status`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader
+        },
+        body: JSON.stringify({
+          refundRequestId: refund.id,
+          orderId: refund.orderId
+        })
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Cashfree refund status could not be checked.");
+      }
+
+      toast.success(
+        data.status === "completed"
+          ? "Refund completed in Cashfree. Database updated."
+          : `Cashfree refund status synced: ${statusLabel(data.status)}.`
+      );
+    } catch (error) {
+      toast.error(error.message || "Unable to sync Cashfree refund status.");
+    } finally {
+      setActionLoading("");
+    }
+  };
+
   const callNextCustomer = () => {
     const nextCustomer = activeDisplayQueue.find((item) => item.status === "waiting");
     if (!nextCustomer) {
@@ -3133,7 +3171,7 @@ function App() {
                                   : ["rejected", "failed"].includes(refund.status)
                                     ? "bg-[#fee2e2] text-[#b91c1c]"
                                     : refund.status === "processing"
-                                      ? "bg-[#24170d] text-[#0369a1]"
+                                      ? "bg-[#24170d] text-[#f9c66d]"
                                       : "bg-[#24170d] text-[#f9c66d]"
                               }`}
                             >
@@ -3142,6 +3180,17 @@ function App() {
                           </td>
                           <td className="px-5 py-5">
                             <div className="flex min-w-max items-center gap-2">
+                              <button
+                                className="flex min-h-10 items-center gap-2 rounded-2xl bg-[#24170d] px-4 py-2 text-sm font-black text-[#f9c66d] disabled:opacity-60"
+                                disabled={actionLoading === `refund-${refund.id}-sync`}
+                                onClick={() => syncCashfreeRefundStatus(refund)}
+                                type="button"
+                              >
+                                {actionLoading === `refund-${refund.id}-sync` ? (
+                                  <ButtonSpinner dark />
+                                ) : null}
+                                Check
+                              </button>
                               {[
                                 ["reviewing", "Review"],
                                 ["processing", "Processing"],

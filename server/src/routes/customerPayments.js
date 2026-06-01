@@ -4,6 +4,8 @@ import {
   createCashfreeServiceOrder,
   getCashfreeOrder,
   getCashfreeOrderPayments,
+  getCashfreeOrderRefunds,
+  getCashfreeRefund,
   verifyCashfreeWebhook
 } from "../cashfree.js";
 import { getDb } from "../firebaseAdmin.js";
@@ -101,6 +103,40 @@ const cashfreeRefundStatusToAppStatus = (status = "") => {
   return "processing";
 };
 
+const buildRefundSyncPayload = ({ refund, refundData, refundId, orderId }) => {
+  const nextStatus = cashfreeRefundStatusToAppStatus(
+    refund.refund_status || refund.status
+  );
+  const now = new Date();
+  const refundDetails = {
+    ...(refundData.refundDetails || {}),
+    refundId,
+    cfRefundId: refund.cf_refund_id || refund.cfRefundId || null,
+    orderId: refund.order_id || orderId || refundData.orderId || null,
+    refundAmount: refund.refund_amount || refundData.amount || null,
+    refundStatus: refund.refund_status || refund.status || null,
+    refundMode: refund.refund_mode || null,
+    refundArn: refund.refund_arn || null,
+    refundSpeed: refund.refund_speed || null,
+    processedAt: refund.processed_at || refund.updated_at || now.toISOString()
+  };
+
+  return {
+    nextStatus,
+    payload: {
+      status: nextStatus,
+      refundDetails,
+      cashfree: {
+        ...(refundData.cashfree || {}),
+        ...refundDetails,
+        raw: refund,
+        manualSyncedAt: now.toISOString()
+      },
+      updatedAt: now
+    }
+  };
+};
+
 const updateRefundFromWebhook = async (event) => {
   const refund =
     event?.data?.refund ||
@@ -168,6 +204,104 @@ const updateRefundFromWebhook = async (event) => {
 
   return { updated: true, status: nextStatus };
 };
+
+customerPaymentsRouter.post("/cashfree/refund/status", requireAdminUser, writeLimiter, async (req, res, next) => {
+  try {
+    const { refundRequestId, orderId } = req.body;
+    const missing = requireFields(req.body, ["refundRequestId", "orderId"]);
+    if (missing) {
+      return res.status(400).json({ error: missing });
+    }
+
+    const db = getDb();
+    if (!db) {
+      return res.status(503).json({
+        error: "Firebase Admin is not configured for refund status sync."
+      });
+    }
+
+    const refundRef = db.collection("refundRequests").doc(refundRequestId);
+    const refundDoc = await refundRef.get();
+    if (!refundDoc.exists) {
+      return res.status(404).json({ error: "Refund request not found." });
+    }
+
+    const refundData = refundDoc.data();
+    const refundOrderId =
+      refundData?.orderId && refundData.orderId !== "-"
+        ? refundData.orderId
+        : cleanString(orderId, 120);
+    const storedRefundId =
+      refundData?.cashfree?.refundId ||
+      refundData?.refundDetails?.refundId ||
+      `refund_${refundRequestId}`.replace(/[^a-zA-Z0-9_-]/g, "");
+
+    let refund = null;
+    let lookupMode = "refund_id";
+
+    try {
+      refund = await getCashfreeRefund({
+        orderId: refundOrderId,
+        refundId: storedRefundId
+      });
+    } catch (error) {
+      lookupMode = "order_refunds";
+      const refunds = await getCashfreeOrderRefunds(refundOrderId);
+      const expectedAmount = Number(refundData.amount || 0);
+      refund =
+        refunds.find(
+          (item) =>
+            String(item.refund_id || item.refundId || "") ===
+            String(storedRefundId)
+        ) ||
+        refunds.find(
+          (item) =>
+            Math.abs(Number(item.refund_amount || 0) - expectedAmount) < 0.01
+        ) ||
+        refunds[0] ||
+        null;
+    }
+
+    if (!refund) {
+      return res.status(404).json({
+        error: "No Cashfree refund found for this order yet."
+      });
+    }
+
+    const refundId = refund.refund_id || refund.refundId || storedRefundId;
+    const { nextStatus, payload } = buildRefundSyncPayload({
+      refund,
+      refundData,
+      refundId,
+      orderId: refundOrderId
+    });
+
+    await refundRef.set(payload, { merge: true });
+
+    if (refundData.bookingId) {
+      await db.collection("customers").doc(refundData.bookingId).set(
+        {
+          refundStatus: nextStatus,
+          refundId,
+          cfRefundId: payload.cashfree.cfRefundId || null,
+          refundedAmount:
+            payload.refundDetails.refundAmount || refundData.amount || 0,
+          updatedAt: new Date()
+        },
+        { merge: true }
+      );
+    }
+
+    res.json({
+      synced: true,
+      lookupMode,
+      status: nextStatus,
+      refund
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 customerPaymentsRouter.post("/cashfree/refund", requireAdminUser, writeLimiter, async (req, res, next) => {
   try {

@@ -14,19 +14,21 @@ function DottedCircleLoader() {
   return (
     <div
       aria-label="Checking login"
-      className="relative mx-auto h-16 w-16 animate-spin"
+      className="relative mx-auto grid h-16 w-16 place-items-center"
       role="status"
     >
-      {Array.from({ length: 12 }).map((_, index) => (
-        <span
-          className="absolute left-1/2 top-1/2 h-2.5 w-2.5 rounded-full bg-[#f9c66d]"
-          key={index}
-          style={{
-            opacity: 0.25 + index * 0.06,
-            transform: `rotate(${index * 30}deg) translateY(-28px)`
-          }}
-        />
-      ))}
+      <div className="relative h-14 w-14 animate-spin">
+        {Array.from({ length: 12 }).map((_, index) => (
+          <span
+            className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f9c66d]"
+            key={index}
+            style={{
+              opacity: 0.25 + index * 0.06,
+              transform: `translate(-50%, -50%) rotate(${index * 30}deg) translateY(-24px)`
+            }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
