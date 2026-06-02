@@ -1,4 +1,5 @@
 import React, { Suspense, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Toaster, toast } from "sonner";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import {
@@ -71,6 +72,29 @@ const LegalPage = lazyPage(() => import("./pages/staticPages.jsx"), "LegalPage")
 const PricingPage = lazyPage(() => import("./pages/staticPages.jsx"), "PricingPage");
 const ServiceSeoPage = lazyPage(() => import("./pages/staticPages.jsx"), "ServiceSeoPage");
 const StaffPage = lazyPage(() => import("./pages/staticPages.jsx"), "StaffPage");
+
+function ClientToaster() {
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <Toaster
+      position="top-center"
+      className="app-toaster"
+      offset="18px"
+      richColors
+      closeButton
+      toastOptions={{
+        style: {
+          borderRadius: "18px",
+          border: "1px solid #35201f",
+          boxShadow: "0 18px 60px rgba(0, 0, 0, 0.28)",
+          zIndex: 2147483647
+        }
+      }}
+    />,
+    document.body
+  );
+}
 
 export function App() {
   const initialRoute = getClientRoute();
@@ -406,19 +430,34 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (page === "booking") {
+      setScrollProgress(0);
+      setScrollBadgeVisible(false);
+      return undefined;
+    }
+
     let hideTimer;
+    let rafId = 0;
+    let lastProgress = -1;
 
     const updateScrollProgress = () => {
-      const scrollTop =
-        window.scrollY || document.documentElement.scrollTop || 0;
-      const scrollHeight =
-        document.documentElement.scrollHeight - window.innerHeight;
-      const nextProgress =
-        scrollHeight <= 0 ? 0 : Math.min(100, (scrollTop / scrollHeight) * 100);
-      setScrollProgress(nextProgress);
-      setScrollBadgeVisible(true);
-      window.clearTimeout(hideTimer);
-      hideTimer = window.setTimeout(() => setScrollBadgeVisible(false), 900);
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        const scrollTop =
+          window.scrollY || document.documentElement.scrollTop || 0;
+        const scrollHeight =
+          document.documentElement.scrollHeight - window.innerHeight;
+        const nextProgress =
+          scrollHeight <= 0 ? 0 : Math.min(100, (scrollTop / scrollHeight) * 100);
+        if (Math.abs(nextProgress - lastProgress) >= 1) {
+          lastProgress = nextProgress;
+          setScrollProgress(nextProgress);
+        }
+        setScrollBadgeVisible(true);
+        window.clearTimeout(hideTimer);
+        hideTimer = window.setTimeout(() => setScrollBadgeVisible(false), 900);
+      });
     };
 
     updateScrollProgress();
@@ -426,6 +465,7 @@ export function App() {
     window.addEventListener("resize", updateScrollProgress);
 
     return () => {
+      if (rafId) window.cancelAnimationFrame(rafId);
       window.clearTimeout(hideTimer);
       window.removeEventListener("scroll", updateScrollProgress);
       window.removeEventListener("resize", updateScrollProgress);
@@ -526,22 +566,9 @@ export function App() {
   }
 
   return (
+    <>
+    <ClientToaster />
     <main className="min-h-screen bg-[#06100e] pb-24 text-[#f4fbf8] lg:pb-0">
-      <Toaster
-        position="top-center"
-        className="app-toaster"
-        offset="92px"
-        richColors
-        closeButton
-        toastOptions={{
-          style: {
-            borderRadius: "18px",
-            border: "1px solid #35201f",
-            boxShadow: "0 18px 60px rgba(0, 0, 0, 0.28)",
-            zIndex: 2147483647
-          }
-        }}
-      />
       <Header
         onLogin={login}
         authLoading={authLoading}
@@ -749,5 +776,6 @@ export function App() {
         </div>
       </footer>
     </main>
+    </>
   );
 }

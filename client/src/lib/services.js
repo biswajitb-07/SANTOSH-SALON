@@ -1,8 +1,8 @@
 const serviceFallbackImages = {
-  beard: "/assets/haircut-styles.png",
-  facial: "/assets/salon-hero.png",
-  haircut: "/assets/haircut-feature.png",
-  "hair wash": "/assets/haircut-styles.png"
+  beard: "/assets/service-beard.jpg",
+  facial: "/assets/service-facial.jpg",
+  haircut: "/assets/service-haircut.jpg",
+  "hair wash": "/assets/service-beard.jpg"
 };
 
 export const getServiceImageUrl = (title = "") => {
@@ -11,7 +11,7 @@ export const getServiceImageUrl = (title = "") => {
     value.includes(keyword)
   );
 
-  return match?.[1] || "/assets/haircut-feature.png";
+  return match?.[1] || "/assets/service-haircut.jpg";
 };
 
 export const defaultServices = [

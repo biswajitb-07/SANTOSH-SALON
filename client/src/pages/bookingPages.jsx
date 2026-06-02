@@ -399,9 +399,10 @@ function ServicesSection({
         {...(mobileSlider ? dragScroll : {})}
       >
         {services.map((service) => {
+          const serviceImageUrl = service.imageUrl || getServiceImageUrl(service.title);
           const previewService = {
             ...service,
-            imageUrl: service.imageUrl || getServiceImageUrl(service.title)
+            imageUrl: serviceImageUrl
           };
           const bookingClosed = !bookingGate.loading && !bookingGate.open;
           const buttonLabel = bookingGate.loading
@@ -429,7 +430,7 @@ function ServicesSection({
                     className="h-full w-full object-cover object-center transition duration-300 group-hover:brightness-75"
                     decoding="async"
                     loading="lazy"
-                    src={service.imageUrl || getServiceImageUrl(service.title)}
+                    src={serviceImageUrl}
                   />
                 </button>
                 <span className="absolute left-3 top-3 grid h-10 w-10 place-items-center rounded-2xl border border-[#f9c66d]/20 bg-[#06100e]/78 text-[#f9c66d] shadow-lg backdrop-blur sm:left-4 sm:top-4 sm:h-12 sm:w-12">

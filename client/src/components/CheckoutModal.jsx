@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   collection,
@@ -81,9 +81,20 @@ export function CheckoutModal({
     waitlistCount: 0
   });
   const slotDragScroll = useDragScroll({ enabled: true });
-  const bookingTimeSlots = createTimeSlots(
-    bookingGate.openingTime,
-    bookingGate.closingTime
+  const bookingTimeSlots = useMemo(
+    () => createTimeSlots(bookingGate.openingTime, bookingGate.closingTime),
+    [bookingGate.closingTime, bookingGate.openingTime]
+  );
+  const availableBarbers = useMemo(
+    () =>
+      (bookingGate.barbers || normalizeBarberAvailability())
+        .filter((barber) => barber.available)
+        .map((barber) => barber.name),
+    [bookingGate.barbers]
+  );
+  const barberChoices = useMemo(
+    () => [BARBER_OPTIONS[0], ...availableBarbers],
+    [availableBarbers]
   );
 
   useBodyScrollLock(Boolean(service));
@@ -152,52 +163,50 @@ export function CheckoutModal({
     return () => {
       cancelled = true;
     };
-  }, [bookingGate.closingTime, bookingGate.openingTime, form.bookingDay, form.includeGuest, service]);
+  }, [bookingTimeSlots, form.bookingDay, form.includeGuest, service]);
 
   useEffect(() => {
     if (!service || form.preferredBarber === BARBER_OPTIONS[0]) return;
-    const available = (bookingGate.barbers || normalizeBarberAvailability())
-      .filter((barber) => barber.available)
-      .map((barber) => barber.name);
-    if (!available.includes(form.preferredBarber)) {
+    if (!availableBarbers.includes(form.preferredBarber)) {
       setForm((value) => ({ ...value, preferredBarber: BARBER_OPTIONS[0] }));
     }
-  }, [bookingGate.barbers, form.preferredBarber, service]);
+  }, [availableBarbers, form.preferredBarber, service]);
 
-  if (!service) return null;
-
+  const activeService = service || defaultServices[0];
   const guestMobile = form.guestMobile.replace(/\D/g, "");
   const peopleCount = form.includeGuest ? 2 : 1;
   const bookingOptionForBarber = getBookingOption(form.bookingDay);
-  const availableBarbers = (bookingGate.barbers || normalizeBarberAvailability())
-    .filter((barber) => barber.available)
-    .map((barber) => barber.name);
-  const barberChoices = [BARBER_OPTIONS[0], ...availableBarbers];
   const salonCoupons = bookingGate.coupons || DEFAULT_COUPONS;
   const couponCode = appliedCouponCode;
   const typedCouponCode = form.couponCode.trim().toUpperCase();
   const discountAmount = getCouponDiscount(
     appliedCouponCode,
-    service.amount,
+    activeService.amount,
     peopleCount,
     salonCoupons
   );
   const platformFeeTotal = PLATFORM_FEE_PER_PERSON * peopleCount;
   const discountedServiceAmount = Math.max(
     0,
-    Math.round((Number(service.amount || 0) * peopleCount - discountAmount) * 100) / 100
+    Math.round((Number(activeService.amount || 0) * peopleCount - discountAmount) * 100) / 100
   );
   const perPersonServiceAmount =
     Math.round((discountedServiceAmount / peopleCount) * 100) / 100;
-  const onlineChargePreview = getCashfreeChargePreview(
-    perPersonServiceAmount + PLATFORM_FEE_PER_PERSON,
-    peopleCount
+  const onlineChargePreview = useMemo(
+    () =>
+      getCashfreeChargePreview(
+        perPersonServiceAmount + PLATFORM_FEE_PER_PERSON,
+        peopleCount
+      ),
+    [peopleCount, perPersonServiceAmount]
   );
   const chargePreview = onlineChargePreview;
 
   const selectedBarberAvailable =
     form.preferredBarber === BARBER_OPTIONS[0] ||
     availableBarbers.includes(form.preferredBarber);
+
+  if (!service) return null;
 
   const applyCoupon = () => {
     if (!typedCouponCode) {
