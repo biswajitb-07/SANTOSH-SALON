@@ -48,6 +48,7 @@ export const createCashfreeServiceOrder = async ({
     order_id: orderId,
     order_amount: charge.payableAmount,
     order_currency: "INR",
+    order_note: `${config.cashfree.businessName} - ${serviceTitle}`.slice(0, 200),
     customer_details: {
       customer_id: safeCustomerId,
       customer_name: customerName || "Salon Customer",
@@ -59,6 +60,8 @@ export const createCashfreeServiceOrder = async ({
       notify_url: `${config.serverUrl}/api/customer-payments/cashfree/webhook`
     },
     order_tags: {
+      businessName: config.cashfree.businessName,
+      businessLogoUrl: config.cashfree.businessLogoUrl,
       paymentFor: "service-booking",
       serviceTitle,
       customerUserId: customerUserId || "",

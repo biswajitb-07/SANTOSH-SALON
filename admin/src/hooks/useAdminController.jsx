@@ -2305,7 +2305,7 @@ export function useAdminController() {
 
       toast.success(
         data.status === "completed"
-          ? "Refund completed in Cashfree. Database updated."
+          ? "Refund completed in Cashfree. "
           : `Cashfree refund status synced: ${statusLabel(data.status)}.`
       );
     } catch (error) {

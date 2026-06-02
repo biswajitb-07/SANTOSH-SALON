@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import {
-  addDoc,
   collection,
   doc,
   increment,
@@ -12,7 +11,8 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
-  where
+  where,
+  writeBatch
 } from "firebase/firestore";
 import {
   CalendarClock,
@@ -23,7 +23,6 @@ import {
   Gift,
   LogIn,
   LogOut,
-  MessageCircle,
   Share2,
   Star,
   UserRound,
@@ -63,6 +62,7 @@ const cancelReasons = [
   "Other reason"
 ];
 const queueCountStatuses = new Set(["confirmed", "waiting", "in_chair"]);
+const editableBookingStatuses = ["confirmed", "waiting", "waitlist"];
 const rescheduleSlots = [
   ["07:00", "7:00 AM"],
   ["07:30", "7:30 AM"],
@@ -304,6 +304,13 @@ const groupUserBookings = (bookings) =>
 function RefundStatusTracker({ refund }) {
   if (!refund) return null;
   const stepIndex = getRefundStepIndex(refund.status);
+  const refundStatus = String(refund.status || "").toLowerCase();
+  const statusNote =
+    ["processing", "reviewing"].includes(refundStatus)
+        ? "Refund has been initiated and is waiting for payment provider confirmation."
+        : "";
+  const visibleAdminNote =
+    refundStatus === "completed" ? "" : statusNote || refund.adminRefundNote || "";
   const steps = [
     {
       label: "Requested",
@@ -363,9 +370,9 @@ function RefundStatusTracker({ refund }) {
         );
         })}
       </div>
-      {refund.adminRefundNote ? (
+      {visibleAdminNote ? (
         <p className="mt-3 rounded-xl bg-[#24170d] px-3 py-2 text-xs font-bold text-[#f9c66d]">
-          Admin note: {refund.adminRefundNote}
+          Admin note: {visibleAdminNote}
         </p>
       ) : null}
     </div>
@@ -385,6 +392,8 @@ function CancelReasonDialog({ booking, loading, onClose, onConfirm }) {
   if (!booking) return null;
 
   if (typeof document === "undefined") return null;
+  const willAutoRefund =
+    booking.paymentProvider === "cashfree" && booking.paymentStatus === "paid";
 
   return createPortal(
     <div
@@ -402,6 +411,11 @@ function CancelReasonDialog({ booking, loading, onClose, onConfirm }) {
           <div>
             <p className="section-kicker">Cancel Booking</p>
             <h2 className="mt-1 text-2xl font-black">Select a reason</h2>
+            {willAutoRefund ? (
+              <p className="mt-2 text-sm font-bold leading-6 text-[#9db2ad]">
+                Cancellation ke saath refund request automatically submit hogi.
+              </p>
+            ) : null}
           </div>
           <button className="grid h-10 w-10 place-items-center rounded-xl bg-[#0b1714]" onClick={onClose} type="button">
             <X size={20} />
@@ -423,16 +437,44 @@ function CancelReasonDialog({ booking, loading, onClose, onConfirm }) {
         <textarea
           className="mt-4 min-h-24 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] p-4 text-[#f4fbf8] outline-none focus:border-[#f87171]"
           onChange={(event) => setNote(event.target.value)}
-          placeholder="Optional note"
+          placeholder={willAutoRefund ? "Optional refund/cancel note" : "Optional note"}
           value={note}
         />
+        {willAutoRefund ? (
+          <div className="mt-4 grid gap-2 rounded-2xl border border-[#f9c66d]/20 bg-[#24170d] p-4 text-sm font-black text-[#f9c66d]">
+            <div className="flex flex-wrap justify-between gap-2">
+              <span>Total paid</span>
+              <span>{formatMoney(booking.amount)}</span>
+            </div>
+            {booking.platformFee > 0 ? (
+              <div className="flex flex-wrap justify-between gap-2">
+                <span>Platform fee non-refundable</span>
+                <span>{formatMoney(booking.platformFee)}</span>
+              </div>
+            ) : null}
+            {booking.cashfreeFee > 0 ? (
+              <div className="flex flex-wrap justify-between gap-2">
+                <span>Cashfree charge non-refundable</span>
+                <span>{formatMoney(booking.cashfreeFee)}</span>
+              </div>
+            ) : null}
+            <div className="flex flex-wrap justify-between gap-2 border-t border-[#f9c66d]/20 pt-2">
+              <span>Refund request</span>
+              <span>{formatMoney(booking.refundableAmount)}</span>
+            </div>
+          </div>
+        ) : null}
         <button
           className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 font-black text-white disabled:opacity-60"
           disabled={loading}
           type="submit"
         >
           {loading ? <ButtonSpinner /> : null}
-          {loading ? "Cancelling..." : "Confirm Cancellation"}
+          {loading
+            ? "Cancelling..."
+            : willAutoRefund
+              ? "Cancel & Request Refund"
+              : "Confirm Cancellation"}
         </button>
       </form>
     </div>,
@@ -525,201 +567,6 @@ function RescheduleDialog({ booking, loading, onClose, onConfirm }) {
   );
 }
 
-function RefundRequestDialog({ booking, user, onClose }) {
-  useBodyScrollLock(Boolean(booking));
-
-  const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({
-    paymentId: booking?.paymentId || "",
-    orderId: booking?.orderId && booking.orderId !== "-" ? booking.orderId : "",
-    reason: ""
-  });
-
-  useEffect(() => {
-    setForm((current) => ({
-      ...current,
-      paymentId: booking?.paymentId || "",
-      orderId: booking?.orderId && booking.orderId !== "-" ? booking.orderId : ""
-    }));
-  }, [booking]);
-
-  if (!booking) return null;
-
-  const updateField = (field, value) => {
-    setForm((current) => ({ ...current, [field]: value }));
-  };
-
-  const submitRefund = async (event) => {
-    event.preventDefault();
-
-    const hasPaymentRef = form.paymentId.trim() || form.orderId.trim();
-
-    if (!hasPaymentRef) {
-      toast.error("Payment ID or Order ID is required for a refund.");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const refundRef = await addDoc(collection(db, "refundRequests"), {
-        userId: user.uid,
-        bookingId: booking.id,
-        bookingGroupId: booking.bookingGroupId || booking.id,
-        bookingGroupIndex: booking.bookingGroupIndex || 1,
-        bookingGroupSize: booking.bookingGroupSize || 1,
-        refundScope: "single_booking",
-        partialRefund: true,
-        token: booking.token,
-        service: booking.service,
-        bookingStatus: booking.status,
-        customerName: booking.name || user.displayName || "Customer",
-        customerEmail: user.email || "",
-        customerMobile: booking.mobile,
-        paymentId: form.paymentId.trim(),
-        transactionId:
-          booking.transactionId && booking.transactionId !== "-"
-            ? booking.transactionId
-            : "",
-        orderId: form.orderId.trim(),
-        amount: Number(booking.refundableAmount || booking.serviceAmount || 0),
-        paidAmount: Number(booking.amount || 0),
-        cashfreeFee: Number(booking.cashfreeFee || 0),
-        platformFee: Number(booking.platformFee || 0),
-        nonRefundableFee: Number(
-          booking.nonRefundableFee || booking.cashfreeFee + booking.platformFee || 0
-        ),
-        reason: form.reason.trim(),
-        refundMethod: "original_payment_method",
-        upiId: "",
-        bankDetails: null,
-        status: "requested",
-        expectedWindow: "5-7 business days",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      await updateDoc(doc(db, "customers", booking.id), {
-        refundStatus: "requested",
-        refundRequestId: refundRef.id,
-        updatedAt: serverTimestamp()
-      });
-
-      toast.success("Refund request sent. You will receive an update after admin review.");
-      onClose();
-    } catch (error) {
-      toast.error(getSafeErrorMessage(error, "Refund request could not be sent."));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/70 px-2 py-2 backdrop-blur-md sm:items-center sm:px-4 sm:py-6"
-      style={{ zIndex: 2147483000 }}
-    >
-      <form
-        className="queue-shadow max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto rounded-[1.25rem] border border-[#f9c66d]/15 bg-[#081311]/95 p-4 text-[#f4fbf8] sm:max-h-[90vh] sm:max-w-2xl sm:rounded-[2rem] sm:p-6"
-        onSubmit={submitRefund}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="section-kicker">
-              Refund Request
-            </p>
-            <h2 className="mt-1 break-words text-2xl font-black leading-tight sm:text-3xl">
-              {booking.service}
-            </h2>
-            <p className="mt-2 text-sm font-bold leading-relaxed text-[#9db2ad]">
-              <span className="break-words">{booking.name}</span>
-              <span className="mx-1.5 text-[#5f706b]">•</span>
-              <span>Token {booking.token}</span>
-              <span className="mx-1.5 text-[#5f706b]">•</span>
-              <span>Refund {formatMoney(booking.refundableAmount)}</span>
-            </p>
-          </div>
-          <button
-            aria-label="Close refund request"
-            className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl border border-[#35201f] bg-[#0b1714] text-[#f4fbf8] transition hover:border-[#f9c66d]/35 sm:h-11 sm:w-11 sm:rounded-2xl"
-            onClick={onClose}
-            type="button"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          {[
-            ["paymentId", "Payment ID"],
-            ["orderId", "Order ID"]
-          ].map(([field, label]) => (
-            <label className="block sm:col-span-2" key={field}>
-              <span className="mb-2 block text-sm font-bold">{label}</span>
-              <input
-                className="h-12 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] px-4 text-[#f4fbf8] outline-none focus:border-[#f87171]"
-                onChange={(event) => updateField(field, event.target.value)}
-                placeholder={label}
-                value={form[field]}
-              />
-            </label>
-          ))}
-        </div>
-
-        <p className="mt-4 rounded-2xl border border-[#f87171]/20 bg-[#3a1515] px-4 py-3 text-sm font-bold leading-relaxed text-[#fee2e2]">
-          This is a partial refund for this one booking only. Other people in
-          the same Cashfree payment stay active. Refunds usually complete in
-          5-7 business days.
-        </p>
-        {booking.cashfreeFee > 0 || booking.platformFee > 0 ? (
-          <div className="mt-3 grid gap-2 rounded-2xl border border-[#f9c66d]/20 bg-[#24170d] p-4 text-sm font-black text-[#f9c66d]">
-            <div className="flex flex-wrap justify-between gap-2">
-              <span>Total paid</span>
-              <span>{formatMoney(booking.amount)}</span>
-            </div>
-            {booking.platformFee > 0 ? (
-              <div className="flex flex-wrap justify-between gap-2">
-                <span>Platform fee not refundable</span>
-                <span>{formatMoney(booking.platformFee)}</span>
-              </div>
-            ) : null}
-            {booking.cashfreeFee > 0 ? (
-              <div className="flex flex-wrap justify-between gap-2">
-                <span>Cashfree charge not refundable</span>
-                <span>{formatMoney(booking.cashfreeFee)}</span>
-              </div>
-            ) : null}
-            <div className="flex flex-wrap justify-between gap-2 border-t border-[#f9c66d]/20 pt-2">
-              <span>Refund eligible</span>
-              <span>{formatMoney(booking.refundableAmount)}</span>
-            </div>
-          </div>
-        ) : null}
-
-        <label className="mt-4 block">
-          <span className="mb-2 block text-sm font-bold">Reason</span>
-          <textarea
-            className="min-h-24 w-full resize-y rounded-2xl border border-[#4a2525] bg-[#0b1714] p-4 text-[#f4fbf8] outline-none focus:border-[#f87171]"
-            onChange={(event) => updateField("reason", event.target.value)}
-            placeholder="Refund reason"
-            value={form.reason}
-          />
-        </label>
-
-        <button
-          className="shine-button mt-4 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-6 py-4 font-black text-white disabled:opacity-60"
-          disabled={submitting}
-          type="submit"
-        >
-          {submitting ? <ButtonSpinner /> : <MessageCircle size={19} />}
-          {submitting ? "Sending..." : "Send Refund Request"}
-        </button>
-      </form>
-    </div>,
-    document.body
-  );
-}
-
 export function ProfilePage({
   bookingsOnly = false,
   loginLoading,
@@ -732,7 +579,6 @@ export function ProfilePage({
   const [bookings, setBookings] = useState([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [refundRequests, setRefundRequests] = useState([]);
-  const [refundBooking, setRefundBooking] = useState(null);
   const [cancelBookingId, setCancelBookingId] = useState("");
   const [pendingCancelBooking, setPendingCancelBooking] = useState(null);
   const [rescheduleBooking, setRescheduleBooking] = useState(null);
@@ -824,18 +670,78 @@ export function ProfilePage({
   }, [user, bookingsOnly]);
 
   const cancelBooking = async (booking, reason, note) => {
-    if (!booking || !["waiting", "waitlist"].includes(booking.status)) return;
+    if (!booking || !editableBookingStatuses.includes(booking.status)) return;
 
     setCancelBookingId(booking.id);
     try {
-      await updateDoc(doc(db, "customers", booking.id), {
+      const customerRef = doc(db, "customers", booking.id);
+      const existingRefund = refundRequests.find(
+        (refund) => refund.bookingId === booking.id
+      );
+      const shouldAutoRefund =
+        booking.paymentProvider === "cashfree" &&
+        booking.paymentStatus === "paid" &&
+        !existingRefund &&
+        !booking.refundRequestId;
+      const batch = writeBatch(db);
+      const refundRef = shouldAutoRefund ? doc(collection(db, "refundRequests")) : null;
+      const refundReason = [reason || "Customer cancelled", note?.trim()]
+        .filter(Boolean)
+        .join(" - ");
+      const customerPatch = {
         status: "cancelled",
         cancelledBy: "customer",
         cancelReason: reason || "Customer cancelled",
         cancelNote: note?.trim() || "",
         cancelledAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      });
+      };
+
+      if (refundRef) {
+        customerPatch.refundStatus = "requested";
+        customerPatch.refundRequestId = refundRef.id;
+        customerPatch.refundEligible = true;
+        batch.set(refundRef, {
+          userId: user.uid,
+          bookingId: booking.id,
+          bookingGroupId: booking.bookingGroupId || booking.id,
+          bookingGroupIndex: booking.bookingGroupIndex || 1,
+          bookingGroupSize: booking.bookingGroupSize || 1,
+          refundScope: "single_booking",
+          partialRefund: true,
+          token: booking.token,
+          service: booking.service,
+          bookingStatus: "cancelled",
+          customerName: booking.name || user.displayName || "Customer",
+          customerEmail: user.email || "",
+          customerMobile: booking.mobile,
+          paymentId: booking.paymentId && booking.paymentId !== "-" ? booking.paymentId : "",
+          transactionId:
+            booking.transactionId && booking.transactionId !== "-"
+              ? booking.transactionId
+              : "",
+          orderId: booking.orderId && booking.orderId !== "-" ? booking.orderId : "",
+          amount: Number(booking.refundableAmount || booking.serviceAmount || 0),
+          paidAmount: Number(booking.amount || 0),
+          cashfreeFee: Number(booking.cashfreeFee || 0),
+          platformFee: Number(booking.platformFee || 0),
+          nonRefundableFee: Number(
+            booking.nonRefundableFee || booking.cashfreeFee + booking.platformFee || 0
+          ),
+          reason: refundReason,
+          refundMethod: "original_payment_method",
+          upiId: "",
+          bankDetails: null,
+          status: "requested",
+          expectedWindow: "5-7 business days",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+
+      batch.update(customerRef, customerPatch);
+      await batch.commit();
+      setPendingCancelBooking(null);
 
       const previousStatus = String(booking.status || "").toLowerCase();
       const counterPatch = {
@@ -852,20 +758,27 @@ export function ProfilePage({
       }
 
       if (counterPatch.confirmedCount || counterPatch.waitlistCount) {
-        await setDoc(doc(db, "bookingCounters", booking.bookingDate), counterPatch, {
-          merge: true
-        });
+        try {
+          await setDoc(doc(db, "bookingCounters", booking.bookingDate), counterPatch, {
+            merge: true
+          });
+        } catch (counterError) {
+          console.warn("Queue counter update failed after cancellation.", counterError);
+        }
       }
 
       if (
         booking.paymentProvider === "cashfree" &&
         booking.paymentStatus === "paid"
       ) {
-        toast.success("Booking cancelled. Refund request option is now available.");
+        toast.success(
+          refundRef
+            ? "Booking cancelled. Refund request sent automatically."
+            : "Booking cancelled. Refund request is already in progress."
+        );
       } else {
         toast.success("Booking cancelled.");
       }
-      setPendingCancelBooking(null);
     } catch (error) {
       toast.error(getSafeErrorMessage(error, "Booking could not be cancelled."));
     } finally {
@@ -874,7 +787,7 @@ export function ProfilePage({
   };
 
   const rescheduleCustomerBooking = async (booking, draft, slotLabel) => {
-    if (!booking || !["waiting", "waitlist"].includes(booking.status)) return;
+    if (!booking || !editableBookingStatuses.includes(booking.status)) return;
 
     setRescheduleBookingId(booking.id);
     try {
@@ -1010,10 +923,10 @@ export function ProfilePage({
               : booking.status === "cancelled" &&
                   booking.paymentProvider === "cashfree" &&
                   booking.paymentStatus === "paid"
-                ? "Online paid booking cancelled. You can request a refund for the service amount. Cashfree charges are non-refundable."
+                ? "Online paid booking cancelled. Refund request is created automatically when you cancel. Cashfree charges are non-refundable."
                 : booking.status === "cancelled"
                   ? "Booking cancelled."
-                  : ["waiting", "waitlist"].includes(booking.status)
+                  : editableBookingStatuses.includes(booking.status)
                     ? "You can cancel this booking before service starts."
                     : "Queue status is updating live.";
 
@@ -1330,7 +1243,7 @@ export function ProfilePage({
                             <Share2 size={16} />
                             Share
                           </button>
-                          {["waiting", "waitlist"].includes(booking.status) ? (
+                          {editableBookingStatuses.includes(booking.status) ? (
                             <>
                               <button
                                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/35 bg-transparent px-3 py-2 text-sm font-black text-[#f9c66d] transition hover:bg-[#24170d] disabled:opacity-60"
@@ -1356,21 +1269,6 @@ export function ProfilePage({
                                 )}
                               </button>
                             </>
-                          ) : null}
-                          {booking.status === "cancelled" &&
-                          booking.paymentProvider === "cashfree" &&
-                          booking.paymentStatus === "paid" &&
-                          !refundInProgress ? (
-                            <button
-                              className="min-h-11 rounded-2xl border border-[#f9c66d]/35 bg-[#24170d] px-3 py-2 text-sm font-black text-[#f9c66d] transition hover:bg-[#33200f]"
-                              onClick={() => {
-                                setSelectedBookingGroupKey("");
-                                setRefundBooking(booking);
-                              }}
-                              type="button"
-                            >
-                              Refund
-                            </button>
                           ) : null}
                         </div>
                       </div>
@@ -1492,11 +1390,6 @@ export function ProfilePage({
       ) : null}
       {bookingsOnly ? (
       <>
-        <RefundRequestDialog
-          booking={refundBooking}
-          onClose={() => setRefundBooking(null)}
-          user={user}
-        />
         <CancelReasonDialog
           booking={pendingCancelBooking}
           loading={Boolean(cancelBookingId)}

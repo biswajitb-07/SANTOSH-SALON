@@ -103,6 +103,17 @@ const cashfreeRefundStatusToAppStatus = (status = "") => {
   return "processing";
 };
 
+const getRefundAdminNoteForStatus = (status = "", fallback = "") => {
+  const value = String(status || "").toLowerCase();
+  if (value === "completed") {
+    return "Refund completed to the original payment method.";
+  }
+  if (["processing", "reviewing"].includes(value)) {
+    return "Refund has been initiated and is waiting for payment provider confirmation.";
+  }
+  return fallback || "";
+};
+
 const buildRefundSyncPayload = ({ refund, refundData, refundId, orderId }) => {
   const nextStatus = cashfreeRefundStatusToAppStatus(
     refund.refund_status || refund.status
@@ -132,6 +143,10 @@ const buildRefundSyncPayload = ({ refund, refundData, refundId, orderId }) => {
         raw: refund,
         manualSyncedAt: now.toISOString()
       },
+      adminRefundNote: getRefundAdminNoteForStatus(
+        nextStatus,
+        refundData.adminRefundNote
+      ),
       updatedAt: now
     }
   };
@@ -186,6 +201,10 @@ const updateRefundFromWebhook = async (event) => {
       webhookUpdatedAt: new Date().toISOString(),
       lastWebhookPayload: refund
     },
+    adminRefundNote: getRefundAdminNoteForStatus(
+      nextStatus,
+      refundData.adminRefundNote
+    ),
     updatedAt: new Date()
   };
 
@@ -337,6 +356,16 @@ customerPaymentsRouter.post("/cashfree/refund", requireAdminUser, writeLimiter, 
           ["completed", "processing"].includes(refundData.status) &&
           hasCashfreeRefund
         ) {
+          await refundRef.set(
+            {
+              adminRefundNote: getRefundAdminNoteForStatus(
+                refundData.status,
+                refundData.adminRefundNote
+              ),
+              updatedAt: new Date()
+            },
+            { merge: true }
+          );
           return res.json({
             refunded: true,
             alreadyProcessed: true,
@@ -391,6 +420,7 @@ customerPaymentsRouter.post("/cashfree/refund", requireAdminUser, writeLimiter, 
             ...refundDetails,
             raw: refund
           },
+          adminRefundNote: getRefundAdminNoteForStatus(status),
           processedAt: now,
           updatedAt: now
         },
