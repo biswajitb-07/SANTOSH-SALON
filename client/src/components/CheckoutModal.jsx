@@ -440,6 +440,7 @@ export function CheckoutModal({
       const bookingGroupId = `grp_${Date.now()}_${user.uid.slice(0, 8)}`;
       let bookingRefs = [];
       let bookedTurns = [];
+      let bookingCreatedAsWaitlist = false;
       const createdSortBase = Date.now();
       const perCustomerCashfreeFee =
         customers.length
@@ -472,6 +473,7 @@ export function CheckoutModal({
         const isWaitlist =
           confirmedCount + customers.length > DAILY_CONFIRMED_LIMIT ||
           slotOverCapacity;
+        bookingCreatedAsWaitlist = isWaitlist;
 
         if (isWaitlist && waitlistCount + customers.length > WAITLIST_LIMIT) {
           throw new Error(
@@ -604,12 +606,12 @@ export function CheckoutModal({
         message: `Cashfree payment verified. Turn ${firstTurn}${
           bookedTurns.length > 1 ? `-${lastTurn}` : ""
         } ${
-          isWaitlist ? "added to the waiting list" : "confirmed"
+          bookingCreatedAsWaitlist ? "added to the waiting list" : "confirmed"
         } for ${bookingOption.label}, ${bookingOption.displayDate}.`
       });
       toast.success(
         `Booking ${
-          isWaitlist ? "added to waiting list" : "confirmed"
+          bookingCreatedAsWaitlist ? "added to waiting list" : "confirmed"
         }. Turn ${firstTurn}${bookedTurns.length > 1 ? `-${lastTurn}` : ""} for ${
           bookingOption.label
         }.`

@@ -28,6 +28,7 @@ export const routedPages = [
 export function titleCase(value = "") {
   const labels = {
     about: "About Us",
+    booking: "Services",
     contact: "Contact Us",
     barbers: "Barbers",
     refund: "Refund",

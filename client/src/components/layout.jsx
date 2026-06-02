@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import {
-  CalendarCheck2,
   CircleHelp,
   ChevronsUp,
+  ClipboardList,
   Download,
   GalleryHorizontalEnd,
   Home,
@@ -10,6 +10,7 @@ import {
   Mail,
   ReceiptText,
   Scissors,
+  ShoppingBag,
   Sparkles,
   UserRound,
   X
@@ -129,12 +130,12 @@ export function Header({
   const navPages = user ? [...primaryPages, "profile"] : primaryPages;
   const bottomItems = [
     { key: "home", label: "Home", icon: Home },
-    { key: "booking", label: "Booking", icon: CalendarCheck2 },
+    { key: "booking", label: "Services", icon: ShoppingBag },
     { key: "barbers", label: "Barbers", icon: Scissors },
     {
       key: user ? "my-bookings" : "profile",
       label: user ? "Bookings" : "Login",
-      icon: user ? UserRound : LogIn,
+      icon: user ? ClipboardList : LogIn,
       loginAction: !user
     }
   ];
