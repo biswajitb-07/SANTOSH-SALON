@@ -509,9 +509,16 @@ export function App() {
     selectService(service);
   };
 
-  const handleBookingSuccess = () => {
+  const handleBookingSuccess = (result = {}) => {
     setSelectedService(null);
     navigatePage("my-bookings");
+    window.setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      toast.success(
+        result.toastMessage ||
+          "Booking confirmed. You can view it in My Bookings."
+      );
+    }, 180);
   };
 
   if (authLoading) {
@@ -531,7 +538,7 @@ export function App() {
             borderRadius: "18px",
             border: "1px solid #35201f",
             boxShadow: "0 18px 60px rgba(0, 0, 0, 0.28)",
-            zIndex: 100000
+            zIndex: 2147483647
           }
         }}
       />

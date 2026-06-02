@@ -242,7 +242,7 @@ export function AdminShell(props) {
             borderRadius: "18px",
             border: "1px solid #35201f",
             boxShadow: "0 18px 60px rgba(18, 57, 52, 0.16)",
-            zIndex: 100000
+            zIndex: 2147483647
           }
         }}
       />

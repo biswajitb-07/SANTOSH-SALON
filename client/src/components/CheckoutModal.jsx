@@ -641,15 +641,14 @@ export function CheckoutModal({
           bookingCreatedAsWaitlist ? "added to the waiting list" : "confirmed"
         } for ${bookingOption.label}, ${bookingOption.displayDate}. Your slot is confirmed; turn can update if earlier slots are booked.`
       });
-      toast.success(
-        `Booking ${
-          bookingCreatedAsWaitlist ? "added to waiting list" : "confirmed"
-        }. ${estimatedTurnText} for ${
-          bookingOption.label
-        }.`
-      );
+      const successToastMessage = `Booking ${
+        bookingCreatedAsWaitlist ? "added to waiting list" : "confirmed"
+      }. ${estimatedTurnText} for ${bookingOption.label}.`;
       setLoading(false);
-      onBookingSuccess?.(bookingRefs[0]?.id);
+      onBookingSuccess?.({
+        bookingId: bookingRefs[0]?.id,
+        toastMessage: successToastMessage
+      });
     } catch (error) {
       const message = getRequestErrorMessage(
         error,

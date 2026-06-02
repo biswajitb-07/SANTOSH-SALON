@@ -481,13 +481,12 @@ export function ProfilePage({
         booking.paymentProvider === "cashfree" &&
         booking.paymentStatus === "paid"
       ) {
-        toast.success(
-          refundRef
-            ? "Booking cancelled. Refund request sent automatically."
-            : "Booking cancelled. Refund request is already in progress."
-        );
+        const successMessage = refundRef
+          ? "Booking cancelled. Refund request sent automatically."
+          : "Booking cancelled. Refund request is already in progress.";
+        window.setTimeout(() => toast.success(successMessage), 80);
       } else {
-        toast.success("Booking cancelled.");
+        window.setTimeout(() => toast.success("Booking cancelled."), 80);
       }
     } catch (error) {
       toast.error(getSafeErrorMessage(error, "Booking could not be cancelled."));
@@ -549,8 +548,8 @@ export function ProfilePage({
         await Promise.all(counterUpdates);
       }
 
-      toast.success("Booking rescheduled.");
       setRescheduleBooking(null);
+      window.setTimeout(() => toast.success("Booking rescheduled."), 80);
     } catch (error) {
       toast.error(getSafeErrorMessage(error, "Booking could not be rescheduled."));
     } finally {
