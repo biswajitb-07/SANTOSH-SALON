@@ -62,6 +62,7 @@ const cancelReasons = [
   "Payment or booking issue",
   "Other reason"
 ];
+const queueCountStatuses = new Set(["confirmed", "waiting", "in_chair"]);
 const rescheduleSlots = [
   ["07:00", "7:00 AM"],
   ["07:30", "7:30 AM"],
@@ -793,6 +794,26 @@ export function ProfilePage({
         updatedAt: serverTimestamp()
       });
 
+      const previousStatus = String(booking.status || "").toLowerCase();
+      const counterPatch = {
+        bookingDate: booking.bookingDate,
+        updatedAt: serverTimestamp()
+      };
+      if (queueCountStatuses.has(previousStatus)) {
+        counterPatch.confirmedCount = increment(-1);
+        if (booking.timeSlot) {
+          counterPatch[`slotCounts.${booking.timeSlot}`] = increment(-1);
+        }
+      } else if (previousStatus === "waitlist") {
+        counterPatch.waitlistCount = increment(-1);
+      }
+
+      if (counterPatch.confirmedCount || counterPatch.waitlistCount) {
+        await setDoc(doc(db, "bookingCounters", booking.bookingDate), counterPatch, {
+          merge: true
+        });
+      }
+
       if (
         booking.paymentProvider === "cashfree" &&
         booking.paymentStatus === "paid"
@@ -827,6 +848,41 @@ export function ProfilePage({
         rescheduledAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+
+      const previousStatus = String(booking.status || "").toLowerCase();
+      if (queueCountStatuses.has(previousStatus)) {
+        const counterUpdates = [];
+        if (booking.bookingDate && booking.timeSlot) {
+          counterUpdates.push(
+            setDoc(
+              doc(db, "bookingCounters", booking.bookingDate),
+              {
+                bookingDate: booking.bookingDate,
+                confirmedCount: increment(-1),
+                [`slotCounts.${booking.timeSlot}`]: increment(-1),
+                updatedAt: serverTimestamp()
+              },
+              { merge: true }
+            )
+          );
+        }
+        if (bookingDate && draft.timeSlot) {
+          counterUpdates.push(
+            setDoc(
+              doc(db, "bookingCounters", bookingDate),
+              {
+                bookingDate,
+                confirmedCount: increment(1),
+                [`slotCounts.${draft.timeSlot}`]: increment(1),
+                updatedAt: serverTimestamp()
+              },
+              { merge: true }
+            )
+          );
+        }
+        await Promise.all(counterUpdates);
+      }
+
       toast.success("Booking rescheduled.");
       setRescheduleBooking(null);
     } catch (error) {

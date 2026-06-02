@@ -4,7 +4,6 @@ import { Provider } from "react-redux";
 import { Toaster, toast } from "sonner";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -12,6 +11,7 @@ import {
   limit,
   onSnapshot,
   query as firestoreQuery,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -953,27 +953,9 @@ function CheckoutModal({
       charge = order.charge || onlineChargePreview;
 
       const dayStats = await getBookingDayStats(bookingOption.date, bookingTimeSlots);
-      const slotCount = selectedSlot
-        ? Number(dayStats.slotCounts[selectedSlot.value] || 0)
-        : 0;
-      const slotOverCapacity =
-        selectedSlot && slotCount + customers.length > STAFF_COUNT;
-      const isWaitlist =
-        dayStats.confirmedCount + customers.length > DAILY_CONFIRMED_LIMIT ||
-        slotOverCapacity;
-      if (isWaitlist && dayStats.waitlistCount + customers.length > WAITLIST_LIMIT) {
-        const message =
-          "The waiting list already has 10 customers. Booking will reopen when the waiting list drops to 9.";
-        setStatus({
-          type: "error",
-          message
-        });
-        toast.error(message);
-        setLoading(false);
-        return;
-      }
       const bookingGroupId = `grp_${Date.now()}_${user.uid.slice(0, 8)}`;
-      const bookingRefs = [];
+      let bookingRefs = [];
+      let bookedTurns = [];
       const createdSortBase = Date.now();
       const perCustomerCashfreeFee =
         customers.length
@@ -984,74 +966,129 @@ function CheckoutModal({
         Math.round((Number(perPersonServiceAmount || 0) + PLATFORM_FEE_PER_PERSON + perCustomerCashfreeFee) * 100) /
         100;
 
-      for (const [index, customer] of customers.entries()) {
-        const bookingRef = await addDoc(collection(db, "customers"), {
-          name: customer.name,
-          mobile: customer.mobile,
-          service: service.title,
-          amount: perPersonServiceAmount,
-          serviceAmount: perPersonServiceAmount,
-          originalServiceAmount: service.amount,
-          couponCode,
-          discountAmount:
-            Math.round((Number(discountAmount || 0) / customers.length) * 100) / 100,
-          platformFee: PLATFORM_FEE_PER_PERSON,
-          groupPlatformFee: platformFeeTotal,
-          payableAmount: perCustomerPayable,
-          refundableAmount: perPersonServiceAmount,
-          groupServiceAmount: discountedServiceAmount,
-          groupPayableAmount: charge.payableAmount,
-          cashfreeFeePercent: charge.cashfreeFeePercent ?? 1.6,
-          cashfreeFee: perCustomerCashfreeFee,
-          groupCashfreeFee: charge.cashfreeFee,
-          nonRefundableFee: perCustomerCashfreeFee + PLATFORM_FEE_PER_PERSON,
-          token: 0,
-          status: isWaitlist ? "waitlist" : "waiting",
-          paymentStatus: "paid",
-          paymentProvider: "cashfree",
-          bookingDay: bookingOption.day,
-          bookingDate: bookingOption.date,
-          bookingLabel: bookingOption.label,
-          bookingDisplayDate: bookingOption.displayDate,
-          timeSlot: isWaitlist ? "" : selectedSlot?.value || "",
-          timeSlotLabel: isWaitlist
-            ? "Waiting list"
-            : selectedSlot?.label || "Waiting list",
-          barberName: form.preferredBarber,
-          cashfreeOrderId: order?.order_id || "",
-          cashfreeCfOrderId: order?.cf_order_id || paidOrder.cf_order_id || null,
-          cashfreePaymentId: paidPayment.cf_payment_id || "",
-          cashfreeTransactionId:
-            paidPayment.bank_reference ||
-            paidPayment.auth_id ||
-            paidPayment.payment_message ||
-            "",
-          cashfreePaymentGroup: paidPayment.payment_group || "",
-          cashfreePaymentStatus:
-            paidPayment.payment_status ||
-            paidOrder.order_status ||
-            "PAID",
-          peopleAhead: 0,
-          userId: user.uid,
-          customerType: customer.customerType,
-          bookingGroupId,
-          bookingGroupSize: customers.length,
-          bookingGroupIndex: index + 1,
-          arrivalNote:
-            "Please reach the salon 40 minutes before your turn for a quicker haircut. Cancel your booking if you cannot visit.",
-          source: "service-payment",
-          createdSort: createdSortBase + index,
-          createdAt: serverTimestamp()
-        });
-        bookingRefs.push(bookingRef);
-      }
+      await runTransaction(db, async (transaction) => {
+        const counterRef = doc(db, "bookingCounters", bookingOption.date);
+        const counterSnapshot = await transaction.get(counterRef);
+        const counter = counterSnapshot.exists() ? counterSnapshot.data() : {};
+        const confirmedCount = counterSnapshot.exists()
+          ? Number(counter.confirmedCount || 0)
+          : Number(dayStats.confirmedCount || 0);
+        const waitlistCount = counterSnapshot.exists()
+          ? Number(counter.waitlistCount || 0)
+          : Number(dayStats.waitlistCount || 0);
+        const slotCounts = counterSnapshot.exists()
+          ? { ...(counter.slotCounts || {}) }
+          : { ...(dayStats.slotCounts || {}) };
+        const selectedSlotValue = selectedSlot?.value || "";
+        const slotCount = selectedSlotValue
+          ? Number(slotCounts[selectedSlotValue] || 0)
+          : 0;
+        const slotOverCapacity =
+          selectedSlotValue && slotCount + customers.length > STAFF_COUNT;
+        const isWaitlist =
+          confirmedCount + customers.length > DAILY_CONFIRMED_LIMIT ||
+          slotOverCapacity;
 
-      const orderedBookings = await reindexQueueDate(bookingOption.date);
-      const bookedTurns = bookingRefs
-        .map((bookingRef) =>
-          orderedBookings.find((booking) => booking.id === bookingRef.id)?.token
-        )
-        .filter(Boolean);
+        if (isWaitlist && waitlistCount + customers.length > WAITLIST_LIMIT) {
+          throw new Error(
+            "The waiting list already has 10 customers. Booking will reopen when the waiting list drops to 9."
+          );
+        }
+
+        bookingRefs = customers.map(() => doc(collection(db, "customers")));
+        bookedTurns = isWaitlist
+          ? []
+          : customers.map((_, index) => confirmedCount + index + 1);
+
+        customers.forEach((customer, index) => {
+          const token = isWaitlist ? 0 : confirmedCount + index + 1;
+          transaction.set(bookingRefs[index], {
+            name: customer.name,
+            mobile: customer.mobile,
+            service: service.title,
+            amount: perPersonServiceAmount,
+            serviceAmount: perPersonServiceAmount,
+            originalServiceAmount: service.amount,
+            couponCode,
+            discountAmount:
+              Math.round((Number(discountAmount || 0) / customers.length) * 100) /
+              100,
+            platformFee: PLATFORM_FEE_PER_PERSON,
+            groupPlatformFee: platformFeeTotal,
+            payableAmount: perCustomerPayable,
+            refundableAmount: perPersonServiceAmount,
+            groupServiceAmount: discountedServiceAmount,
+            groupPayableAmount: charge.payableAmount,
+            cashfreeFeePercent: charge.cashfreeFeePercent ?? 1.6,
+            cashfreeFee: perCustomerCashfreeFee,
+            groupCashfreeFee: charge.cashfreeFee,
+            nonRefundableFee: perCustomerCashfreeFee + PLATFORM_FEE_PER_PERSON,
+            token,
+            status: isWaitlist ? "waitlist" : "waiting",
+            paymentStatus: "paid",
+            paymentProvider: "cashfree",
+            bookingDay: bookingOption.day,
+            bookingDate: bookingOption.date,
+            bookingLabel: bookingOption.label,
+            bookingDisplayDate: bookingOption.displayDate,
+            timeSlot: isWaitlist ? "" : selectedSlotValue,
+            timeSlotLabel: isWaitlist
+              ? "Waiting list"
+              : selectedSlot?.label || "Waiting list",
+            barberName: form.preferredBarber,
+            cashfreeOrderId: order?.order_id || "",
+            cashfreeCfOrderId: order?.cf_order_id || paidOrder.cf_order_id || null,
+            cashfreePaymentId: paidPayment.cf_payment_id || "",
+            cashfreeTransactionId:
+              paidPayment.bank_reference ||
+              paidPayment.auth_id ||
+              paidPayment.payment_message ||
+              "",
+            cashfreePaymentGroup: paidPayment.payment_group || "",
+            cashfreePaymentStatus:
+              paidPayment.payment_status ||
+              paidOrder.order_status ||
+              "PAID",
+            peopleAhead: isWaitlist ? 0 : token - 1,
+            queuePosition: isWaitlist ? 0 : token,
+            turnSortMinutes: getBookingSortMinutes({
+              bookingDate: bookingOption.date,
+              timeSlot: selectedSlotValue,
+              createdSort: createdSortBase + index
+            }),
+            userId: user.uid,
+            customerType: customer.customerType,
+            bookingGroupId,
+            bookingGroupSize: customers.length,
+            bookingGroupIndex: index + 1,
+            arrivalNote:
+              "Please reach the salon 40 minutes before your turn for a quicker haircut. Cancel your booking if you cannot visit.",
+            source: "service-payment",
+            createdSort: createdSortBase + index,
+            createdAt: serverTimestamp()
+          });
+        });
+
+        if (!isWaitlist && selectedSlotValue) {
+          slotCounts[selectedSlotValue] = slotCount + customers.length;
+        }
+
+        transaction.set(
+          counterRef,
+          {
+            bookingDate: bookingOption.date,
+            confirmedCount: isWaitlist
+              ? confirmedCount
+              : confirmedCount + customers.length,
+            waitlistCount: isWaitlist
+              ? waitlistCount + customers.length
+              : waitlistCount,
+            slotCounts,
+            updatedAt: serverTimestamp()
+          },
+          { merge: true }
+        );
+      });
       const firstTurn = bookedTurns[0] || "-";
       const lastTurn = bookedTurns[bookedTurns.length - 1] || firstTurn;
 

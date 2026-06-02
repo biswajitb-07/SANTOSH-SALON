@@ -53,6 +53,12 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /bookingCounters/{counterId} {
+      allow read: if signedIn() || isAdmin();
+      allow create, update: if signedIn() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
     match /customers/{customerId} {
       allow create: if signedIn() &&
         request.resource.data.userId == request.auth.uid;

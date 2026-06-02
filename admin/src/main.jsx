@@ -14,6 +14,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -1464,6 +1465,28 @@ function App() {
       )
     );
 
+    const slotCounts = activeBookings.reduce((counts, booking) => {
+      const slot = booking.timeSlot || "";
+      if (slot) counts[slot] = (counts[slot] || 0) + 1;
+      return counts;
+    }, {});
+    const waitlistCount = snapshot.docs.filter(
+      (snapshotDoc) =>
+        String(snapshotDoc.data().status || "").toLowerCase() === "waitlist"
+    ).length;
+
+    await setDoc(
+      doc(db, "bookingCounters", bookingDate),
+      {
+        bookingDate,
+        confirmedCount: activeBookings.length,
+        waitlistCount,
+        slotCounts,
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+
     return activeBookings.map((booking, index) => ({
       ...booking,
       token: index + 1,
@@ -2130,41 +2153,99 @@ function App() {
           setActionLoading("");
           return;
         }
-        const bookingRef = await addDoc(collection(db, "customers"), {
-          name: bookingDraft.name.trim() || matchedUser.name,
-          mobile: bookingDraft.mobile.trim() || matchedUser.phone,
-          email: matchedUser.email,
-          service: bookingDraft.service.trim(),
-          barberName: bookingDraft.barberName || "Next available barber",
-          bookingDate,
-          bookingDay: bookingDate === toDateInputValue(new Date()) ? "today" : "",
-          bookingLabel:
-            bookingDate === toDateInputValue(new Date()) ? "Today" : "Scheduled",
-          bookingDisplayDate: getDisplayDate(bookingDate),
-          timeSlot: selectedSlot?.value || "",
-          timeSlotLabel: selectedSlot?.label || "",
-          token: 0,
-          peopleAhead: 0,
-          status: selectedStatus,
-          amount: Number(bookingDraft.amount || 0),
-          platformFee: PLATFORM_FEE_PER_PERSON,
-          payableAmount: Number(bookingDraft.amount || 0) + PLATFORM_FEE_PER_PERSON,
-          refundableAmount: Number(bookingDraft.amount || 0),
-          nonRefundableFee: PLATFORM_FEE_PER_PERSON,
-          paymentProvider: "admin",
-          paymentStatus: "admin_created",
-          userId: matchedUser.id,
-          source: "admin-booking",
-          createdSort: Date.now(),
-          arrivalNote:
-            "Please reach the salon 40 minutes before your turn for a quicker haircut. Cancel your booking if you cannot visit.",
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
+        const bookingRef = doc(collection(db, "customers"));
+        const createdSort = Date.now();
+        let createdTurn = "-";
+
+        await runTransaction(db, async (transaction) => {
+          const counterRef = doc(db, "bookingCounters", bookingDate);
+          const counterSnapshot = await transaction.get(counterRef);
+          const counter = counterSnapshot.exists() ? counterSnapshot.data() : {};
+          const confirmedCount = counterSnapshot.exists()
+            ? Number(counter.confirmedCount || 0)
+            : Number(
+                queueItems.filter(
+                  (booking) =>
+                    booking.bookingDate === bookingDate &&
+                    confirmedBookingStatuses.has(
+                      String(booking.status || "").toLowerCase()
+                    )
+                ).length || 0
+              );
+          const slotCounts = counterSnapshot.exists()
+            ? { ...(counter.slotCounts || {}) }
+            : {
+                [selectedSlot?.value || ""]: slotConfirmedCount
+              };
+          const selectedSlotValue = selectedSlot?.value || "";
+          const currentSlotCount = Number(slotCounts[selectedSlotValue] || 0);
+          const countsTowardQueue = confirmedBookingStatuses.has(
+            String(selectedStatus).toLowerCase()
+          );
+
+          if (countsTowardQueue && currentSlotCount >= STAFF_COUNT) {
+            throw new Error(
+              "This time slot already has 3 bookings. Please choose another slot."
+            );
+          }
+
+          createdTurn = countsTowardQueue ? confirmedCount + 1 : "-";
+
+          transaction.set(bookingRef, {
+            name: bookingDraft.name.trim() || matchedUser.name,
+            mobile: bookingDraft.mobile.trim() || matchedUser.phone,
+            email: matchedUser.email,
+            service: bookingDraft.service.trim(),
+            barberName: bookingDraft.barberName || "Next available barber",
+            bookingDate,
+            bookingDay: bookingDate === toDateInputValue(new Date()) ? "today" : "",
+            bookingLabel:
+              bookingDate === toDateInputValue(new Date()) ? "Today" : "Scheduled",
+            bookingDisplayDate: getDisplayDate(bookingDate),
+            timeSlot: selectedSlotValue,
+            timeSlotLabel: selectedSlot?.label || "",
+            token: countsTowardQueue ? createdTurn : 0,
+            peopleAhead: countsTowardQueue ? createdTurn - 1 : 0,
+            queuePosition: countsTowardQueue ? createdTurn : 0,
+            turnSortMinutes: getBookingSortMinutes({
+              bookingDate,
+              timeSlot: selectedSlotValue,
+              createdSort
+            }),
+            status: selectedStatus,
+            amount: Number(bookingDraft.amount || 0),
+            platformFee: PLATFORM_FEE_PER_PERSON,
+            payableAmount: Number(bookingDraft.amount || 0) + PLATFORM_FEE_PER_PERSON,
+            refundableAmount: Number(bookingDraft.amount || 0),
+            nonRefundableFee: PLATFORM_FEE_PER_PERSON,
+            paymentProvider: "admin",
+            paymentStatus: "admin_created",
+            userId: matchedUser.id,
+            source: "admin-booking",
+            createdSort,
+            arrivalNote:
+              "Please reach the salon 40 minutes before your turn for a quicker haircut. Cancel your booking if you cannot visit.",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+
+          if (countsTowardQueue && selectedSlotValue) {
+            slotCounts[selectedSlotValue] = currentSlotCount + 1;
+          }
+
+          transaction.set(
+            counterRef,
+            {
+              bookingDate,
+              confirmedCount: countsTowardQueue
+                ? confirmedCount + 1
+                : confirmedCount,
+              slotCounts,
+              updatedAt: serverTimestamp()
+            },
+            { merge: true }
+          );
         });
-        const orderedBookings = await reindexQueueDate(bookingDate);
-        const createdTurn =
-          orderedBookings.find((booking) => booking.id === bookingRef.id)?.token ||
-          "-";
 
         setAdminBookingMode(false);
         setBookingDraft(null);
