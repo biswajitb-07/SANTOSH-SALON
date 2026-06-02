@@ -17,6 +17,7 @@ import {
 import {
   BellRing,
   CheckCircle2,
+  ChevronsUp,
   Copy,
   Download,
   Edit,
@@ -60,7 +61,6 @@ export function AdminShell(props) {
     openMessageCount,
     actionLoading,
     handleLogout,
-    setMobileMenuOpen,
     activeNavItem,
     salonProfile,
     shopManuallyClosed,
@@ -69,7 +69,6 @@ export function AdminShell(props) {
     setUserSearchTerm,
     userSearchTerm,
     user,
-    mobileMenuOpen,
     notice,
     UsersRound,
     waitingCount,
@@ -232,6 +231,20 @@ export function AdminShell(props) {
     confirmDialog
   } = props;
 
+  const [adminMoreOpen, setAdminMoreOpen] = React.useState(false);
+  const primaryMobileNavKeys = ["dashboard", "queue", "barbers", "services"];
+  const primaryMobileNavItems = primaryMobileNavKeys
+    .map((key) => navItems.find((item) => item.key === key))
+    .filter(Boolean);
+  const moreMobileNavItems = navItems.filter(
+    (item) => !primaryMobileNavKeys.includes(item.key)
+  );
+  const isMorePageActive = moreMobileNavItems.some((item) => item.key === activePage);
+
+  React.useEffect(() => {
+    setAdminMoreOpen(false);
+  }, [activePage]);
+
   return (<main className="h-screen overflow-hidden bg-[#06100e] text-[#f4fbf8]">
       <Toaster
         position="top-center"
@@ -302,7 +315,7 @@ export function AdminShell(props) {
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <button
                   className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[var(--color-surface)] shadow-sm lg:hidden"
-                  onClick={() => setMobileMenuOpen((value) => !value)}
+                  onClick={() => setAdminMoreOpen(true)}
                   type="button"
                 >
                   <Menu size={20} />
@@ -367,82 +380,7 @@ export function AdminShell(props) {
             </div>
           </header>
 
-          <div
-            className={`fixed inset-0 z-50 lg:hidden ${
-              mobileMenuOpen ? "pointer-events-auto" : "pointer-events-none"
-            }`}
-          >
-            <button
-              aria-label="Close menu"
-              className={`absolute inset-0 bg-[#081311]/38 backdrop-blur-md transition-opacity duration-300 ${
-                mobileMenuOpen ? "opacity-100" : "opacity-0"
-              }`}
-              onClick={() => setMobileMenuOpen(false)}
-              type="button"
-            />
-            <aside
-              className={`absolute left-0 top-0 flex h-dvh w-[86vw] max-w-sm flex-col bg-[var(--color-surface)] p-4 shadow-2xl transition-transform duration-300 ease-out ${
-                mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-              }`}
-            >
-              <div className="mb-5 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#991b1b] text-white">
-                    <Scissors size={22} />
-                  </span>
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-[#991b1b]">
-                      Owner Panel
-                    </p>
-                    <p className="font-black">Santosh Salon</p>
-                  </div>
-                </div>
-                <button
-                  className="grid h-11 w-11 place-items-center rounded-2xl bg-[#101a18]"
-                  onClick={() => setMobileMenuOpen(false)}
-                  type="button"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-              <nav className="grid flex-1 content-start gap-2 overflow-y-auto pb-4">
-                {navItems.map(({ icon: Icon, label, key }) => (
-                  <button
-                    className={`flex min-h-12 items-center gap-3 rounded-2xl px-4 text-left font-black ${
-                      activePage === key
-                        ? "bg-[#991b1b] text-white"
-                        : "bg-[#101a18] text-[#f4fbf8]"
-                    }`}
-                    key={key}
-                    onClick={() => {
-                      navigateAdminPage(key);
-                      setMobileMenuOpen(false);
-                    }}
-                    type="button"
-                  >
-                    <Icon size={19} />
-                    <span className="flex-1">{label}</span>
-                    {key === "messages" && openMessageCount ? (
-                      <span className="rounded-full bg-[#f9c66d] px-2 py-0.5 text-xs font-black text-[#081311]">
-                        {openMessageCount}
-                      </span>
-                    ) : null}
-                  </button>
-                ))}
-              </nav>
-              <button
-                className="mt-2 flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/25 bg-[#24170d] font-black text-[#f9c66d] disabled:opacity-60"
-                disabled={actionLoading === "logout"}
-                onClick={handleLogout}
-                type="button"
-              >
-                {actionLoading === "logout" ? <ButtonSpinner /> : <LogOut size={18} />}
-                {actionLoading === "logout" ? "Logging out..." : "Logout"}
-              </button>
-            </aside>
-          </div>
-
-          <div className="px-4 py-5 sm:px-6 lg:px-8">
+          <div className="px-4 py-5 pb-28 sm:px-6 lg:px-8 lg:pb-5">
             {notice ? (
               <p className="mb-5 rounded-2xl bg-[var(--color-surface)] px-4 py-3 text-sm font-black text-[#f4fbf8] soft-shadow">
                 {notice}
@@ -2131,7 +2069,131 @@ export function AdminShell(props) {
             ) : null}
           </div>
         </section>
-      </div>      <ServiceDialog
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+0.65rem)] lg:hidden">
+        <nav className="admin-mobile-nav">
+          {primaryMobileNavItems.slice(0, 2).map(({ icon: Icon, label, key }) => (
+            <button
+              aria-current={activePage === key ? "page" : undefined}
+              className={`admin-mobile-nav-item ${
+                activePage === key ? "admin-mobile-nav-item-active" : ""
+              }`}
+              key={key}
+              onClick={() => navigateAdminPage(key)}
+              type="button"
+            >
+              <Icon size={20} />
+              <span>{label}</span>
+            </button>
+          ))}
+
+          <button
+            aria-expanded={adminMoreOpen}
+            className={`admin-mobile-nav-more ${
+              adminMoreOpen || isMorePageActive ? "admin-mobile-nav-more-active" : ""
+            }`}
+            onClick={() => setAdminMoreOpen((value) => !value)}
+            type="button"
+          >
+            <ChevronsUp size={22} />
+            <span>More</span>
+          </button>
+
+          {primaryMobileNavItems.slice(2).map(({ icon: Icon, label, key }) => (
+            <button
+              aria-current={activePage === key ? "page" : undefined}
+              className={`admin-mobile-nav-item ${
+                activePage === key ? "admin-mobile-nav-item-active" : ""
+              }`}
+              key={key}
+              onClick={() => navigateAdminPage(key)}
+              type="button"
+            >
+              <Icon size={20} />
+              <span>{label === "Haircut Design" ? "Services" : label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <div
+        className={`fixed inset-0 z-[95] lg:hidden ${
+          adminMoreOpen ? "pointer-events-auto" : "pointer-events-none"
+        }`}
+      >
+        <button
+          aria-label="Close admin menu"
+          className={`absolute inset-0 bg-[#020807]/50 backdrop-blur-sm transition-opacity duration-200 ${
+            adminMoreOpen ? "opacity-100" : "opacity-0"
+          }`}
+          onClick={() => setAdminMoreOpen(false)}
+          type="button"
+        />
+        <section
+          className={`admin-mobile-more-sheet ${
+            adminMoreOpen ? "admin-mobile-more-sheet-open" : ""
+          }`}
+        >
+          <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-[#f9c66d]/45" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#991b1b] text-white">
+                <Scissors size={22} />
+              </span>
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#f9a8a8]">
+                  Owner Panel
+                </p>
+                <p className="text-lg font-black">Santosh Salon</p>
+              </div>
+            </div>
+            <button
+              aria-label="Close menu"
+              className="grid h-12 w-12 place-items-center rounded-2xl bg-[#07110f] text-white"
+              onClick={() => setAdminMoreOpen(false)}
+              type="button"
+            >
+              <X size={22} />
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-2">
+            {moreMobileNavItems.map(({ icon: Icon, label, key }) => (
+              <button
+                className={`admin-mobile-more-item ${
+                  activePage === key ? "admin-mobile-more-item-active" : ""
+                }`}
+                key={key}
+                onClick={() => navigateAdminPage(key)}
+                type="button"
+              >
+                <span className="admin-mobile-more-icon">
+                  <Icon size={19} />
+                </span>
+                <span className="flex-1">{label}</span>
+                {key === "messages" && openMessageCount ? (
+                  <span className="rounded-full bg-[#f9c66d] px-2 py-0.5 text-xs font-black text-[#081311]">
+                    {openMessageCount}
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+
+          <button
+            className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/25 bg-[#24170d] font-black text-[#f9c66d] disabled:opacity-60"
+            disabled={actionLoading === "logout"}
+            onClick={handleLogout}
+            type="button"
+          >
+            {actionLoading === "logout" ? <ButtonSpinner /> : <LogOut size={18} />}
+            {actionLoading === "logout" ? "Logging out..." : "Logout"}
+          </button>
+        </section>
+      </div>
+
+      <ServiceDialog
         actionLoading={actionLoading}
         draft={serviceDraft}
         editingServiceId={editingServiceId}

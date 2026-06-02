@@ -156,7 +156,6 @@ export function useAdminController() {
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState("");
   const [activePage, setActivePage] = useState(() => getAdminRoute());
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [queueItems, setQueueItems] = useState([]);
   const [analyticsItems, setAnalyticsItems] = useState([]);
   const [queueLoading, setQueueLoading] = useState(true);
@@ -244,24 +243,6 @@ export function useAdminController() {
   useEffect(() => {
     applyAdminSeo(user ? activePage : "dashboard");
   }, [activePage, user]);
-
-  useEffect(() => {
-    if (!mobileMenuOpen) {
-      document.body.classList.remove("drawer-open");
-      document.body.style.removeProperty("--scrollbar-width");
-      return undefined;
-    }
-
-    const scrollbarWidth =
-      window.innerWidth - document.documentElement.clientWidth;
-    document.body.style.setProperty("--scrollbar-width", `${scrollbarWidth}px`);
-    document.body.classList.add("drawer-open");
-
-    return () => {
-      document.body.classList.remove("drawer-open");
-      document.body.style.removeProperty("--scrollbar-width");
-    };
-  }, [mobileMenuOpen]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setAdminClockTick(Date.now()), 60 * 1000);
@@ -2731,7 +2712,6 @@ export function useAdminController() {
     openMessageCount,
     actionLoading,
     handleLogout,
-    setMobileMenuOpen,
     activeNavItem,
     salonProfile,
     shopManuallyClosed,
@@ -2740,7 +2720,6 @@ export function useAdminController() {
     setUserSearchTerm,
     userSearchTerm,
     user,
-    mobileMenuOpen,
     notice,
     UsersRound,
     waitingCount,
