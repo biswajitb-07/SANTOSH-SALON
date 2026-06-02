@@ -89,12 +89,15 @@ body.drawer-open {
   padding-right: var(--scrollbar-width, 0px);
 }
 
-.app-toaster {
-  z-index: 100000 !important;
+.app-toaster,
+[data-sonner-toaster] {
+  position: fixed !important;
+  z-index: 2147483647 !important;
   pointer-events: none;
 }
 
-.app-toaster [data-sonner-toast] {
+.app-toaster [data-sonner-toast],
+[data-sonner-toaster] [data-sonner-toast] {
   width: min(92vw, 560px) !important;
   max-width: 560px !important;
   margin-top: 0.25rem;
@@ -102,12 +105,14 @@ body.drawer-open {
   overflow-wrap: anywhere;
 }
 
-.app-toaster [data-close-button] {
+.app-toaster [data-close-button],
+[data-sonner-toaster] [data-close-button] {
   pointer-events: auto;
 }
 
 @media (max-width: 640px) {
-  .app-toaster [data-sonner-toast] {
+  .app-toaster [data-sonner-toast],
+  [data-sonner-toaster] [data-sonner-toast] {
     width: calc(100vw - 2rem) !important;
   }
 }

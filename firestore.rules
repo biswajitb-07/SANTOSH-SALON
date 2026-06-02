@@ -47,6 +47,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /barberStats/{barberId} {
+      allow read: if true;
+      allow create, update: if signedIn();
+      allow delete: if isAdmin();
+    }
+
     match /customers/{customerId} {
       allow create: if signedIn() &&
         request.resource.data.userId == request.auth.uid;

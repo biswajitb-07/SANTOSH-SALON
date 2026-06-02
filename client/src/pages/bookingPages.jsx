@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   collection,
   onSnapshot,
-  query as firestoreQuery
 } from "firebase/firestore";
 import {
   ArrowRight,
@@ -641,33 +640,12 @@ export function BarbersPage({ bookingGate }) {
   const barbers = bookingGate.barbers?.length ? bookingGate.barbers : [];
 
   useEffect(() => {
-    const customersRef = firestoreQuery(collection(db, "customers"));
     return onSnapshot(
-      customersRef,
+      collection(db, "barberStats"),
       (snapshot) => {
         const nextStats = snapshot.docs.reduce((accumulator, snapshotDoc) => {
           const data = snapshotDoc.data();
-          const barberName =
-            data.barberName || data.preferredBarber || "Next available barber";
-          if (!barberName || barberName === "Next available barber") {
-            return accumulator;
-          }
-
-          const current = accumulator[barberName] || {
-            waiting: 0,
-            ratingTotal: 0,
-            ratingCount: 0
-          };
-          const status = String(data.status || "").toLowerCase();
-          if (["waiting", "waitlist", "in_chair"].includes(status)) {
-            current.waiting += 1;
-          }
-          const rating = Number(data.barberRating || 0);
-          if (rating > 0) {
-            current.ratingTotal += rating;
-            current.ratingCount += 1;
-          }
-          accumulator[barberName] = current;
+          if (data.name) accumulator[data.name] = data;
           return accumulator;
         }, {});
         setBarberStats(nextStats);
@@ -679,7 +657,7 @@ export function BarbersPage({ bookingGate }) {
   const getAverageRating = (barberName) => {
     const stats = barberStats[barberName];
     if (!stats?.ratingCount) return 0;
-    return Math.round((stats.ratingTotal / stats.ratingCount) * 10) / 10;
+    return Math.round((Number(stats.ratingTotal || 0) / Number(stats.ratingCount || 1)) * 10) / 10;
   };
 
   return (
@@ -706,11 +684,17 @@ export function BarbersPage({ bookingGate }) {
               className="luxury-glass overflow-hidden rounded-[2rem] queue-shadow"
               key={barber.name}
             >
-              <img
-                alt={barber.name}
-                className="h-64 w-full object-cover"
-                src={barber.imageUrl}
-              />
+              {barber.imageUrl ? (
+                <img
+                  alt={barber.name}
+                  className="h-64 w-full object-cover"
+                  src={barber.imageUrl}
+                />
+              ) : (
+                <div className="grid h-64 w-full place-items-center border-b border-[#35201f] bg-[#0b1714] text-sm font-black text-[#9db2ad]">
+                  Image coming soon
+                </div>
+              )}
               <div className="p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -737,7 +721,7 @@ export function BarbersPage({ bookingGate }) {
                       Queue
                     </p>
                     <p className="mt-2 text-3xl font-black text-[#f9c66d]">
-                      {stats.waiting || 0}
+                      {stats.activeCount || 0}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-[#35201f] bg-[#0b1714] p-4">

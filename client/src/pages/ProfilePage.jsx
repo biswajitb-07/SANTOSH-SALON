@@ -5,9 +5,12 @@ import {
   addDoc,
   collection,
   doc,
+  increment,
+  limit,
   onSnapshot,
   query as firestoreQuery,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where
 } from "firebase/firestore";
@@ -41,7 +44,7 @@ import {
 } from "../lib/formatters.js";
 import { downloadBookingInvoice } from "../lib/invoice.js";
 
-const BOOKING_PAGE_SIZE = 3;
+const BOOKING_PAGE_SIZE = 5;
 const STAFF_COUNT = 3;
 const PLATFORM_FEE_PER_PERSON = 2;
 const SERVICE_ESTIMATE_MINUTES = {
@@ -90,6 +93,13 @@ const rescheduleSlots = [
   ["21:30", "9:30 PM"],
   ["22:00", "10:00 PM"]
 ];
+
+const getBarberStatsId = (barberName = "") =>
+  String(barberName || "barber")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "barber";
 
 const toDateInputValue = (date) => {
   const year = date.getFullYear();
@@ -296,18 +306,34 @@ function RefundStatusTracker({ refund }) {
   const steps = ["Requested", "Processing", "Completed"];
 
   return (
-    <div className="mt-3 rounded-2xl border border-[#35201f] bg-[#101a18] p-3">
-      <div className="grid grid-cols-3 gap-2">
+    <div className="mt-3 rounded-2xl border border-[#35201f] bg-[#101a18] px-4 py-5">
+      <div className="relative grid grid-cols-3">
+        <span className="absolute left-[16.5%] right-[16.5%] top-4 h-1 rounded-full bg-[#2a1111]" />
+        <span
+          className="absolute left-[16.5%] top-4 h-1 rounded-full bg-[#f9c66d] transition-all"
+          style={{ width: `${Math.max(0, stepIndex) * 33.33}%` }}
+        />
         {steps.map((step, index) => (
           <div
-            className={`rounded-xl px-3 py-2 text-center text-[11px] font-black ${
-              index <= stepIndex
-                ? "bg-[#2a1111] text-[#fca5a5]"
-                : "bg-[#0b1714] text-[#637371]"
-            }`}
+            className="relative z-[1] flex flex-col items-center gap-2 text-center"
             key={step}
           >
-            {step}
+            <span
+              className={`grid h-9 w-9 place-items-center rounded-full border-4 text-xs font-black ${
+                index <= stepIndex
+                  ? "border-[#f9c66d] bg-[#991b1b] text-white"
+                  : "border-[#35201f] bg-[#0b1714] text-[#637371]"
+              }`}
+            >
+              {index + 1}
+            </span>
+            <span
+              className={`text-[11px] font-black ${
+                index <= stepIndex ? "text-[#f9c66d]" : "text-[#637371]"
+              }`}
+            >
+              {step}
+            </span>
           </div>
         ))}
       </div>
@@ -669,7 +695,7 @@ export function ProfilePage({
   const [rescheduleBookingId, setRescheduleBookingId] = useState("");
   const [bookingPage, setBookingPage] = useState(1);
   const [selectedBookingGroupKey, setSelectedBookingGroupKey] = useState("");
-  const groupedBookings = groupUserBookings(bookings).slice(0, 3);
+  const groupedBookings = groupUserBookings(bookings).slice(0, 5);
 
   const totalBookingPages = Math.max(
     1,
@@ -706,7 +732,8 @@ export function ProfilePage({
     setBookingsLoading(true);
     const bookingsRef = firestoreQuery(
       collection(db, "customers"),
-      where("userId", "==", user.uid)
+      where("userId", "==", user.uid),
+      limit(10)
     );
 
     return onSnapshot(
@@ -733,7 +760,8 @@ export function ProfilePage({
 
     const refundsRef = firestoreQuery(
       collection(db, "refundRequests"),
-      where("userId", "==", user.uid)
+      where("userId", "==", user.uid),
+      limit(5)
     );
 
     return onSnapshot(
@@ -829,11 +857,26 @@ export function ProfilePage({
     if (!booking?.id || booking.status !== "completed") return;
 
     try {
+      const previousRating = Number(booking.barberRating || 0);
+      const ratingDelta = rating - previousRating;
       await updateDoc(doc(db, "customers", booking.id), {
         barberRating: rating,
         barberRatedAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+      if (booking.barberName && booking.barberName !== "Next available barber") {
+        const nextRatingCount = increment(previousRating > 0 ? 0 : 1);
+        await setDoc(
+          doc(db, "barberStats", getBarberStatsId(booking.barberName)),
+          {
+            name: booking.barberName,
+            ratingTotal: increment(ratingDelta),
+            ratingCount: nextRatingCount,
+            updatedAt: serverTimestamp()
+          },
+          { merge: true }
+        );
+      }
       toast.success(`You rated ${booking.barberName} ${rating} star${rating === 1 ? "" : "s"}.`);
     } catch (error) {
       toast.error(getSafeErrorMessage(error, "Rating could not be saved."));
@@ -1232,6 +1275,10 @@ export function ProfilePage({
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#35201f] pt-3">
                       <p className="max-w-xl text-sm font-bold text-[#637371]">
                         {helperText}
+                      </p>
+                      <p className="w-full rounded-2xl border border-[#f9c66d]/20 bg-[#24170d] px-3 py-2 text-xs font-black leading-5 text-[#f9c66d]">
+                        Booking history automatically keeps only recent visits.
+                        Download or share your invoice now if you need it later.
                       </p>
                       <div className="flex w-full flex-wrap justify-end gap-2 sm:w-auto">
                         <button

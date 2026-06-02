@@ -10,6 +10,7 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -102,12 +103,29 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const STAFF_COUNT = 3;
 const PLATFORM_FEE_PER_PERSON = 2;
 const DEFAULT_BARBER_NAMES = ["Santosh", "Haircut specialist", "Beard stylist"];
-const DEFAULT_BARBER_IMAGES = [
-  "https://source.unsplash.com/900x900/?indian,barber,portrait",
-  "https://source.unsplash.com/900x900/?indian,hair-stylist,man",
-  "https://source.unsplash.com/900x900/?indian,salon,barber"
+const DEFAULT_BARBER_PLACEHOLDERS = [
+  "/assets/owner-santosh-portrait.png",
+  "https://images.pexels.com/photos/2061820/pexels-photo-2061820.jpeg?auto=compress&cs=tinysrgb&w=900",
+  "https://images.pexels.com/photos/2881253/pexels-photo-2881253.jpeg?auto=compress&cs=tinysrgb&w=900"
 ];
-const DEFAULT_BARBER_IMAGE = DEFAULT_BARBER_IMAGES[0];
+const getSafeBarberImageUrl = (imageUrl) => {
+  if (!imageUrl) return "";
+  if (
+    imageUrl.includes("source.unsplash.com") ||
+    imageUrl.includes("pollinations.ai") ||
+    imageUrl.includes("pexels-photo-6623694") ||
+    imageUrl.includes("/images/barbers/")
+  ) {
+    return "";
+  }
+  return imageUrl;
+};
+const getBarberStatsId = (barberName = "") =>
+  String(barberName || "barber")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "barber";
 const DAILY_CONFIRMED_LIMIT = 35;
 const SLOT_START_HOUR = 7;
 const BOOKING_END_HOUR = 23;
@@ -168,10 +186,10 @@ const defaultSalonProfile = {
   address: "Main Market Road, Near City Chowk",
   openingTime: "07:00",
   closingTime: "23:00",
-  barbers: DEFAULT_BARBER_NAMES.map((name, index) => ({
+  barbers: DEFAULT_BARBER_NAMES.map((name) => ({
     name,
     active: true,
-    imageUrl: DEFAULT_BARBER_IMAGES[index] || DEFAULT_BARBER_IMAGE,
+    imageUrl: "",
     imagePublicId: ""
   })),
   staffAttendance: {
@@ -534,7 +552,9 @@ const getProfileBarbers = (profile = defaultSalonProfile) => {
         .map((barber, index) => ({
           name: String(barber?.name || "").trim(),
           active: barber?.active !== false,
-          imageUrl: barber?.imageUrl || DEFAULT_BARBER_IMAGES[index % DEFAULT_BARBER_IMAGES.length],
+          imageUrl:
+            getSafeBarberImageUrl(barber?.imageUrl) ||
+            DEFAULT_BARBER_PLACEHOLDERS[index % DEFAULT_BARBER_PLACEHOLDERS.length],
           imagePublicId: barber?.imagePublicId || ""
         }))
         .filter((barber) => barber.name)
@@ -545,7 +565,7 @@ const getProfileBarbers = (profile = defaultSalonProfile) => {
     : DEFAULT_BARBER_NAMES.map((name, index) => ({
         name,
         active: true,
-        imageUrl: DEFAULT_BARBER_IMAGES[index] || DEFAULT_BARBER_IMAGE,
+        imageUrl: DEFAULT_BARBER_PLACEHOLDERS[index % DEFAULT_BARBER_PLACEHOLDERS.length],
         imagePublicId: ""
       }));
 };
@@ -631,6 +651,7 @@ function App() {
   const [couponDraft, setCouponDraft] = useState(defaultSalonProfile.coupons);
   const [couponEditor, setCouponEditor] = useState(null);
   const [barberEditor, setBarberEditor] = useState(null);
+  const [barberStats, setBarberStats] = useState({});
   const [serviceItems, setServiceItems] = useState([]);
   const [serviceDraft, setServiceDraft] = useState(defaultServiceDraft);
   const [editingServiceId, setEditingServiceId] = useState("");
@@ -812,6 +833,24 @@ function App() {
   useEffect(() => {
     if (!user) return undefined;
 
+    return onSnapshot(
+      collection(db, "barberStats"),
+      (snapshot) => {
+        setBarberStats(
+          snapshot.docs.reduce((accumulator, snapshotDoc) => {
+            const data = snapshotDoc.data();
+            if (data.name) accumulator[data.name] = data;
+            return accumulator;
+          }, {})
+        );
+      },
+      () => setBarberStats({})
+    );
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
     const servicesRef = collection(db, "services");
 
     return onSnapshot(
@@ -837,7 +876,11 @@ function App() {
     if (!user) return undefined;
 
     setUsersLoading(true);
-    const usersRef = query(collection(db, "users"), orderBy("updatedAt", "desc"));
+    const usersRef = query(
+      collection(db, "users"),
+      orderBy("updatedAt", "desc"),
+      limit(250)
+    );
 
     return onSnapshot(
       usersRef,
@@ -858,7 +901,8 @@ function App() {
     setRefundsLoading(true);
     const refundsRef = query(
       collection(db, "refundRequests"),
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "desc"),
+      limit(200)
     );
 
     return onSnapshot(
@@ -1007,21 +1051,10 @@ function App() {
   const profileBarberNames = getProfileBarberNames(salonProfile);
   const profileBarbers = getProfileBarbers(salonProfile);
   const barberRatingSummary = profileBarberNames.reduce((accumulator, barberName) => {
-    const ratedBookings = queueItems.filter(
-      (item) =>
-        item.barberName === barberName &&
-        Number(item.barberRating || 0) > 0
-    );
-    const ratingCount = ratedBookings.length;
+    const stats = barberStats[barberName] || {};
+    const ratingCount = Number(stats.ratingCount || 0);
     const ratingAverage = ratingCount
-      ? Math.round(
-          (ratedBookings.reduce(
-            (total, item) => total + Number(item.barberRating || 0),
-            0
-          ) /
-            ratingCount) *
-            10
-        ) / 10
+      ? Math.round((Number(stats.ratingTotal || 0) / ratingCount) * 10) / 10
       : 0;
     accumulator[barberName] = { ratingAverage, ratingCount };
     return accumulator;
@@ -1066,6 +1099,35 @@ function App() {
     }
     return idleAvailableBarberNames.includes(customer.barberName);
   };
+
+  useEffect(() => {
+    if (!user || !profileBarberNames.length) return;
+    profileBarberNames.forEach((barberName) => {
+      const activeCount = activeDisplayQueue.filter((item) => {
+        const status = String(item.status || "").toLowerCase();
+        return (
+          item.barberName === barberName &&
+          ["waiting", "waitlist", "in_chair"].includes(status)
+        );
+      }).length;
+      setDoc(
+        doc(db, "barberStats", getBarberStatsId(barberName)),
+        {
+          name: barberName,
+          activeCount,
+          updatedAt: serverTimestamp()
+        },
+        { merge: true }
+      ).catch(() => {});
+    });
+  }, [
+    user?.uid,
+    profileBarberNames.join("|"),
+    activeDisplayQueue
+      .map((item) => `${item.id}:${item.status}:${item.barberName}`)
+      .join("|")
+  ]);
+
   const selectedQueueTab =
     queueStatusTabs.find((tab) => tab.key === queueStatusTab) ||
     queueStatusTabs[0];
@@ -1661,7 +1723,7 @@ function App() {
       .map((barber) => ({
         name: String(barber.name || "").trim(),
         active: barber.active !== false,
-        imageUrl: barber.imageUrl || DEFAULT_BARBER_IMAGE,
+        imageUrl: getSafeBarberImageUrl(barber.imageUrl),
         imagePublicId: barber.imagePublicId || ""
       }))
       .filter((barber) => barber.name);
@@ -1700,7 +1762,7 @@ function App() {
       mode: "add",
       originalName: "",
       name: "",
-      imageUrl: DEFAULT_BARBER_IMAGE,
+      imageUrl: "",
       imagePublicId: "",
       imageFile: null,
       imagePreview: "",
@@ -1713,7 +1775,7 @@ function App() {
       mode: "edit",
       originalName: barber.name,
       name: barber.name,
-      imageUrl: barber.imageUrl || DEFAULT_BARBER_IMAGE,
+      imageUrl: getSafeBarberImageUrl(barber.imageUrl),
       imagePublicId: barber.imagePublicId || "",
       imageFile: null,
       imagePreview: "",
@@ -1755,7 +1817,7 @@ function App() {
         : DEFAULT_BARBER_NAMES.map((name) => ({
             name,
             active: true,
-            imageUrl: DEFAULT_BARBER_IMAGE,
+            imageUrl: "",
             imagePublicId: ""
           }));
     const duplicate = existingBarbers.some(
@@ -1769,13 +1831,19 @@ function App() {
     }
 
     setActionLoading("barbers-save");
-    let imageUrl = barberEditor.imageUrl || DEFAULT_BARBER_IMAGE;
+    let imageUrl = barberEditor.imageUrl || "";
     let imagePublicId = barberEditor.imagePublicId || "";
     try {
       if (barberEditor.imageFile) {
         const uploadedImage = await uploadServiceImage(barberEditor.imageFile);
         imageUrl = uploadedImage.imageUrl;
         imagePublicId = uploadedImage.imagePublicId;
+        if (
+          barberEditor.imagePublicId &&
+          barberEditor.imagePublicId !== uploadedImage.imagePublicId
+        ) {
+          await deleteCloudinaryImage(barberEditor.imagePublicId);
+        }
       }
     } catch (error) {
       setActionLoading("");
@@ -1819,11 +1887,15 @@ function App() {
         : DEFAULT_BARBER_NAMES.map((barberName) => ({
             name: barberName,
             active: true,
-            imageUrl: DEFAULT_BARBER_IMAGE,
+            imageUrl: "",
             imagePublicId: ""
           }));
     const nextBarbers = existingBarbers.filter((barber) => barber.name !== name);
+    const deletedBarber = existingBarbers.find((barber) => barber.name === name);
     persistBarbers(nextBarbers, "Barber deleted.");
+    if (deletedBarber?.imagePublicId) {
+      deleteCloudinaryImage(deletedBarber.imagePublicId).catch(() => {});
+    }
   };
 
   const normalizeCoupons = (coupons) =>
@@ -4085,11 +4157,17 @@ function App() {
                       </p>
                       <div className="mt-4 grid gap-4 lg:grid-cols-[160px_1fr]">
                         <div>
-                          <img
-                            alt={barberEditor.name || "Barber preview"}
-                            className="h-40 w-full rounded-2xl border border-[#35201f] object-cover"
-                            src={barberEditor.imagePreview || barberEditor.imageUrl || DEFAULT_BARBER_IMAGE}
-                          />
+                          {barberEditor.imagePreview || barberEditor.imageUrl ? (
+                            <img
+                              alt={barberEditor.name || "Barber preview"}
+                              className="h-40 w-full rounded-2xl border border-[#35201f] object-cover"
+                              src={barberEditor.imagePreview || barberEditor.imageUrl}
+                            />
+                          ) : (
+                            <div className="grid h-40 w-full place-items-center rounded-2xl border border-dashed border-[#35201f] bg-[#0b1714] text-sm font-black text-[#9db2ad]">
+                              Upload Cloudinary image
+                            </div>
+                          )}
                           <label className="mt-3 flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/30 bg-[#24170d] px-4 text-sm font-black text-[#f9c66d]">
                             <ImagePlus size={17} />
                             Upload Image
@@ -4149,21 +4227,29 @@ function App() {
                   ) : null}
 
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {profileBarbers.map((barber) => {
+                    {profileBarbers.map((barber, index) => {
                       const rating = barberRatingSummary[barber.name] || {
                         ratingAverage: 0,
                         ratingCount: 0
                       };
+                      const displayImageUrl =
+                        barber.imageUrl || DEFAULT_BARBER_PLACEHOLDERS[index % DEFAULT_BARBER_PLACEHOLDERS.length];
                       return (
                       <article
                         className="rounded-2xl border border-[#35201f] bg-[#081311] p-4"
                         key={barber.name}
                       >
-                        <img
-                          alt={barber.name}
-                          className="h-40 w-full rounded-2xl object-cover"
-                          src={barber.imageUrl || DEFAULT_BARBER_IMAGE}
-                        />
+                        {displayImageUrl ? (
+                          <img
+                            alt={barber.name}
+                            className="h-40 w-full rounded-2xl object-cover"
+                            src={displayImageUrl}
+                          />
+                        ) : (
+                          <div className="grid h-40 w-full place-items-center rounded-2xl border border-dashed border-[#35201f] bg-[#0b1714] text-sm font-black text-[#9db2ad]">
+                            No image uploaded
+                          </div>
+                        )}
                         <div className="mt-4 flex items-start justify-between gap-3">
                           <div>
                             <p className="text-xl font-black text-[#f4fbf8]">{barber.name}</p>

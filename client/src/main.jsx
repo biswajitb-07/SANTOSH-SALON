@@ -76,7 +76,7 @@ const BOOKING_CLOSED_MESSAGE =
 const STAFF_COUNT = 3;
 const DAILY_CONFIRMED_LIMIT = 35;
 const WAITLIST_LIMIT = 10;
-const USER_BOOKING_HISTORY_LIMIT = 3;
+const USER_BOOKING_HISTORY_LIMIT = 5;
 const PLATFORM_FEE_PER_PERSON = 2;
 const BARBER_OPTIONS = [
   "Next available barber",
@@ -85,12 +85,23 @@ const BARBER_OPTIONS = [
   "Beard stylist"
 ];
 const DEFAULT_BARBER_NAMES = ["Santosh", "Haircut specialist", "Beard stylist"];
-const DEFAULT_BARBER_IMAGES = [
-  "https://source.unsplash.com/900x900/?indian,barber,portrait",
-  "https://source.unsplash.com/900x900/?indian,hair-stylist,man",
-  "https://source.unsplash.com/900x900/?indian,salon,barber"
+const DEFAULT_BARBER_PLACEHOLDERS = [
+  "/assets/owner-santosh-portrait.png",
+  "https://images.pexels.com/photos/2061820/pexels-photo-2061820.jpeg?auto=compress&cs=tinysrgb&w=900",
+  "https://images.pexels.com/photos/2881253/pexels-photo-2881253.jpeg?auto=compress&cs=tinysrgb&w=900"
 ];
-const DEFAULT_BARBER_IMAGE = DEFAULT_BARBER_IMAGES[0];
+const getSafeBarberImageUrl = (imageUrl) => {
+  if (!imageUrl) return "";
+  if (
+    imageUrl.includes("source.unsplash.com") ||
+    imageUrl.includes("pollinations.ai") ||
+    imageUrl.includes("pexels-photo-6623694") ||
+    imageUrl.includes("/images/barbers/")
+  ) {
+    return "";
+  }
+  return imageUrl;
+};
 const DEFAULT_COUPONS = {
   WELCOME10: { label: "Welcome offer", percent: 10 },
   SALON20: { label: "Salon special", type: "amount", amount: 20 }
@@ -331,10 +342,11 @@ const normalizeBarberAvailability = (salon = {}, dateValue = toDateInputValue(ne
       name,
       available: available && !unavailableDates.includes(dateValue),
       imageUrl:
-        Array.isArray(salon.barbers)
-          ? salon.barbers.find((barber) => barber?.name === name)?.imageUrl ||
-            DEFAULT_BARBER_IMAGES[index % DEFAULT_BARBER_IMAGES.length]
-          : DEFAULT_BARBER_IMAGES[index % DEFAULT_BARBER_IMAGES.length],
+        (Array.isArray(salon.barbers)
+          ? getSafeBarberImageUrl(
+              salon.barbers.find((barber) => barber?.name === name)?.imageUrl
+            )
+          : "") || DEFAULT_BARBER_PLACEHOLDERS[index % DEFAULT_BARBER_PLACEHOLDERS.length],
       imagePublicId:
         Array.isArray(salon.barbers)
           ? salon.barbers.find((barber) => barber?.name === name)?.imagePublicId || ""
@@ -489,19 +501,26 @@ const getBookingDayStats = async (bookingDate, slots = timeSlots) => {
 
 const getActiveUserBookings = async (userId) => {
   const bookingSnapshot = await getDocs(
-    firestoreQuery(collection(db, "customers"), where("userId", "==", userId))
+    firestoreQuery(
+      collection(db, "customers"),
+      where("userId", "==", userId),
+      where("status", "in", [...activeBookingStatuses])
+    )
   );
 
-  return bookingSnapshot.docs
-    .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() }))
-    .filter((booking) =>
-      activeBookingStatuses.has(String(booking.status || "").toLowerCase())
-    );
+  return bookingSnapshot.docs.map((snapshotDoc) => ({
+    id: snapshotDoc.id,
+    ...snapshotDoc.data()
+  }));
 };
 
 const pruneUserBookingHistory = async (userId) => {
   const bookingSnapshot = await getDocs(
-    firestoreQuery(collection(db, "customers"), where("userId", "==", userId))
+    firestoreQuery(
+      collection(db, "customers"),
+      where("userId", "==", userId),
+      limit(60)
+    )
   );
   const inactiveStatuses = new Set([
     "completed",
@@ -562,8 +581,7 @@ function CheckoutModal({
     couponCode: "",
     includeGuest: false,
     guestName: "",
-    guestMobile: "",
-    paymentMethod: "online"
+    guestMobile: ""
   });
   const [status, setStatus] = useState(null);
   const [appliedCouponCode, setAppliedCouponCode] = useState("");
@@ -592,8 +610,7 @@ function CheckoutModal({
       couponCode: "",
       includeGuest: false,
       guestName: "",
-      guestMobile: "",
-      paymentMethod: "online"
+      guestMobile: ""
     });
     setStatus(null);
     setAppliedCouponCode("");
@@ -688,14 +705,7 @@ function CheckoutModal({
     perPersonServiceAmount + PLATFORM_FEE_PER_PERSON,
     peopleCount
   );
-  const cashChargePreview = {
-    serviceAmount: discountedServiceAmount,
-    cashfreeFeePercent: 0,
-    cashfreeFee: 0,
-    payableAmount: Math.round((discountedServiceAmount + platformFeeTotal) * 100) / 100
-  };
-  const chargePreview =
-    form.paymentMethod === "cod" ? cashChargePreview : onlineChargePreview;
+  const chargePreview = onlineChargePreview;
 
   const selectedBarberAvailable =
     form.preferredBarber === BARBER_OPTIONS[0] ||
@@ -882,67 +892,65 @@ function CheckoutModal({
       let paidPayment = {};
       let charge = chargePreview;
 
-      if (form.paymentMethod === "online") {
-        await loadCashfreeCheckout();
+      await loadCashfreeCheckout();
 
-        order = await createCustomerPaymentOrder({
-          serviceTitle:
-            customers.length > 1
-              ? `${service.title} x ${customers.length}`
-              : service.title,
-          amount: onlineChargePreview.serviceAmount,
-          customerName: form.name.trim(),
-          customerMobile: mobile,
-          customerEmail: user.email || "",
-          customerUserId: user.uid,
-          bookingDay: bookingOption.day,
-          bookingDate: bookingOption.date
-        }).unwrap();
+      order = await createCustomerPaymentOrder({
+        serviceTitle:
+          customers.length > 1
+            ? `${service.title} x ${customers.length}`
+            : service.title,
+        amount: onlineChargePreview.serviceAmount,
+        customerName: form.name.trim(),
+        customerMobile: mobile,
+        customerEmail: user.email || "",
+        customerUserId: user.uid,
+        bookingDay: bookingOption.day,
+        bookingDate: bookingOption.date
+      }).unwrap();
 
-        if (!order.payment_session_id || !order.order_id) {
-          throw new Error("Cashfree order response is missing checkout details.");
-        }
-
-        setStatus({
-          type: "info",
-          message: `Cashfree checkout opened. Payable amount ${formatMoney(
-            order.charge?.payableAmount
-          )}.`
-        });
-        toast.info(
-          `Payment pending. Complete Cashfree checkout for ${formatMoney(
-            order.charge?.payableAmount
-          )}.`
-        );
-
-        const cashfree = window.Cashfree({
-          mode: order.checkoutMode || "sandbox"
-        });
-
-        const result = await cashfree.checkout({
-          paymentSessionId: order.payment_session_id,
-          redirectTarget: "_modal"
-        });
-
-        if (result?.error) {
-          throw new Error(
-            result.error?.message ||
-              result.error?.paymentMessage ||
-              "Cashfree payment failed"
-          );
-        }
-
-        toast.info("Payment received. Verifying booking confirmation...");
-        const verification = await verifyCustomerPayment(order.order_id).unwrap();
-        if (!verification.verified) {
-          throw new Error(verification.error || "Payment verification failed");
-        }
-        toast.success("Payment verified successfully.");
-
-        paidOrder = verification.order || {};
-        paidPayment = verification.payment || {};
-        charge = order.charge || onlineChargePreview;
+      if (!order.payment_session_id || !order.order_id) {
+        throw new Error("Cashfree order response is missing checkout details.");
       }
+
+      setStatus({
+        type: "info",
+        message: `Cashfree checkout opened. Payable amount ${formatMoney(
+          order.charge?.payableAmount
+        )}.`
+      });
+      toast.info(
+        `Payment pending. Complete Cashfree checkout for ${formatMoney(
+          order.charge?.payableAmount
+        )}.`
+      );
+
+      const cashfree = window.Cashfree({
+        mode: order.checkoutMode || "sandbox"
+      });
+
+      const result = await cashfree.checkout({
+        paymentSessionId: order.payment_session_id,
+        redirectTarget: "_modal"
+      });
+
+      if (result?.error) {
+        throw new Error(
+          result.error?.message ||
+            result.error?.paymentMessage ||
+            "Cashfree payment failed"
+        );
+      }
+
+      toast.info("Payment received. Verifying booking confirmation...");
+      const verification = await verifyCustomerPayment(order.order_id).unwrap();
+      if (!verification.verified) {
+        throw new Error(verification.error || "Payment verification failed");
+      }
+      toast.success("Payment verified successfully.");
+
+      paidOrder = verification.order || {};
+      paidPayment = verification.payment || {};
+      charge = order.charge || onlineChargePreview;
 
       const dayStats = await getBookingDayStats(bookingOption.date, bookingTimeSlots);
       const slotCount = selectedSlot
@@ -968,15 +976,13 @@ function CheckoutModal({
       const bookingRefs = [];
       const createdSortBase = Date.now();
       const perCustomerCashfreeFee =
-        customers.length && form.paymentMethod === "online"
+        customers.length
           ? Math.round((Number(charge.cashfreeFee || 0) / customers.length) * 100) /
             100
           : 0;
       const perCustomerPayable =
-        form.paymentMethod === "online"
-          ? Math.round((Number(perPersonServiceAmount || 0) + PLATFORM_FEE_PER_PERSON + perCustomerCashfreeFee) * 100) /
-            100
-          : Math.round((Number(perPersonServiceAmount || 0) + PLATFORM_FEE_PER_PERSON) * 100) / 100;
+        Math.round((Number(perPersonServiceAmount || 0) + PLATFORM_FEE_PER_PERSON + perCustomerCashfreeFee) * 100) /
+        100;
 
       for (const [index, customer] of customers.entries()) {
         const bookingRef = await addDoc(collection(db, "customers"), {
@@ -1001,10 +1007,8 @@ function CheckoutModal({
           nonRefundableFee: perCustomerCashfreeFee + PLATFORM_FEE_PER_PERSON,
           token: 0,
           status: isWaitlist ? "waitlist" : "waiting",
-          paymentStatus:
-            form.paymentMethod === "cod" ? "cod_pending" : "paid",
-          paymentProvider:
-            form.paymentMethod === "cod" ? "cash_on_delivery" : "cashfree",
+          paymentStatus: "paid",
+          paymentProvider: "cashfree",
           bookingDay: bookingOption.day,
           bookingDate: bookingOption.date,
           bookingLabel: bookingOption.label,
@@ -1024,11 +1028,9 @@ function CheckoutModal({
             "",
           cashfreePaymentGroup: paidPayment.payment_group || "",
           cashfreePaymentStatus:
-            form.paymentMethod === "cod"
-              ? "PAY_ON_ARRIVAL"
-              : paidPayment.payment_status ||
-                paidOrder.order_status ||
-                "PAID",
+            paidPayment.payment_status ||
+            paidOrder.order_status ||
+            "PAID",
           peopleAhead: 0,
           userId: user.uid,
           customerType: customer.customerType,
@@ -1078,19 +1080,12 @@ function CheckoutModal({
 
       setStatus({
         type: "success",
-        message: `${
-          form.paymentMethod === "cod"
-            ? "Pay at salon booking confirmed"
-            : "Cashfree payment verified"
-        }. Turn ${firstTurn}${
+        message: `Cashfree payment verified. Turn ${firstTurn}${
           bookedTurns.length > 1 ? `-${lastTurn}` : ""
         } ${
           isWaitlist ? "added to the waiting list" : "confirmed"
         } for ${bookingOption.label}, ${bookingOption.displayDate}.`
       });
-      if (form.paymentMethod === "cod") {
-        toast.info("Cash payment is pending. Please pay at the salon.");
-      }
       toast.success(
         `Booking ${
           isWaitlist ? "added to waiting list" : "confirmed"
@@ -1110,9 +1105,7 @@ function CheckoutModal({
         message
       });
       toast.error(
-        form.paymentMethod === "online"
-          ? `${message}. If money was debited, please wait for provider/bank auto-reversal or contact the salon with your payment/order ID.`
-          : message
+        `${message}. If money was debited, please wait for provider/bank auto-reversal or contact the salon with your payment/order ID.`
       );
       setLoading(false);
     }
@@ -1377,39 +1370,8 @@ function CheckoutModal({
               ) : null}
             </label>
           </div>
-          <div>
-            <span className="mb-2 block text-sm font-bold">Payment Method</span>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[
-                ["online", "Online Payment", "Cashfree secure checkout"],
-                ["cod", "Pay at Salon", "Pay after your haircut"]
-              ].map(([method, label, helper]) => {
-                const active = form.paymentMethod === method;
-
-                return (
-                  <button
-                    className={`rounded-2xl border px-4 py-3 text-left transition ${
-                      active
-                        ? "border-[#f87171] bg-[#3a1515] text-[#f4fbf8] ring-4 ring-[#ef4444]/20"
-                        : "border-[#4a2525] bg-[#0b1714] text-[#9db2ad] hover:border-[#f87171]"
-                    }`}
-                    key={method}
-                    onClick={() =>
-                      setForm((value) => ({
-                        ...value,
-                        paymentMethod: method
-                      }))
-                    }
-                    type="button"
-                  >
-                    <span className="block font-black">{label}</span>
-                    <span className="mt-1 block text-sm font-bold">
-                      {helper}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="rounded-2xl border border-[#f9c66d]/20 bg-[#24170d] px-4 py-3 text-sm font-black leading-6 text-[#f9c66d]">
+            Booking is confirmed only after successful online payment through Cashfree.
           </div>
           <div className="rounded-2xl border border-[#35201f] bg-[#0b1714] p-4">
             <p className="text-sm font-bold text-[#9db2ad]">Selected Service</p>
@@ -1453,17 +1415,10 @@ function CheckoutModal({
                 <span>Platform fee Rs. {PLATFORM_FEE_PER_PERSON} x {peopleCount}</span>
                 <span>{formatMoney(platformFeeTotal)}</span>
               </div>
-              {form.paymentMethod === "online" ? (
-                <div className="flex items-center justify-between gap-3">
-                  <span>Cashfree charge 1.60%</span>
-                  <span>{formatMoney(chargePreview.cashfreeFee)}</span>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between gap-3">
-                  <span>Payment at salon</span>
-                  <span>No online charge</span>
-                </div>
-              )}
+              <div className="flex items-center justify-between gap-3">
+                <span>Cashfree charge 1.60%</span>
+                <span>{formatMoney(chargePreview.cashfreeFee)}</span>
+              </div>
               <div className="flex items-center justify-between gap-3 border-t border-[#35201f] pt-2 text-base text-[#f4fbf8]">
                 <span>Total payable</span>
                 <span>{formatMoney(chargePreview.payableAmount)}</span>
@@ -1481,15 +1436,11 @@ function CheckoutModal({
             {loading ? (
               <>
                 <ButtonSpinner />
-                {form.paymentMethod === "cod"
-                  ? "Creating token..."
-                  : "Opening Cashfree..."}
+                Opening Cashfree...
               </>
             ) : (
               <>
-                {form.paymentMethod === "cod"
-                  ? "Confirm Pay at Salon Booking"
-                  : "Continue to Payment"}{" "}
+                Continue to Payment{" "}
                 <ArrowRight size={19} />
               </>
             )}
