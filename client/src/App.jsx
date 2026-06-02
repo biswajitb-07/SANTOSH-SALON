@@ -48,6 +48,9 @@ import {
 } from "./lib/bookingFlow.js";
 import { BarbersPage, BookingPage, HomePage } from "./pages/bookingPages.jsx";
 
+const CLIENT_LIVE_QUEUE_LIMIT = 80;
+const CLIENT_SERVICES_LIMIT = 50;
+
 const lazyPage = (loader, exportName) =>
   React.lazy(() =>
     loader().then((module) => ({
@@ -168,7 +171,9 @@ export function App() {
     const today = toDateInputValue(new Date());
     const queueRef = firestoreQuery(
       collection(db, "customers"),
-      where("bookingDate", "==", today)
+      where("bookingDate", "==", today),
+      where("status", "in", [...activeBookingStatuses]),
+      limit(CLIENT_LIVE_QUEUE_LIMIT)
     );
 
     return onSnapshot(
@@ -271,7 +276,8 @@ export function App() {
     }
 
     const servicesRef = firestoreQuery(
-      collection(db, "services")
+      collection(db, "services"),
+      limit(CLIENT_SERVICES_LIMIT)
     );
 
     return onSnapshot(

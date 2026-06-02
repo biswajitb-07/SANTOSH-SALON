@@ -1,8 +1,13 @@
 import express from "express";
 import { getAuth, getDb } from "../firebaseAdmin.js";
-import { requireAdminUser } from "../middleware/security.js";
+import { createRateLimiter, requireAdminUser } from "../middleware/security.js";
 
 export const adminUsersRouter = express.Router();
+const adminUserWriteLimiter = createRateLimiter({
+  keyPrefix: "admin-users-write",
+  max: 20,
+  windowMs: 60_000
+});
 
 const cleanValue = (value) => String(value || "").trim();
 
@@ -30,7 +35,7 @@ const commitDeletes = async (db, snapshotDocs) => {
   }
 };
 
-adminUsersRouter.patch("/:uid/block", requireAdminUser, async (req, res, next) => {
+adminUsersRouter.patch("/:uid/block", requireAdminUser, adminUserWriteLimiter, async (req, res, next) => {
   try {
     const db = getDb();
     const auth = getAuth();
@@ -67,7 +72,7 @@ adminUsersRouter.patch("/:uid/block", requireAdminUser, async (req, res, next) =
   }
 });
 
-adminUsersRouter.delete("/:uid", requireAdminUser, async (req, res, next) => {
+adminUsersRouter.delete("/:uid", requireAdminUser, adminUserWriteLimiter, async (req, res, next) => {
   try {
     const db = getDb();
     const auth = getAuth();

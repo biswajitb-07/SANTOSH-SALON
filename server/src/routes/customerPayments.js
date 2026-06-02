@@ -11,7 +11,8 @@ import {
 import { getDb } from "../firebaseAdmin.js";
 import {
   createRateLimiter,
-  requireAdminUser
+  requireAdminUser,
+  requireFirebaseUser
 } from "../middleware/security.js";
 import {
   cleanEmail,
@@ -20,6 +21,7 @@ import {
   parsePositiveAmount,
   requireFields
 } from "../middleware/validation.js";
+import { reindexQueueDate } from "../queueReindex.js";
 import { logWebhookEvent } from "../webhookLogs.js";
 
 export const customerPaymentsRouter = express.Router();
@@ -39,7 +41,8 @@ customerPaymentsRouter.post("/cashfree/create-order", writeLimiter, async (req, 
       customerEmail,
       customerUserId,
       bookingDay,
-      bookingDate
+      bookingDate,
+      checkoutRequestId
     } = req.body;
 
     const missing = requireFields(req.body, [
@@ -63,7 +66,8 @@ customerPaymentsRouter.post("/cashfree/create-order", writeLimiter, async (req, 
       customerEmail: cleanEmail(customerEmail),
       customerUserId: cleanString(customerUserId, 80),
       bookingDay: cleanString(bookingDay, 20),
-      bookingDate: cleanString(bookingDate, 20)
+      bookingDate: cleanString(bookingDate, 20),
+      idempotencyKey: cleanString(checkoutRequestId, 80)
     });
 
     res.status(201).json(order);
@@ -89,6 +93,40 @@ customerPaymentsRouter.get("/cashfree/verify/:orderId", async (req, res, next) =
       payments,
       error: verified ? undefined : "Cashfree payment is not paid yet"
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+customerPaymentsRouter.post("/queue/reindex-date", requireFirebaseUser, writeLimiter, async (req, res, next) => {
+  try {
+    const bookingDate = cleanString(req.body.bookingDate, 20);
+    if (!bookingDate) {
+      return res.status(400).json({ error: "bookingDate is required." });
+    }
+
+    const db = getDb();
+    if (!db) {
+      return res.status(503).json({
+        error: "Firebase Admin is not configured for queue reindex."
+      });
+    }
+
+    const userBookingSnapshot = await db
+      .collection("customers")
+      .where("bookingDate", "==", bookingDate)
+      .where("userId", "==", req.user.uid)
+      .limit(1)
+      .get();
+
+    if (userBookingSnapshot.empty) {
+      return res.status(403).json({
+        error: "You can reindex only after creating your own booking for this date."
+      });
+    }
+
+    const result = await reindexQueueDate(bookingDate);
+    res.json({ reindexed: true, ...result });
   } catch (error) {
     next(error);
   }

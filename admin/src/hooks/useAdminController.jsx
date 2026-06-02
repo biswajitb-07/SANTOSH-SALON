@@ -1,6 +1,5 @@
-import React from "react";
 import { useEffect, useRef, useState } from "react";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import {
   addDoc,
@@ -20,55 +19,17 @@ import {
   writeBatch
 } from "firebase/firestore";
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis
-} from "recharts";
-import {
-  BellRing,
-  CheckCircle2,
   Clock3,
-  Copy,
-  CreditCard,
-  Edit,
-  Download,
-  Eye,
-  ImagePlus,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  MessageSquare,
   PhoneCall,
-  QrCode,
-  Scissors,
-  Search,
-  Settings,
-  SkipForward,
-  Sparkles,
-  Star,
-  Trash2,
   UserCheck,
-  UsersRound,
-  WalletCards,
-  X,
-  XCircle
+  UsersRound
 } from "lucide-react";
 import { auth, db, googleProvider } from "../lib/firebase.js";
 import { getAuthHeader } from "../lib/apiAuth.js";
 import { getSafeErrorMessage } from "../lib/errors.js";
 import { applyAdminSeo } from "../lib/seo.js";
 import { getAdminRoute, writeAdminRoute } from "../lib/routing.js";
+import { exportDailySalesCsv, exportQueueCsv } from "../lib/adminExports.js";
 import {
   activeTransferStatuses,
   ADMIN_ALLOWED_EMAILS,
@@ -107,46 +68,31 @@ import {
   normalizeRefund,
   normalizeService,
   normalizeUser,
+  BOOKING_END_HOUR,
+  parseTimeToMinutes,
   PLATFORM_FEE_PER_PERSON,
   queueStatusTabs,
   serviceChartColors,
   SERVICE_PAGE_SIZE,
   shouldCountRevenue,
   sortBookingsForTurns,
+  SLOT_START_HOUR,
   STAFF_COUNT,
   statusLabel,
   statusTone,
   timeSlots,
   toDateInputValue
 } from "../lib/adminFlow.jsx";
-import {
-  ButtonSpinner,
-  ConfirmDialog,
-  PaginationControls,
-  UserAvatar,
-  useBodyScrollLock,
-  useDragScroll
-} from "../components/common.jsx";
-import { StatCard } from "../components/dashboard.jsx";
-import { BookingDialog, ServiceDialog } from "../components/dialogs.jsx";
-import {
-  AdminAccessBlockedScreen,
-  AdminLoadingScreen,
-  AdminLoginScreen
-} from "../pages/authScreens.jsx";
-import {
-  PlansPage,
-  PublicLinkPage,
-  SettingsPage
-} from "../pages/profilePages.jsx";
-import { ContactIssuesPage } from "../pages/ContactIssuesPage.jsx";
-import { UsersPage } from "../pages/UsersPage.jsx";
+import { useBodyScrollLock, useDragScroll } from "../components/common.jsx";
 
 import {
   useCreateSubscriptionOrderMutation,
   useVerifySubscriptionPaymentMutation
 } from "../store/api/subscriptionsApi.js";
 
+const ADMIN_DATE_BOOKING_READ_LIMIT = 150;
+const ADMIN_QUEUE_LISTENER_LIMIT = 300;
+const ADMIN_ANALYTICS_LISTENER_LIMIT = 500;
 
 
 export function useAdminController() {
@@ -288,23 +234,56 @@ export function useAdminController() {
     const tomorrow = getTomorrowDateValue();
     const queueRef = query(
       collection(db, "customers"),
-      where("bookingDate", "in", [today, tomorrow])
+      where("bookingDate", "in", [today, tomorrow]),
+      limit(ADMIN_QUEUE_LISTENER_LIMIT)
     );
+    const activeQueueRef = query(
+      collection(db, "customers"),
+      where("status", "in", [...activeTransferStatuses]),
+      limit(200)
+    );
+    let dateRangeDocs = [];
+    let activeDocs = [];
+    const syncQueue = () => {
+      const mergedDocs = new Map();
+      [...dateRangeDocs, ...activeDocs].forEach((snapshotDoc) => {
+        mergedDocs.set(snapshotDoc.id, snapshotDoc);
+      });
+      const nextQueue = sortBookingsForTurns(
+        [...mergedDocs.values()].map((snapshotDoc) => normalizeCustomer(snapshotDoc))
+      );
+      setQueueItems(nextQueue);
+      setQueueLoading(false);
+    };
 
-    return onSnapshot(
+    const unsubscribeDateRange = onSnapshot(
       queueRef,
       (snapshot) => {
-        const nextQueue = sortBookingsForTurns(
-          snapshot.docs.map((snapshotDoc) => normalizeCustomer(snapshotDoc))
-        );
-        setQueueItems(nextQueue);
-        setQueueLoading(false);
+        dateRangeDocs = snapshot.docs;
+        syncQueue();
       },
       () => {
-        setQueueItems([]);
+        dateRangeDocs = [];
+        syncQueue();
+      }
+    );
+    const unsubscribeActive = onSnapshot(
+      activeQueueRef,
+      (snapshot) => {
+        activeDocs = snapshot.docs;
+        syncQueue();
+      },
+      () => {
+        activeDocs = [];
+        syncQueue();
         setQueueLoading(false);
       }
     );
+
+    return () => {
+      unsubscribeDateRange();
+      unsubscribeActive();
+    };
   }, [user]);
 
   useEffect(() => {
@@ -313,7 +292,8 @@ export function useAdminController() {
     const analyticsDates = getRecentDateValues(7);
     const analyticsRef = query(
       collection(db, "customers"),
-      where("bookingDate", "in", analyticsDates)
+      where("bookingDate", "in", analyticsDates),
+      limit(ADMIN_ANALYTICS_LISTENER_LIMIT)
     );
 
     return onSnapshot(
@@ -330,8 +310,10 @@ export function useAdminController() {
   useEffect(() => {
     if (!user) return undefined;
 
+    const barberStatsRef = query(collection(db, "barberStats"), limit(50));
+
     return onSnapshot(
-      collection(db, "barberStats"),
+      barberStatsRef,
       (snapshot) => {
         setBarberStats(
           snapshot.docs.reduce((accumulator, snapshotDoc) => {
@@ -348,7 +330,7 @@ export function useAdminController() {
   useEffect(() => {
     if (!user) return undefined;
 
-    const servicesRef = collection(db, "services");
+    const servicesRef = query(collection(db, "services"), limit(100));
 
     return onSnapshot(
       servicesRef,
@@ -423,7 +405,8 @@ export function useAdminController() {
 
     const messagesRef = query(
       collection(db, "contactIssues"),
-      where("status", "in", ["open", "pending", "in_progress"])
+      where("status", "in", ["open", "pending", "in_progress"]),
+      limit(100)
     );
     return onSnapshot(
       messagesRef,
@@ -922,10 +905,14 @@ export function useAdminController() {
 
   const getNextTokenForDate = async (bookingDate) => {
     const snapshot = await getDocs(
-      query(collection(db, "customers"), where("bookingDate", "==", bookingDate))
+      query(
+        collection(db, "customers"),
+        where("bookingDate", "==", bookingDate),
+        limit(ADMIN_DATE_BOOKING_READ_LIMIT)
+      )
     );
     const activeCount = snapshot.docs.filter((snapshotDoc) =>
-      activeTransferStatuses.has(
+      confirmedBookingStatuses.has(
         String(snapshotDoc.data().status || "").toLowerCase()
       )
     ).length;
@@ -936,47 +923,57 @@ export function useAdminController() {
     if (!bookingDate) return [];
 
     const snapshot = await getDocs(
-      query(collection(db, "customers"), where("bookingDate", "==", bookingDate))
+      query(
+        collection(db, "customers"),
+        where("bookingDate", "==", bookingDate),
+        limit(ADMIN_DATE_BOOKING_READ_LIMIT)
+      )
     );
+    const snapshotBookings = snapshot.docs.map((snapshotDoc) => ({
+      id: snapshotDoc.id,
+      ref: snapshotDoc.ref,
+      ...snapshotDoc.data()
+    }));
     const activeBookings = sortBookingsForTurns(
-      snapshot.docs
-        .map((snapshotDoc) => ({
-          id: snapshotDoc.id,
-          ref: snapshotDoc.ref,
-          ...snapshotDoc.data()
-        }))
-        .filter((booking) =>
-          activeTransferStatuses.has(String(booking.status || "").toLowerCase())
-        )
+      snapshotBookings.filter((booking) =>
+        confirmedBookingStatuses.has(String(booking.status || "").toLowerCase())
+      )
+    );
+    const waitlistBookings = snapshotBookings.filter(
+      (booking) => String(booking.status || "").toLowerCase() === "waitlist"
     );
 
-    await Promise.all(
-      activeBookings.map((booking, index) =>
+    await Promise.all([
+      ...activeBookings.map((booking, index) =>
         updateDoc(booking.ref, {
           token: index + 1,
           peopleAhead: index,
           queuePosition: index + 1,
           turnSortMinutes: getBookingSortMinutes(booking)
         })
+      ),
+      ...waitlistBookings.map((booking) =>
+        updateDoc(booking.ref, {
+          token: 0,
+          peopleAhead: 0,
+          queuePosition: 0,
+          turnSortMinutes: getBookingSortMinutes(booking)
+        })
       )
-    );
+    ]);
 
     const slotCounts = activeBookings.reduce((counts, booking) => {
       const slot = booking.timeSlot || "";
       if (slot) counts[slot] = (counts[slot] || 0) + 1;
       return counts;
     }, {});
-    const waitlistCount = snapshot.docs.filter(
-      (snapshotDoc) =>
-        String(snapshotDoc.data().status || "").toLowerCase() === "waitlist"
-    ).length;
 
     await setDoc(
       doc(db, "bookingCounters", bookingDate),
       {
         bookingDate,
         confirmedCount: activeBookings.length,
-        waitlistCount,
+        waitlistCount: waitlistBookings.length,
         slotCounts,
         updatedAt: serverTimestamp()
       },
@@ -999,7 +996,7 @@ export function useAdminController() {
         queueItems.filter(
           (item) =>
             item.bookingDate === bookingDate &&
-            activeTransferStatuses.has(String(item.status || "").toLowerCase())
+            confirmedBookingStatuses.has(String(item.status || "").toLowerCase())
         )
       );
       const needsReindex = activeBookings.some(
@@ -1019,7 +1016,11 @@ export function useAdminController() {
 
   const getConfirmedCountForDate = async (bookingDate) => {
     const snapshot = await getDocs(
-      query(collection(db, "customers"), where("bookingDate", "==", bookingDate))
+      query(
+        collection(db, "customers"),
+        where("bookingDate", "==", bookingDate),
+        limit(ADMIN_DATE_BOOKING_READ_LIMIT)
+      )
     );
     return snapshot.docs.filter((snapshotDoc) =>
       confirmedBookingStatuses.has(
@@ -1036,7 +1037,11 @@ export function useAdminController() {
     if (!bookingDate || !timeSlot) return 0;
 
     const snapshot = await getDocs(
-      query(collection(db, "customers"), where("bookingDate", "==", bookingDate))
+      query(
+        collection(db, "customers"),
+        where("bookingDate", "==", bookingDate),
+        limit(ADMIN_DATE_BOOKING_READ_LIMIT)
+      )
     );
 
     return snapshot.docs.filter((snapshotDoc) => {
@@ -1058,7 +1063,11 @@ export function useAdminController() {
     if (confirmedCount >= DAILY_CONFIRMED_LIMIT) return;
 
     const snapshot = await getDocs(
-      query(collection(db, "customers"), where("bookingDate", "==", bookingDate))
+      query(
+        collection(db, "customers"),
+        where("bookingDate", "==", bookingDate),
+        limit(ADMIN_DATE_BOOKING_READ_LIMIT)
+      )
     );
     const nextWaitlist = snapshot.docs
       .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() }))
@@ -2350,7 +2359,8 @@ export function useAdminController() {
     const movableBookings = queueItems
       .filter(
         (item) =>
-          item.bookingDate === today &&
+          item.bookingDate &&
+          item.bookingDate <= today &&
           activeTransferStatuses.has(String(item.status || "").toLowerCase())
       )
       .sort((first, second) => sortBookingsForTurns([first, second])[0] === first ? -1 : 1);
@@ -2367,6 +2377,7 @@ export function useAdminController() {
 
       for (const booking of movableBookings) {
         const status = String(booking.status || "").toLowerCase();
+        const originalBookingDate = booking.bookingDate || today;
         const isOnlinePaidWaitlist =
           status === "waitlist" &&
           booking.paymentProvider === "cashfree" &&
@@ -2379,6 +2390,7 @@ export function useAdminController() {
             status: "cancelled",
             cancelledBy: "system_shop_closed",
             cancelledAt: serverTimestamp(),
+            transferredFromDate: originalBookingDate,
             updatedAt: serverTimestamp()
           });
           continue;
@@ -2398,7 +2410,7 @@ export function useAdminController() {
           token: 0,
           peopleAhead: 0,
           status: "waiting",
-          transferredFromDate: today,
+          transferredFromDate: originalBookingDate,
           transferredReason: "shop_closed",
           updatedAt: serverTimestamp()
         });
@@ -2407,6 +2419,14 @@ export function useAdminController() {
       }
 
       await reindexQueueDate(today);
+      const overdueDates = [
+        ...new Set(
+          movableBookings
+            .map((booking) => booking.bookingDate)
+            .filter((bookingDate) => bookingDate && bookingDate < today)
+        )
+      ];
+      await Promise.all(overdueDates.map((bookingDate) => reindexQueueDate(bookingDate)));
       await reindexQueueDate(tomorrow);
 
       toast.success(
@@ -2420,82 +2440,12 @@ export function useAdminController() {
   };
 
   const exportQueue = () => {
-    const headers = [
-      "Token",
-      "Name",
-      "Mobile",
-      "Service",
-      "Booking Day",
-      "Status",
-      "Amount"
-    ];
-    const rows = filteredQueue.map((item) => [
-      item.token,
-      item.name,
-      item.phone,
-      item.service || "",
-      item.bookingLabel || "",
-      statusLabel(item.status),
-      item.amount || ""
-    ]);
-    const csv = [headers, ...rows]
-      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "salon-queue.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+    exportQueueCsv({ filteredQueue, statusLabel });
   };
 
   const exportDailySalesReport = () => {
     const today = toDateInputValue(new Date());
-    const todaysItems = analyticsItems.filter((item) => item.bookingDate === today);
-    const headers = [
-      "Token",
-      "Customer",
-      "Mobile",
-      "Service",
-      "Barber",
-      "Payment",
-      "Status",
-      "Amount",
-      "Cashfree Fee"
-    ];
-    const rows = todaysItems.map((item) => [
-      item.token,
-      item.name,
-      item.phone,
-      item.service || "",
-      item.barberName || "",
-      statusLabel(item.paymentStatus),
-      statusLabel(item.status),
-      item.amount || 0,
-      item.cashfreeFee || 0
-    ]);
-    const totals = [
-      "",
-      "TOTAL",
-      "",
-      "",
-      "",
-      "",
-      "",
-      todaysItems.reduce((total, item) => total + Number(item.amount || 0), 0),
-      todaysItems.reduce((total, item) => total + Number(item.cashfreeFee || 0), 0)
-    ];
-    const csv = [headers, ...rows, totals]
-      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `daily-sales-${today}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    exportDailySalesCsv({ analyticsItems, statusLabel, today });
   };
 
   const saveSalonSettings = async (event) => {

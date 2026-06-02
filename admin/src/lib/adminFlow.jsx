@@ -225,14 +225,6 @@ export const sortBookingsForTurns = (bookings) =>
     const secondWaitlist = secondStatus === "waitlist" ? 1 : 0;
     if (firstWaitlist !== secondWaitlist) return firstWaitlist - secondWaitlist;
 
-    const firstPosition = Number(first.queuePosition || 0);
-    const secondPosition = Number(second.queuePosition || 0);
-    if (firstPosition || secondPosition) {
-      if (!firstPosition) return 1;
-      if (!secondPosition) return -1;
-      if (firstPosition !== secondPosition) return firstPosition - secondPosition;
-    }
-
     const slotDiff =
       getBookingSortMinutes(first) - getBookingSortMinutes(second);
     if (slotDiff) return slotDiff;
@@ -241,6 +233,14 @@ export const sortBookingsForTurns = (bookings) =>
       getTimestampMillis(first.createdSort || first.createdAt) -
       getTimestampMillis(second.createdSort || second.createdAt);
     if (createdDiff) return createdDiff;
+
+    const firstPosition = Number(first.queuePosition || 0);
+    const secondPosition = Number(second.queuePosition || 0);
+    if (firstPosition || secondPosition) {
+      if (!firstPosition) return 1;
+      if (!secondPosition) return -1;
+      if (firstPosition !== secondPosition) return firstPosition - secondPosition;
+    }
 
     return String(first.id || "").localeCompare(String(second.id || ""));
   });
@@ -300,11 +300,10 @@ export const serviceChartColors = [
 export const shouldCountRevenue = (item) => {
   const status = String(item.status || "").toLowerCase();
   const paymentStatus = String(item.paymentStatus || "").toLowerCase();
-  const provider = String(item.paymentProvider || "").toLowerCase();
 
   if (["cancelled", "skipped", "waitlist"].includes(status)) return false;
   if (["paid", "admin_created"].includes(paymentStatus)) return true;
-  return provider === "cash_on_delivery" && status === "completed";
+  return false;
 };
 
 export const hasChartValue = (data, keys) =>

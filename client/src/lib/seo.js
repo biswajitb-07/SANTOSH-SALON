@@ -3,7 +3,7 @@ import { titleCase } from "./routing.js";
 const pageDescriptions = {
   home: "Santosh Salon Queue helps customers book grooming services, track live queue tokens, and contact the salon team.",
   booking:
-    "Choose a salon service, pick an available time slot, pay online or cash at salon, and track your queue token.",
+    "Choose a salon service, pick an available time slot, pay online with Cashfree, and track your queue token.",
   about:
     "Learn about Santosh Salon, opening hours, queue process, and local grooming service experience.",
   contact:
@@ -17,7 +17,7 @@ const pageDescriptions = {
   "terms-and-conditions":
     "Read Santosh Salon Queue terms and conditions for booking, payment, queue, and service usage.",
   "cancellation-refund-policy":
-    "Read Santosh Salon Queue cancellation and refund policy for online and cash bookings.",
+    "Read Santosh Salon Queue cancellation and refund policy for online paid bookings.",
   "payment-policy":
     "Read Santosh Salon Queue payment policy for Cashfree online payments and salon booking charges."
 };

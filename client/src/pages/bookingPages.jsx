@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import {
   collection,
+  limit,
   onSnapshot,
+  query
 } from "firebase/firestore";
 import {
   ArrowRight,
@@ -27,6 +29,7 @@ import { defaultServices, getServiceImageUrl } from "../lib/services.js";
 
 const STAFF_COUNT = 3;
 const SERVICE_PAGE_SIZE = 8;
+const BARBER_STATS_LIMIT = 25;
 const getQueueEstimateMinutes = (waitingCount) => {
   if (!waitingCount) return 0;
   return Math.ceil(waitingCount / STAFF_COUNT) * 25;
@@ -163,7 +166,7 @@ export function HomePage({
             <div className="mt-7 grid gap-3 sm:grid-cols-3">
               {[
                 [Gem, "Luxury Finish", "Sharp, polished cuts"],
-                [WalletCards, "Flexible Pay", "Cashfree or pay at salon"],
+                [WalletCards, "Online Pay", "Secure Cashfree checkout"],
                 [MapPin, "Walk In Ready", "Reach near your turn"]
               ].map(([Icon, title, text]) => (
                 <div
@@ -274,8 +277,8 @@ export function HomePage({
           <ShieldCheck className="text-[#fca5a5]" size={28} />
           <h3 className="mt-4 text-2xl font-black">Simple customer flow</h3>
           <p className="mt-2 leading-7 text-white/72">
-            Login, choose service, take token, and watch live queue status while
-            you travel to the salon.
+            Login, choose service, confirm your slot, and watch your estimated
+            turn update live while you travel to the salon.
           </p>
           <div className="mt-5 flex items-center gap-3 rounded-2xl bg-[rgba(255,255,255,0.08)] p-4">
             <CheckCircle2 className="text-[#f9c66d]" />
@@ -321,7 +324,7 @@ function HowItWorksSection() {
         <div className="mt-7 grid gap-4 lg:grid-cols-3">
           {[
             [CalendarCheck2, "01", "Book", "Pick a grooming service and choose an available slot."],
-            [BellRing, "02", "Get Token", "Your token updates live with people ahead and estimate."],
+            [BellRing, "02", "Track Turn", "Your estimated turn updates live with people ahead and ETA."],
             [Scissors, "03", "Walk In", "Reach around 40 minutes before your turn for a smoother visit."]
           ].map(([Icon, step, title, text]) => (
             <article
@@ -505,7 +508,7 @@ function HaircutFeature() {
         </h2>
         <p className="mt-4 leading-8 text-[#637371]">
           Customers do not need to guess in the waiting room. The queue screen
-          clearly shows token number, people ahead, and live status.
+          clearly shows estimated turn, people ahead, and live status.
         </p>
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           {[
@@ -611,7 +614,7 @@ function LuxuryPromiseSection() {
             A calm premium flow for busy salon days.
           </h2>
           <p className="mt-4 leading-8 text-[#9db2ad]">
-            Tokens, slots, online payment, pay at salon, guest booking, and refund
+            Estimated turns, slots, online payment, guest booking, and refund
             requests stay organized in one experience so customers know exactly
             what happens next.
           </p>
@@ -643,7 +646,7 @@ export function BarbersPage({ bookingGate }) {
 
   useEffect(() => {
     return onSnapshot(
-      collection(db, "barberStats"),
+      query(collection(db, "barberStats"), limit(BARBER_STATS_LIMIT)),
       (snapshot) => {
         const nextStats = snapshot.docs.reduce((accumulator, snapshotDoc) => {
           const data = snapshotDoc.data();

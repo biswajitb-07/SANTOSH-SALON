@@ -3,14 +3,19 @@ import {
   deleteServiceImage,
   uploadServiceImage
 } from "../cloudinary.js";
-import { requireAdminUser } from "../middleware/security.js";
+import { createRateLimiter, requireAdminUser } from "../middleware/security.js";
 import { isDataUrlImage } from "../middleware/validation.js";
 
 export const cloudinaryRouter = express.Router();
+const imageWriteLimiter = createRateLimiter({
+  keyPrefix: "cloudinary-image-write",
+  max: 12,
+  windowMs: 60_000
+});
 
 cloudinaryRouter.use(requireAdminUser);
 
-cloudinaryRouter.post("/service-image/upload", async (req, res, next) => {
+cloudinaryRouter.post("/service-image/upload", imageWriteLimiter, async (req, res, next) => {
   try {
     const { imageDataUrl } = req.body;
 
@@ -31,7 +36,7 @@ cloudinaryRouter.post("/service-image/upload", async (req, res, next) => {
   }
 });
 
-cloudinaryRouter.post("/service-image/delete", async (req, res, next) => {
+cloudinaryRouter.post("/service-image/delete", imageWriteLimiter, async (req, res, next) => {
   try {
     const { publicId } = req.body;
     const result = await deleteServiceImage({ publicId });

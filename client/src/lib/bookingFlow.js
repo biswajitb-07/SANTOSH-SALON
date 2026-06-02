@@ -18,6 +18,7 @@ export const STAFF_COUNT = 3;
 export const DAILY_CONFIRMED_LIMIT = 35;
 export const WAITLIST_LIMIT = 10;
 export const USER_BOOKING_HISTORY_LIMIT = 5;
+export const BOOKING_DAY_STATS_READ_LIMIT = 120;
 export const PLATFORM_FEE_PER_PERSON = 2;
 export const BARBER_OPTIONS = [
   "Next available barber",
@@ -91,14 +92,6 @@ export const sortBookingsForTurns = (bookings) =>
     const secondWaitlist = secondStatus === "waitlist" ? 1 : 0;
     if (firstWaitlist !== secondWaitlist) return firstWaitlist - secondWaitlist;
 
-    const firstPosition = Number(first.queuePosition || 0);
-    const secondPosition = Number(second.queuePosition || 0);
-    if (firstPosition || secondPosition) {
-      if (!firstPosition) return 1;
-      if (!secondPosition) return -1;
-      if (firstPosition !== secondPosition) return firstPosition - secondPosition;
-    }
-
     const slotDiff =
       getBookingSortMinutes(first) - getBookingSortMinutes(second);
     if (slotDiff) return slotDiff;
@@ -107,6 +100,14 @@ export const sortBookingsForTurns = (bookings) =>
       getTimestampMillis(first.createdSort || first.createdAt) -
       getTimestampMillis(second.createdSort || second.createdAt);
     if (createdDiff) return createdDiff;
+
+    const firstPosition = Number(first.queuePosition || 0);
+    const secondPosition = Number(second.queuePosition || 0);
+    if (firstPosition || secondPosition) {
+      if (!firstPosition) return 1;
+      if (!secondPosition) return -1;
+      if (firstPosition !== secondPosition) return firstPosition - secondPosition;
+    }
 
     return String(first.id || "").localeCompare(String(second.id || ""));
   });
@@ -360,7 +361,8 @@ export const getBookingDayStats = async (bookingDate, slots = timeSlots) => {
   const bookingSnapshot = await getDocs(
     firestoreQuery(
       collection(db, "customers"),
-      where("bookingDate", "==", bookingDate)
+      where("bookingDate", "==", bookingDate),
+      limit(BOOKING_DAY_STATS_READ_LIMIT)
     )
   );
   const bookings = bookingSnapshot.docs.map((snapshotDoc) => ({

@@ -1,11 +1,12 @@
 import crypto from "crypto";
 import { config } from "./config.js";
 
-const cashfreeHeaders = () => ({
+const cashfreeHeaders = (idempotencyKey = "") => ({
   "Content-Type": "application/json",
   "x-api-version": config.cashfree.apiVersion,
   "x-client-id": config.cashfree.appId,
-  "x-client-secret": config.cashfree.secretKey
+  "x-client-secret": config.cashfree.secretKey,
+  ...(idempotencyKey ? { "x-idempotency-key": idempotencyKey } : {})
 });
 
 const CASHFREE_FEE_PERCENT = 1.6;
@@ -36,19 +37,30 @@ export const createCashfreeServiceOrder = async ({
   customerEmail,
   customerUserId,
   bookingDay,
-  bookingDate
+  bookingDate,
+  idempotencyKey
 }) => {
   const charge = calculateCashfreeCustomerCharge(amount);
   const safeCustomerId = String(customerUserId || customerMobile || "guest")
     .replace(/[^a-zA-Z0-9_-]/g, "")
     .slice(0, 36);
-  const orderId = `svc_${Date.now()}_${safeCustomerId.slice(0, 12)}`;
+  const safeIdempotencyKey = String(idempotencyKey || "")
+    .replace(/[^a-zA-Z0-9_-]/g, "")
+    .slice(0, 40);
+  const orderId = safeIdempotencyKey
+    ? `svc_${safeIdempotencyKey}`.slice(0, 48)
+    : `svc_${Date.now()}_${safeCustomerId.slice(0, 12)}`;
+  const businessName = config.cashfree.businessName || "Santosh Salon Queue";
+  const businessLogoUrl = config.cashfree.businessLogoUrl || "";
 
   const payload = {
     order_id: orderId,
     order_amount: charge.payableAmount,
     order_currency: "INR",
-    order_note: `${config.cashfree.businessName} - ${serviceTitle}`.slice(0, 200),
+    order_note: `${businessName} | ${serviceTitle} | Online salon booking`.slice(
+      0,
+      200
+    ),
     customer_details: {
       customer_id: safeCustomerId,
       customer_name: customerName || "Salon Customer",
@@ -60,8 +72,8 @@ export const createCashfreeServiceOrder = async ({
       notify_url: `${config.serverUrl}/api/customer-payments/cashfree/webhook`
     },
     order_tags: {
-      businessName: config.cashfree.businessName,
-      businessLogoUrl: config.cashfree.businessLogoUrl,
+      businessName,
+      businessLogoUrl,
       paymentFor: "service-booking",
       serviceTitle,
       customerUserId: customerUserId || "",
@@ -74,7 +86,7 @@ export const createCashfreeServiceOrder = async ({
 
   const response = await fetch(`${config.cashfree.baseUrl}/orders`, {
     method: "POST",
-    headers: cashfreeHeaders(),
+    headers: cashfreeHeaders(idempotencyKey),
     body: JSON.stringify(payload)
   });
 
@@ -90,6 +102,8 @@ export const createCashfreeServiceOrder = async ({
   return {
     ...data,
     checkoutMode: cashfreeMode(),
+    businessName,
+    businessLogoUrl,
     charge
   };
 };
@@ -159,7 +173,7 @@ export const createCashfreeRefund = async ({
     `${config.cashfree.baseUrl}/orders/${encodeURIComponent(orderId)}/refunds`,
     {
       method: "POST",
-      headers: cashfreeHeaders(),
+      headers: cashfreeHeaders(refundId),
       body: JSON.stringify({
         refund_amount: refundAmount,
         refund_id: refundId,

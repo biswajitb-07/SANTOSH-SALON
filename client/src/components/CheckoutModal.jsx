@@ -11,6 +11,7 @@ import { ArrowRight, Phone, Tag, X } from "lucide-react";
 import { db } from "../lib/firebase.js";
 import {
   useCreateCustomerPaymentOrderMutation,
+  useReindexBookingDateMutation,
   useVerifyCustomerPaymentMutation
 } from "../store/api/customerPaymentsApi.js";
 import {
@@ -55,6 +56,7 @@ export function CheckoutModal({
   onClose
 }) {
   const [createCustomerPaymentOrder] = useCreateCustomerPaymentOrderMutation();
+  const [reindexBookingDate] = useReindexBookingDateMutation();
   const [verifyCustomerPayment] = useVerifyCustomerPaymentMutation();
   const [form, setForm] = useState({
     name: user?.displayName || user?.email?.split("@")[0] || "",
@@ -375,6 +377,9 @@ export function CheckoutModal({
       let paidOrder = {};
       let paidPayment = {};
       let charge = chargePreview;
+      const checkoutRequestId =
+        window.crypto?.randomUUID?.() ||
+        `checkout_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
       await loadCashfreeCheckout();
 
@@ -389,7 +394,8 @@ export function CheckoutModal({
         customerEmail: user.email || "",
         customerUserId: user.uid,
         bookingDay: bookingOption.day,
-        bookingDate: bookingOption.date
+        bookingDate: bookingOption.date,
+        checkoutRequestId
       }).unwrap();
 
       if (!order.payment_session_id || !order.order_id) {
@@ -535,6 +541,7 @@ export function CheckoutModal({
               paidPayment.payment_status ||
               paidOrder.order_status ||
               "PAID",
+            checkoutRequestId,
             peopleAhead: isWaitlist ? 0 : token - 1,
             queuePosition: isWaitlist ? 0 : token,
             turnSortMinutes: getBookingSortMinutes({
@@ -575,8 +582,35 @@ export function CheckoutModal({
           { merge: true }
         );
       });
+
+      try {
+        const reindexResult = await reindexBookingDate({
+          bookingDate: bookingOption.date,
+          bookingGroupId
+        }).unwrap();
+        const createdBookingIds = new Set(bookingRefs.map((bookingRef) => bookingRef.id));
+        const reindexedTurns = (reindexResult.bookings || [])
+          .filter((booking) => createdBookingIds.has(booking.id))
+          .map((booking) => Number(booking.token || 0))
+          .filter((token) => token > 0)
+          .sort((first, second) => first - second);
+
+        if (reindexedTurns.length) {
+          bookedTurns = reindexedTurns;
+          bookingCreatedAsWaitlist = false;
+        } else if ((reindexResult.waitlistBookings || []).some((booking) => createdBookingIds.has(booking.id))) {
+          bookedTurns = [];
+          bookingCreatedAsWaitlist = true;
+        }
+      } catch {
+        toast.info("Booking saved. Estimated turn will refresh shortly.");
+      }
+
       const firstTurn = bookedTurns[0] || "-";
       const lastTurn = bookedTurns[bookedTurns.length - 1] || firstTurn;
+      const estimatedTurnText = bookedTurns.length
+        ? `Estimated turn ${firstTurn}${bookedTurns.length > 1 ? `-${lastTurn}` : ""}`
+        : "Waiting list";
 
       await setDoc(
         doc(db, "users", user.uid),
@@ -603,16 +637,14 @@ export function CheckoutModal({
 
       setStatus({
         type: "success",
-        message: `Cashfree payment verified. Turn ${firstTurn}${
-          bookedTurns.length > 1 ? `-${lastTurn}` : ""
-        } ${
+        message: `Cashfree payment verified. ${estimatedTurnText} ${
           bookingCreatedAsWaitlist ? "added to the waiting list" : "confirmed"
-        } for ${bookingOption.label}, ${bookingOption.displayDate}.`
+        } for ${bookingOption.label}, ${bookingOption.displayDate}. Your slot is confirmed; turn can update if earlier slots are booked.`
       });
       toast.success(
         `Booking ${
           bookingCreatedAsWaitlist ? "added to waiting list" : "confirmed"
-        }. Turn ${firstTurn}${bookedTurns.length > 1 ? `-${lastTurn}` : ""} for ${
+        }. ${estimatedTurnText} for ${
           bookingOption.label
         }.`
       );
@@ -691,7 +723,7 @@ export function CheckoutModal({
                   Book for one more person
                 </p>
                 <p className="mt-1 text-xs font-bold text-[#9db2ad]">
-                  One checkout can create up to 2 tokens: you and one guest.
+                  One checkout can create up to 2 estimated turns: you and one guest.
                   Guest login or registration is not required.
                 </p>
               </div>
@@ -895,6 +927,23 @@ export function CheckoutModal({
           </div>
           <div className="rounded-2xl border border-[#f9c66d]/20 bg-[#24170d] px-4 py-3 text-sm font-black leading-6 text-[#f9c66d]">
             Booking is confirmed only after successful online payment through Cashfree.
+          </div>
+          <div className="flex items-center gap-3 rounded-2xl border border-[#35201f] bg-[#101a18] p-3">
+            <img
+              alt="Santosh Salon Queue"
+              className="h-12 w-12 rounded-2xl border border-[#f9c66d]/25 object-cover"
+              decoding="async"
+              loading="lazy"
+              src="/assets/owner-santosh-avatar.png"
+            />
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#f9c66d]">
+                Pay securely to
+              </p>
+              <p className="truncate text-lg font-black text-[#f4fbf8]">
+                Santosh Salon Queue
+              </p>
+            </div>
           </div>
           <div className="rounded-2xl border border-[#35201f] bg-[#0b1714] p-4">
             <p className="text-sm font-bold text-[#9db2ad]">Selected Service</p>

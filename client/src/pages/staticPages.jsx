@@ -50,7 +50,7 @@ export function AboutPage() {
       </section>
       <section className="mx-auto grid max-w-7xl gap-4 px-4 pb-8 sm:px-6 md:grid-cols-3 lg:px-8">
         {[
-          ["Fast Tokens", "First come, first serve flow with clear token number."],
+          ["Live Turns", "Time-slot based flow with a clear estimated turn."],
           ["Clean Service", "Haircut, beard, wash, and grooming in one place."],
           ["Long Hours", "Open daily from 7 AM to 11 PM for easy visits."]
         ].map(([title, text]) => (
@@ -487,7 +487,7 @@ const pageShellClass = "mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8";
 
 export function PricingPage() {
   const plans = [
-    ["Classic Haircut", "Rs. 120", "Token booking with live queue status."],
+    ["Classic Haircut", "Rs. 120", "Slot booking with live queue status."],
     ["Beard Styling", "Rs. 80", "Quick grooming slot with clear turn tracking."],
     ["Hair Wash", "Rs. 70", "Fresh wash service with time slot booking."],
     ["Facial Grooming", "Rs. 250", "Premium grooming service with online payment option."]
@@ -501,8 +501,8 @@ export function PricingPage() {
           Transparent grooming prices.
         </h1>
         <p className="mt-3 max-w-3xl text-[#b9c7c3]">
-          Final online payable amount can include the Cashfree charge shown at checkout.
-          Cash at salon bookings pay the service amount at the counter.
+          Every customer booking is confirmed only after Cashfree online payment.
+          The final payable amount, including Cashfree charge, is shown at checkout.
         </p>
         <div className="mt-7 grid gap-4 md:grid-cols-2">
           {plans.map(([title, price, text]) => (
@@ -740,11 +740,11 @@ const legalContent = {
     sections: [
       [
         "Information we collect",
-        "We collect Google profile details after login, customer name, mobile number, selected service, booking date, time slot, token number, payment status, and refund details when submitted."
+        "We collect Google profile details after login, customer name, mobile number, selected service, booking date, time slot, estimated token number, payment status, and refund details when submitted."
       ],
       [
         "How we use data",
-        "We use this information to create salon queue tokens, show booking status, contact customers about their visit, process payments, manage refunds, and improve salon operations."
+        "We use this information to create estimated salon turns, show booking status, contact customers about their visit, process payments, manage refunds, and improve salon operations."
       ],
       [
         "Authentication and payments",
@@ -787,7 +787,7 @@ const legalContent = {
       ],
       [
         "Payments",
-        "Customers may pay online or choose pay at salon where available. Online payment confirmation depends on the payment provider response."
+        "Customer bookings require Cashfree online payment. Booking confirmation depends on successful payment provider response."
       ],
       [
         "Changes",
@@ -803,10 +803,6 @@ const legalContent = {
       [
         "Customer cancellation",
         "Customers can cancel eligible waiting or waitlisted bookings from My Bookings. Completed haircut bookings are not eligible for refund."
-      ],
-      [
-        "Cash bookings",
-        "Cash on delivery/cash at salon bookings do not require online refund. If a cash waitlist booking is cancelled automatically, no payment refund is applicable."
       ],
       [
         "Online paid bookings",
@@ -828,12 +824,12 @@ const legalContent = {
   },
   "payment-policy": {
     eyebrow: "Payment Policy",
-    title: "Online and cash payment information",
+    title: "Online payment information",
     updated: "30 May 2026",
     sections: [
       [
         "Accepted payment modes",
-        "Customer service bookings may support Cashfree online checkout and pay at salon."
+        "Customer service bookings are accepted through Cashfree online checkout only."
       ],
       [
         "Charges",
@@ -841,7 +837,7 @@ const legalContent = {
       ],
       [
         "Payment confirmation",
-        "Online booking is confirmed only after successful payment verification. Cash bookings are marked as pending payment until paid at the salon."
+        "Booking is confirmed only after successful online payment verification."
       ],
       [
         "Failed payments",

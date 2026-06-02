@@ -10,6 +10,8 @@ const rootEnvPath = path.resolve(__dirname, "../../.env");
 dotenv.config({ path: rootEnvPath });
 dotenv.config({ path: serverEnvPath, override: true });
 
+const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+
 const required = (name) => {
   const value = process.env[name]?.trim();
   if (!value) {
@@ -22,7 +24,7 @@ const optional = (name) => process.env[name]?.trim() || "";
 
 export const config = {
   port: Number(process.env.PORT || 5000),
-  clientUrl: process.env.CLIENT_URL || "http://localhost:5173",
+  clientUrl,
   adminUrl: process.env.ADMIN_URL || "http://localhost:5174",
   serverUrl: process.env.SERVER_URL || "http://localhost:5000",
   trustProxy: process.env.TRUST_PROXY === "true",
@@ -48,7 +50,7 @@ export const config = {
     businessName: optional("CASHFREE_BUSINESS_NAME") || "Santosh Salon Queue",
     businessLogoUrl:
       optional("CASHFREE_BUSINESS_LOGO_URL") ||
-      "https://santosh-salon.web.app/assets/owner-santosh-avatar.png"
+      `${clientUrl.replace(/\/$/, "")}/assets/owner-santosh-avatar.png`
   },
   firebase: {
     serviceAccountFile: process.env.FIREBASE_SERVICE_ACCOUNT_FILE,

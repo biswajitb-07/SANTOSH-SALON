@@ -34,6 +34,11 @@ import {
   UserAvatar,
   useBodyScrollLock
 } from "../components/common.jsx";
+import {
+  CancelReasonDialog,
+  RefundStatusTracker,
+  RescheduleDialog
+} from "../components/ProfileDialogs.jsx";
 import { db } from "../lib/firebase.js";
 import { getSafeErrorMessage } from "../lib/errors.js";
 import {
@@ -54,46 +59,8 @@ const SERVICE_ESTIMATE_MINUTES = {
   color: 60,
   default: 25
 };
-const cancelReasons = [
-  "I cannot visit today",
-  "Booked wrong time",
-  "Booked wrong service",
-  "Payment or booking issue",
-  "Other reason"
-];
 const queueCountStatuses = new Set(["confirmed", "waiting", "in_chair"]);
 const editableBookingStatuses = ["confirmed", "waiting", "waitlist"];
-const rescheduleSlots = [
-  ["07:00", "7:00 AM"],
-  ["07:30", "7:30 AM"],
-  ["08:00", "8:00 AM"],
-  ["08:30", "8:30 AM"],
-  ["09:00", "9:00 AM"],
-  ["09:30", "9:30 AM"],
-  ["10:00", "10:00 AM"],
-  ["10:30", "10:30 AM"],
-  ["11:00", "11:00 AM"],
-  ["11:30", "11:30 AM"],
-  ["12:00", "12:00 PM"],
-  ["12:30", "12:30 PM"],
-  ["14:00", "2:00 PM"],
-  ["14:30", "2:30 PM"],
-  ["15:00", "3:00 PM"],
-  ["15:30", "3:30 PM"],
-  ["16:00", "4:00 PM"],
-  ["16:30", "4:30 PM"],
-  ["17:00", "5:00 PM"],
-  ["17:30", "5:30 PM"],
-  ["18:00", "6:00 PM"],
-  ["18:30", "6:30 PM"],
-  ["19:00", "7:00 PM"],
-  ["19:30", "7:30 PM"],
-  ["20:00", "8:00 PM"],
-  ["20:30", "8:30 PM"],
-  ["21:00", "9:00 PM"],
-  ["21:30", "9:30 PM"],
-  ["22:00", "10:00 PM"]
-];
 
 const getBarberStatsId = (barberName = "") =>
   String(barberName || "barber")
@@ -133,14 +100,6 @@ const getLiveWaitEstimate = (booking) => {
     Math.ceil(Number(booking.peopleAhead || 0) / STAFF_COUNT) *
     getServiceEstimateMinutes(booking.service);
   return estimate <= 0 ? "Your turn is near" : `${estimate} min approx`;
-};
-
-const getRefundStepIndex = (status = "") => {
-  const normalized = String(status || "").toLowerCase();
-  if (normalized === "completed") return 2;
-  if (["processing", "reviewing"].includes(normalized)) return 1;
-  if (normalized) return 0;
-  return -1;
 };
 
 const normalizeUserBooking = (snapshotDoc) => {
@@ -264,6 +223,22 @@ const sortUserBookings = (bookings) =>
     return secondCreated - firstCreated;
   });
 
+const getSnapshotMillis = (value) => {
+  if (!value) return 0;
+  if (typeof value === "number") return value;
+  if (value.toMillis) return value.toMillis();
+  if (value.toDate) return value.toDate().getTime();
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+};
+
+const sortRefundRequests = (refunds) =>
+  [...refunds].sort(
+    (first, second) =>
+      getSnapshotMillis(second.createdAt || second.updatedAt) -
+      getSnapshotMillis(first.createdAt || first.updatedAt)
+  );
+
 const groupUserBookings = (bookings) =>
   sortUserBookings(bookings).reduce((groups, booking) => {
     const groupKey = booking.bookingGroupId || booking.id;
@@ -300,272 +275,6 @@ const groupUserBookings = (bookings) =>
     });
     return groups;
   }, []);
-
-function RefundStatusTracker({ refund }) {
-  if (!refund) return null;
-  const stepIndex = getRefundStepIndex(refund.status);
-  const refundStatus = String(refund.status || "").toLowerCase();
-  const statusNote =
-    ["processing", "reviewing"].includes(refundStatus)
-        ? "Refund has been initiated and is waiting for payment provider confirmation."
-        : "";
-  const visibleAdminNote =
-    refundStatus === "completed" ? "" : statusNote || refund.adminRefundNote || "";
-  const steps = [
-    {
-      label: "Requested",
-      active: "border-[#fb7185] bg-[#991b1b] text-white shadow-[0_0_0_4px_rgba(251,113,133,0.16)]",
-      inactive: "border-[#5a2525] bg-[#140909] text-[#fb7185]/55",
-      text: "text-[#fb7185]",
-      line: "bg-[#fb7185]"
-    },
-    {
-      label: "Processing",
-      active: "border-[#f9c66d] bg-[#7c3f10] text-white shadow-[0_0_0_4px_rgba(249,198,109,0.16)]",
-      inactive: "border-[#5c3a18] bg-[#1b1208] text-[#f9c66d]/55",
-      text: "text-[#f9c66d]",
-      line: "bg-[#f9c66d]"
-    },
-    {
-      label: "Completed",
-      active: "border-[#86efac] bg-[#14532d] text-white shadow-[0_0_0_4px_rgba(134,239,172,0.16)]",
-      inactive: "border-[#214536] bg-[#07140f] text-[#86efac]/55",
-      text: "text-[#86efac]",
-      line: "bg-[#86efac]"
-    }
-  ];
-
-  return (
-    <div className="mt-3 rounded-2xl border border-[#35201f] bg-[#101a18] px-4 py-5">
-      <div className="relative grid grid-cols-3">
-        <span className="absolute left-[16.5%] right-[16.5%] top-4 h-1 rounded-full bg-[#2a1111]" />
-        {stepIndex >= 1 ? (
-          <span className="absolute left-[16.5%] top-4 h-1 w-[33.5%] rounded-full bg-[#f9c66d] transition-all" />
-        ) : null}
-        {stepIndex >= 2 ? (
-          <span className="absolute left-[50%] top-4 h-1 w-[33.5%] rounded-full bg-[#86efac] transition-all" />
-        ) : null}
-        {steps.map((step, index) => {
-          const active = index <= stepIndex;
-          return (
-          <div
-            className="relative z-[1] flex flex-col items-center gap-2 text-center"
-            key={step.label}
-          >
-            <span
-              className={`grid h-9 w-9 place-items-center rounded-full border-4 text-xs font-black transition ${
-                active ? step.active : step.inactive
-              }`}
-            >
-              {index + 1}
-            </span>
-            <span
-              className={`text-[11px] font-black transition ${
-                active ? step.text : "text-[#637371]"
-              }`}
-            >
-              {step.label}
-            </span>
-          </div>
-        );
-        })}
-      </div>
-      {visibleAdminNote ? (
-        <p className="mt-3 rounded-xl bg-[#24170d] px-3 py-2 text-xs font-bold text-[#f9c66d]">
-          Admin note: {visibleAdminNote}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function CancelReasonDialog({ booking, loading, onClose, onConfirm }) {
-  const [reason, setReason] = useState(cancelReasons[0]);
-  const [note, setNote] = useState("");
-  useBodyScrollLock(Boolean(booking));
-
-  useEffect(() => {
-    setReason(cancelReasons[0]);
-    setNote("");
-  }, [booking]);
-
-  if (!booking) return null;
-
-  if (typeof document === "undefined") return null;
-  const willAutoRefund =
-    booking.paymentProvider === "cashfree" && booking.paymentStatus === "paid";
-
-  return createPortal(
-    <div
-      className="fixed inset-0 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/70 px-3 py-3 backdrop-blur-md sm:items-center sm:py-6"
-      style={{ zIndex: 2147483000 }}
-    >
-      <form
-        className="queue-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-[#f9c66d]/15 bg-[#081311] p-5 text-[#f4fbf8]"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onConfirm(booking, reason, note);
-        }}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="section-kicker">Cancel Booking</p>
-            <h2 className="mt-1 text-2xl font-black">Select a reason</h2>
-            {willAutoRefund ? (
-              <p className="mt-2 text-sm font-bold leading-6 text-[#9db2ad]">
-                Cancellation ke saath refund request automatically submit hogi.
-              </p>
-            ) : null}
-          </div>
-          <button className="grid h-10 w-10 place-items-center rounded-xl bg-[#0b1714]" onClick={onClose} type="button">
-            <X size={20} />
-          </button>
-        </div>
-        <div className="mt-5 grid gap-2">
-          {cancelReasons.map((item) => (
-            <label className="flex items-center gap-3 rounded-2xl border border-[#35201f] bg-[#0b1714] px-4 py-3 text-sm font-black" key={item}>
-              <input
-                checked={reason === item}
-                className="h-4 w-4 accent-[#991b1b]"
-                onChange={() => setReason(item)}
-                type="radio"
-              />
-              {item}
-            </label>
-          ))}
-        </div>
-        <textarea
-          className="mt-4 min-h-24 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] p-4 text-[#f4fbf8] outline-none focus:border-[#f87171]"
-          onChange={(event) => setNote(event.target.value)}
-          placeholder={willAutoRefund ? "Optional refund/cancel note" : "Optional note"}
-          value={note}
-        />
-        {willAutoRefund ? (
-          <div className="mt-4 grid gap-2 rounded-2xl border border-[#f9c66d]/20 bg-[#24170d] p-4 text-sm font-black text-[#f9c66d]">
-            <div className="flex flex-wrap justify-between gap-2">
-              <span>Total paid</span>
-              <span>{formatMoney(booking.amount)}</span>
-            </div>
-            {booking.platformFee > 0 ? (
-              <div className="flex flex-wrap justify-between gap-2">
-                <span>Platform fee non-refundable</span>
-                <span>{formatMoney(booking.platformFee)}</span>
-              </div>
-            ) : null}
-            {booking.cashfreeFee > 0 ? (
-              <div className="flex flex-wrap justify-between gap-2">
-                <span>Cashfree charge non-refundable</span>
-                <span>{formatMoney(booking.cashfreeFee)}</span>
-              </div>
-            ) : null}
-            <div className="flex flex-wrap justify-between gap-2 border-t border-[#f9c66d]/20 pt-2">
-              <span>Refund request</span>
-              <span>{formatMoney(booking.refundableAmount)}</span>
-            </div>
-          </div>
-        ) : null}
-        <button
-          className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 font-black text-white disabled:opacity-60"
-          disabled={loading}
-          type="submit"
-        >
-          {loading ? <ButtonSpinner /> : null}
-          {loading
-            ? "Cancelling..."
-            : willAutoRefund
-              ? "Cancel & Request Refund"
-              : "Confirm Cancellation"}
-        </button>
-      </form>
-    </div>,
-    document.body
-  );
-}
-
-function RescheduleDialog({ booking, loading, onClose, onConfirm }) {
-  const today = toDateInputValue(new Date());
-  const tomorrowDate = new Date();
-  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-  const tomorrow = toDateInputValue(tomorrowDate);
-  const [draft, setDraft] = useState({
-    bookingDate: booking?.bookingDate || today,
-    timeSlot: booking?.timeSlot || rescheduleSlots[0][0]
-  });
-  useBodyScrollLock(Boolean(booking));
-
-  useEffect(() => {
-    setDraft({
-      bookingDate: booking?.bookingDate || today,
-      timeSlot: booking?.timeSlot || rescheduleSlots[0][0]
-    });
-  }, [booking, today]);
-
-  if (!booking) return null;
-
-  const selectedSlot = rescheduleSlots.find(([value]) => value === draft.timeSlot);
-
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/70 px-3 py-3 backdrop-blur-md sm:items-center sm:py-6"
-      style={{ zIndex: 2147483000 }}
-    >
-      <form
-        className="queue-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-[#f9c66d]/15 bg-[#081311] p-5 text-[#f4fbf8]"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onConfirm(booking, draft, selectedSlot?.[1] || draft.timeSlot);
-        }}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="section-kicker">Reschedule</p>
-            <h2 className="mt-1 text-2xl font-black">{booking.service}</h2>
-          </div>
-          <button className="grid h-10 w-10 place-items-center rounded-xl bg-[#0b1714]" onClick={onClose} type="button">
-            <X size={20} />
-          </button>
-        </div>
-        <label className="mt-5 block">
-          <span className="mb-2 block text-sm font-bold">Booking day</span>
-          <select
-            className="h-12 w-full rounded-2xl border border-[#35201f] bg-[#0b1714] px-4 outline-none"
-            onChange={(event) => setDraft((value) => ({ ...value, bookingDate: event.target.value }))}
-            value={draft.bookingDate}
-          >
-            <option value={today}>Today, {getDisplayDate(today)}</option>
-            <option value={tomorrow}>Tomorrow, {getDisplayDate(tomorrow)}</option>
-          </select>
-        </label>
-        <label className="mt-4 block">
-          <span className="mb-2 block text-sm font-bold">Time slot</span>
-          <select
-            className="h-12 w-full rounded-2xl border border-[#35201f] bg-[#0b1714] px-4 outline-none"
-            onChange={(event) => setDraft((value) => ({ ...value, timeSlot: event.target.value }))}
-            value={draft.timeSlot}
-          >
-            {rescheduleSlots.map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-        </label>
-        <p className="mt-4 rounded-2xl border border-[#f9c66d]/20 bg-[#24170d] px-4 py-3 text-sm font-bold text-[#f9c66d]">
-          Reschedule request updates your booking slot. Admin may adjust it if salon capacity changes.
-        </p>
-        <button
-          className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 font-black text-white disabled:opacity-60"
-          disabled={loading}
-          type="submit"
-        >
-          {loading ? <ButtonSpinner /> : <CalendarClock size={18} />}
-          {loading ? "Rescheduling..." : "Save New Slot"}
-        </button>
-      </form>
-    </div>,
-    document.body
-  );
-}
 
 export function ProfilePage({
   bookingsOnly = false,
@@ -623,7 +332,7 @@ export function ProfilePage({
     const bookingsRef = firestoreQuery(
       collection(db, "customers"),
       where("userId", "==", user.uid),
-      limit(10)
+      limit(30)
     );
 
     return onSnapshot(
@@ -631,12 +340,12 @@ export function ProfilePage({
       (snapshot) => {
         const nextBookings = sortUserBookings(
           snapshot.docs.map(normalizeUserBooking)
-        );
+        ).slice(0, 10);
         setBookings(nextBookings);
         setBookingsLoading(false);
       },
-      () => {
-        setBookings([]);
+      (error) => {
+        console.error("My bookings listener failed", error);
         setBookingsLoading(false);
       }
     );
@@ -651,21 +360,22 @@ export function ProfilePage({
     const refundsRef = firestoreQuery(
       collection(db, "refundRequests"),
       where("userId", "==", user.uid),
-      limit(5)
+      limit(20)
     );
 
     return onSnapshot(
       refundsRef,
       (snapshot) => {
-        setRefundRequests(
-          snapshot.docs.map((snapshotDoc) => ({
+        const nextRefunds = snapshot.docs.map((snapshotDoc) => ({
             id: snapshotDoc.id,
             ...snapshotDoc.data(),
             status: String(snapshotDoc.data().status || "").toLowerCase()
-          }))
-        );
+          }));
+        setRefundRequests(sortRefundRequests(nextRefunds).slice(0, 5));
       },
-      () => setRefundRequests([])
+      (error) => {
+        console.error("Refund history listener failed", error);
+      }
     );
   }, [user, bookingsOnly]);
 
@@ -849,7 +559,7 @@ export function ProfilePage({
   };
 
   const shareBookingInvoice = async (booking) => {
-    const text = `${booking.service} booking for ${booking.name}. Token ${booking.token}. Amount ${formatMoney(booking.amount)}. Status ${formatBookingStatus(booking.status)}.`;
+    const text = `${booking.service} booking for ${booking.name}. Estimated token ${booking.token}. Amount ${formatMoney(booking.amount)}. Status ${formatBookingStatus(booking.status)}.`;
     try {
       if (navigator.share) {
         await navigator.share({
@@ -910,7 +620,7 @@ export function ProfilePage({
     const turnLabel =
       booking.status === "waitlist"
         ? "Waiting list"
-        : `Haircut turn #${booking.token}`;
+        : `Estimated turn #${booking.token}`;
     const helperText =
       refundStatus === "completed"
         ? "Refund completed. The amount has been sent back to the original payment method."
@@ -927,7 +637,7 @@ export function ProfilePage({
                 : booking.status === "cancelled"
                   ? "Booking cancelled."
                   : editableBookingStatuses.includes(booking.status)
-                    ? "You can cancel this booking before service starts."
+                    ? "Your selected time slot is confirmed. Estimated turn can update if earlier slots are booked."
                     : "Queue status is updating live.";
 
     return {
@@ -1048,7 +758,7 @@ export function ProfilePage({
                 .map((booking) => Number(booking.token || 0))
                 .filter(Boolean);
               const turnLabel = turns.length
-                ? `Haircut turns #${Math.min(...turns)}${
+                ? `Estimated turns #${Math.min(...turns)}${
                     turns.length > 1 ? `-${Math.max(...turns)}` : ""
                   }`
                 : "Waiting list";
@@ -1086,6 +796,10 @@ export function ProfilePage({
                           primaryBooking.timeSlot ||
                           "Waiting list"}
                       </p>
+                      <p className="mt-2 text-xs font-bold leading-5 text-[#f9c66d]">
+                        Slot confirmed. Estimated turn may update when earlier
+                        time slots are booked.
+                      </p>
                       <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-[#f4fbf8]">
                         <span className="rounded-full bg-[#101a18] px-3 py-2">
                           Ahead:{" "}
@@ -1108,7 +822,7 @@ export function ProfilePage({
                           {statusLabels.join(", ")}
                         </span>
                         <span className="rounded-full bg-[#24170d] px-3 py-2 text-[#f9c66d]">
-                          ETA {getLiveWaitEstimate(primaryBooking)}
+                          ETA: {getLiveWaitEstimate(primaryBooking)}
                         </span>
                       </div>
                     </div>
@@ -1218,17 +932,22 @@ export function ProfilePage({
                         <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap xl:justify-end">
                           <button
                             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#991b1b] bg-transparent px-3 py-2 text-sm font-black text-[#fca5a5] transition hover:bg-[#991b1b] hover:text-white"
-                            onClick={() => {
-                              downloadBookingInvoice(
-                                booking,
-                                user,
-                                refundInProgress ? bookingRefund || booking : null
-                              );
-                              toast.success(
-                                refundInProgress
-                                  ? "Refund invoice downloaded."
-                                  : "Invoice downloaded."
-                              );
+                            onClick={async () => {
+                              try {
+                                await downloadBookingInvoice(
+                                  booking,
+                                  user,
+                                  refundInProgress ? bookingRefund || booking : null
+                                );
+                                toast.success(
+                                  refundInProgress
+                                    ? "Refund invoice downloaded."
+                                    : "Invoice downloaded."
+                                );
+                              } catch (error) {
+                                console.error("Invoice download failed", error);
+                                toast.error("Invoice download failed. Please try again.");
+                              }
                             }}
                             type="button"
                           >
@@ -1277,10 +996,10 @@ export function ProfilePage({
                     <div className="mt-4 grid gap-2 sm:grid-cols-2">
                       {[
                         [
-                          "People Ahead",
+                          "People Ahead (Live)",
                           activeBooking ? booking.peopleAhead : "-"
                         ],
-                        ["Live ETA", getLiveWaitEstimate(booking)],
+                        ["ETA", getLiveWaitEstimate(booking)],
                         ["Service Duration", `${getServiceEstimateMinutes(booking.service)} min approx`],
                         ["Barber", booking.barberName],
                         ["Service Amount", formatMoney(booking.serviceAmount)],
@@ -1354,7 +1073,7 @@ export function ProfilePage({
                     {activeBooking ? (
                       <div className="mt-3 grid gap-2 sm:grid-cols-3">
                         {[
-                          [Clock3, "Live wait", getLiveWaitEstimate(booking)],
+                          [Clock3, "ETA", getLiveWaitEstimate(booking)],
                           [CalendarCheck2, "Arrive note", booking.arrivalNote],
                           [Gift, "Loyalty", "+10 pts after completion"]
                         ].map(([Icon, title, text]) => (

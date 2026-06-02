@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -83,7 +84,11 @@ export function ContactIssuesPage() {
 
   useEffect(() => {
     setLoading(true);
-    const issuesQuery = query(collection(db, "contactIssues"), orderBy("createdAt", "desc"));
+    const issuesQuery = query(
+      collection(db, "contactIssues"),
+      orderBy("createdAt", "desc"),
+      limit(200)
+    );
     return onSnapshot(
       issuesQuery,
       (snapshot) => {
