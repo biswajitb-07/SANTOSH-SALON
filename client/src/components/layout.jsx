@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { LogIn, Menu, Scissors, X } from "lucide-react";
+import { Download, LogIn, Menu, Scissors, X } from "lucide-react";
 import { ButtonSpinner, UserAvatar } from "./common.jsx";
 import { primaryPages, titleCase } from "../lib/routing.js";
 
@@ -59,6 +59,46 @@ export function ScrollPercentBadge({ visible, value }) {
   );
 }
 
+function usePwaInstallPrompt() {
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [installed, setInstalled] = useState(false);
+
+  useEffect(() => {
+    const standalone =
+      window.matchMedia?.("(display-mode: standalone)")?.matches ||
+      window.navigator.standalone === true;
+    if (standalone) setInstalled(true);
+
+    const handleBeforeInstallPrompt = (event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+    const handleInstalled = () => {
+      setInstalled(true);
+      setInstallPrompt(null);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleInstalled);
+    };
+  }, []);
+
+  const install = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const choice = await installPrompt.userChoice.catch(() => null);
+    if (choice?.outcome !== "dismissed") setInstallPrompt(null);
+  };
+
+  return {
+    canInstall: Boolean(installPrompt) && !installed,
+    install
+  };
+}
+
 export function Header({
   page,
   user,
@@ -71,6 +111,7 @@ export function Header({
   scrollProgress
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { canInstall, install } = usePwaInstallPrompt();
   const navPages = user ? [...primaryPages, "profile"] : primaryPages;
 
   useEffect(() => {
@@ -135,6 +176,16 @@ export function Header({
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
+          {canInstall ? (
+            <button
+              className="flex h-10 items-center gap-2 rounded-full border border-[#f9c66d]/35 bg-[#24170d] px-4 text-sm font-black text-[#f9c66d] transition hover:bg-[#33200f]"
+              onClick={install}
+              type="button"
+            >
+              <Download size={18} />
+              Install App
+            </button>
+          ) : null}
           {authLoading ? (
             <div className="skeleton h-12 w-12 rounded-2xl" />
           ) : user ? (
@@ -218,6 +269,19 @@ export function Header({
             </button>
           </div>
           <div className="grid gap-2">
+            {canInstall ? (
+              <button
+                className="mb-2 flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/35 bg-[#24170d] px-4 font-black text-[#f9c66d]"
+                onClick={() => {
+                  setMenuOpen(false);
+                  install();
+                }}
+                type="button"
+              >
+                <Download size={18} />
+                Install App
+              </button>
+            ) : null}
             {navPages.map((item) => (
               <button
                 className={`min-h-12 rounded-2xl px-4 text-left text-lg font-bold transition ${

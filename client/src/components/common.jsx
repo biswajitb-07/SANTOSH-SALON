@@ -340,20 +340,49 @@ export function useDragScroll({ enabled = true } = {}) {
   };
 }
 
+let bodyScrollLockCount = 0;
+let bodyScrollSnapshot = null;
+
 export function useBodyScrollLock(locked) {
   useEffect(() => {
     if (!locked) return undefined;
 
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-    const previousOverflow = document.body.style.overflow;
-    const previousPaddingRight = document.body.style.paddingRight;
+    if (bodyScrollLockCount === 0) {
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+      bodyScrollSnapshot = {
+        htmlOverflow: document.documentElement.style.overflow,
+        bodyOverflow: document.body.style.overflow,
+        bodyPaddingRight: document.body.style.paddingRight,
+        bodyPosition: document.body.style.position,
+        bodyTop: document.body.style.top,
+        bodyWidth: document.body.style.width,
+        scrollY
+      };
 
-    document.body.style.overflow = "hidden";
-    document.body.style.paddingRight = `${scrollbarWidth}px`;
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.overflow = "hidden";
+      document.body.style.paddingRight = scrollbarWidth ? `${scrollbarWidth}px` : "";
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = "100%";
+    }
+
+    bodyScrollLockCount += 1;
 
     return () => {
-      document.body.style.overflow = previousOverflow;
-      document.body.style.paddingRight = previousPaddingRight;
+      bodyScrollLockCount = Math.max(0, bodyScrollLockCount - 1);
+      if (bodyScrollLockCount > 0 || !bodyScrollSnapshot) return;
+
+      const { scrollY } = bodyScrollSnapshot;
+      document.documentElement.style.overflow = bodyScrollSnapshot.htmlOverflow;
+      document.body.style.overflow = bodyScrollSnapshot.bodyOverflow;
+      document.body.style.paddingRight = bodyScrollSnapshot.bodyPaddingRight;
+      document.body.style.position = bodyScrollSnapshot.bodyPosition;
+      document.body.style.top = bodyScrollSnapshot.bodyTop;
+      document.body.style.width = bodyScrollSnapshot.bodyWidth;
+      bodyScrollSnapshot = null;
+      window.scrollTo(0, scrollY);
     };
   }, [locked]);
 }

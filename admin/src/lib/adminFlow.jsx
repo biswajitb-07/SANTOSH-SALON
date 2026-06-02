@@ -1,4 +1,15 @@
 import React from "react";
+import {
+  CreditCard,
+  LayoutDashboard,
+  MessageSquare,
+  QrCode,
+  Scissors,
+  Settings,
+  UserCheck,
+  UsersRound,
+  WalletCards
+} from "lucide-react";
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 export const STAFF_COUNT = 3;
 export const PLATFORM_FEE_PER_PERSON = 2;
@@ -532,4 +543,3 @@ export const formatDateTime = (date) =>
         minute: "2-digit"
       })
     : "-";
-

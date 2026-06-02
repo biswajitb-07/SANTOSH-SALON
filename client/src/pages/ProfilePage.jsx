@@ -384,10 +384,15 @@ function CancelReasonDialog({ booking, loading, onClose, onConfirm }) {
 
   if (!booking) return null;
 
-  return (
-    <div className="fixed inset-0 z-[10000] flex items-start justify-center overflow-y-auto bg-black/65 px-3 py-3 backdrop-blur-md sm:items-center sm:py-6">
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/70 px-3 py-3 backdrop-blur-md sm:items-center sm:py-6"
+      style={{ zIndex: 2147483000 }}
+    >
       <form
-        className="queue-shadow w-full max-w-lg rounded-3xl border border-[#f9c66d]/15 bg-[#081311] p-5 text-[#f4fbf8]"
+        className="queue-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-[#f9c66d]/15 bg-[#081311] p-5 text-[#f4fbf8]"
         onSubmit={(event) => {
           event.preventDefault();
           onConfirm(booking, reason, note);
@@ -430,7 +435,8 @@ function CancelReasonDialog({ booking, loading, onClose, onConfirm }) {
           {loading ? "Cancelling..." : "Confirm Cancellation"}
         </button>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -456,10 +462,15 @@ function RescheduleDialog({ booking, loading, onClose, onConfirm }) {
 
   const selectedSlot = rescheduleSlots.find(([value]) => value === draft.timeSlot);
 
-  return (
-    <div className="fixed inset-0 z-[10000] flex items-start justify-center overflow-y-auto bg-black/65 px-3 py-3 backdrop-blur-md sm:items-center sm:py-6">
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/70 px-3 py-3 backdrop-blur-md sm:items-center sm:py-6"
+      style={{ zIndex: 2147483000 }}
+    >
       <form
-        className="queue-shadow w-full max-w-lg rounded-3xl border border-[#f9c66d]/15 bg-[#081311] p-5 text-[#f4fbf8]"
+        className="queue-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-[#f9c66d]/15 bg-[#081311] p-5 text-[#f4fbf8]"
         onSubmit={(event) => {
           event.preventDefault();
           onConfirm(booking, draft, selectedSlot?.[1] || draft.timeSlot);
@@ -509,7 +520,8 @@ function RescheduleDialog({ booking, loading, onClose, onConfirm }) {
           {loading ? "Rescheduling..." : "Save New Slot"}
         </button>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -600,8 +612,13 @@ function RefundRequestDialog({ booking, user, onClose }) {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto bg-black/65 px-2 py-2 backdrop-blur-md sm:items-center sm:px-4 sm:py-6">
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/70 px-2 py-2 backdrop-blur-md sm:items-center sm:px-4 sm:py-6"
+      style={{ zIndex: 2147483000 }}
+    >
       <form
         className="queue-shadow max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto rounded-[1.25rem] border border-[#f9c66d]/15 bg-[#081311]/95 p-4 text-[#f4fbf8] sm:max-h-[90vh] sm:max-w-2xl sm:rounded-[2rem] sm:p-6"
         onSubmit={submitRefund}
@@ -698,7 +715,8 @@ function RefundRequestDialog({ booking, user, onClose }) {
           {submitting ? "Sending..." : "Send Refund Request"}
         </button>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 }
 
