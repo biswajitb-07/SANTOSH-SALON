@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  collection,
+  onSnapshot,
+  query as firestoreQuery
+} from "firebase/firestore";
+import {
   ArrowRight,
   BadgeCheck,
   BellRing,
@@ -12,11 +17,13 @@ import {
   Scissors,
   ShieldCheck,
   Sparkles,
+  Star,
   UserRound,
   WalletCards,
   UsersRound
 } from "lucide-react";
 import { ButtonSpinner, PaginationControls, useDragScroll } from "../components/common.jsx";
+import { db } from "../lib/firebase.js";
 import { defaultServices, getServiceImageUrl } from "../lib/services.js";
 
 const STAFF_COUNT = 3;
@@ -197,6 +204,31 @@ export function HomePage({
             </span>
           </div>
 
+          <div className="mt-5 grid gap-2 md:grid-cols-3">
+            {(queueStats.servingChairs || []).map((chair) => (
+              <div
+                className="grid grid-cols-[46px_1fr] items-center gap-3 rounded-2xl border border-[#3a2b20] bg-[#0b1714]/80 p-3"
+                key={chair.barberName}
+              >
+                <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#2a1111] font-mono text-lg font-black text-[#f9c66d]">
+                  {queueLoading ? "--" : chair.token}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-[#f4fbf8]">
+                    {chair.barberName}
+                  </p>
+                  <p className="truncate text-xs font-bold text-[#637371]">
+                    {queueLoading
+                      ? "Syncing..."
+                      : chair.token === "-"
+                        ? "Chair available"
+                        : `${chair.customerName} • running`}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
           <div className="mt-5 space-y-3">
             {queueLoading ? (
               Array.from({ length: 3 }).map((_, index) => (
@@ -224,7 +256,7 @@ export function HomePage({
                   <div className="min-w-0">
                     <p className="truncate font-black">{item.name}</p>
                     <p className="text-sm capitalize text-[#637371]">
-                      {item.status}
+                      {item.status} • {item.barberName}
                     </p>
                   </div>
                   <p className="text-sm font-bold text-[#991b1b]">{item.eta}</p>
@@ -599,6 +631,132 @@ function LuxuryPromiseSection() {
             </article>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+export function BarbersPage({ bookingGate }) {
+  const [barberStats, setBarberStats] = useState({});
+  const barbers = bookingGate.barbers?.length ? bookingGate.barbers : [];
+
+  useEffect(() => {
+    const customersRef = firestoreQuery(collection(db, "customers"));
+    return onSnapshot(
+      customersRef,
+      (snapshot) => {
+        const nextStats = snapshot.docs.reduce((accumulator, snapshotDoc) => {
+          const data = snapshotDoc.data();
+          const barberName =
+            data.barberName || data.preferredBarber || "Next available barber";
+          if (!barberName || barberName === "Next available barber") {
+            return accumulator;
+          }
+
+          const current = accumulator[barberName] || {
+            waiting: 0,
+            ratingTotal: 0,
+            ratingCount: 0
+          };
+          const status = String(data.status || "").toLowerCase();
+          if (["waiting", "waitlist", "in_chair"].includes(status)) {
+            current.waiting += 1;
+          }
+          const rating = Number(data.barberRating || 0);
+          if (rating > 0) {
+            current.ratingTotal += rating;
+            current.ratingCount += 1;
+          }
+          accumulator[barberName] = current;
+          return accumulator;
+        }, {});
+        setBarberStats(nextStats);
+      },
+      () => setBarberStats({})
+    );
+  }, []);
+
+  const getAverageRating = (barberName) => {
+    const stats = barberStats[barberName];
+    if (!stats?.ratingCount) return 0;
+    return Math.round((stats.ratingTotal / stats.ratingCount) * 10) / 10;
+  };
+
+  return (
+    <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="rounded-[2rem] bg-[#1a0f12] p-5 text-white queue-shadow sm:p-6">
+        <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#fca5a5]">
+          Barbers
+        </p>
+        <h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
+          Choose your barber with live availability.
+        </h1>
+        <p className="mt-3 max-w-2xl leading-7 text-white/76">
+          Photos are managed by admin. Customer ratings appear after completed
+          visits, and queue counts update live.
+        </p>
+      </div>
+
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {barbers.map((barber) => {
+          const stats = barberStats[barber.name] || {};
+          const rating = getAverageRating(barber.name);
+          return (
+            <article
+              className="luxury-glass overflow-hidden rounded-[2rem] queue-shadow"
+              key={barber.name}
+            >
+              <img
+                alt={barber.name}
+                className="h-64 w-full object-cover"
+                src={barber.imageUrl}
+              />
+              <div className="p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-2xl font-black text-[#f4fbf8]">
+                      {barber.name}
+                    </h2>
+                    <p className="mt-1 text-sm font-bold text-[#9db2ad]">
+                      {barber.available ? "Available today" : "Unavailable today"}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-black ${
+                      barber.available
+                        ? "bg-[#123125] text-[#bbf7d0]"
+                        : "bg-[#2a1111] text-[#fca5a5]"
+                    }`}
+                  >
+                    {barber.available ? "Open" : "Off"}
+                  </span>
+                </div>
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-[#35201f] bg-[#0b1714] p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#637371]">
+                      Queue
+                    </p>
+                    <p className="mt-2 text-3xl font-black text-[#f9c66d]">
+                      {stats.waiting || 0}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-[#35201f] bg-[#0b1714] p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#637371]">
+                      Rating
+                    </p>
+                    <p className="mt-2 flex items-center gap-1 text-3xl font-black text-[#f9c66d]">
+                      <Star size={22} />
+                      {rating || "-"}
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-[#9db2ad]">
+                      {stats.ratingCount || 0} reviews
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );

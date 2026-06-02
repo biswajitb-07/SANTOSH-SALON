@@ -613,6 +613,11 @@ textarea.ui-input {
   box-shadow: 0 10px 28px rgba(220, 38, 38, 0.18);
 }
 
+.action-save {
+  background: linear-gradient(135deg, #166534, #16a34a);
+  box-shadow: 0 10px 28px rgba(22, 163, 74, 0.22);
+}
+
 .action-reject,
 .action-delete {
   background: linear-gradient(135deg, #450a0a, #991b1b);

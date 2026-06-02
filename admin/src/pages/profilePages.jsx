@@ -233,7 +233,7 @@ export function SettingsPage({
           </div>
           <div className="flex flex-wrap gap-2">
             <button
-              className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 py-3 font-black text-white disabled:opacity-60"
+              className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#15803d] px-5 py-3 font-black text-white shadow-lg shadow-[#15803d]/20 transition hover:bg-[#166534] disabled:brightness-75"
               disabled={
                 actionLoading === "shop-status" ||
                 !settingsDraft.manualShopClosed
@@ -245,7 +245,7 @@ export function SettingsPage({
               Open Shop
             </button>
             <button
-              className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#fee2e2] px-5 py-3 font-black text-[#b91c1c] disabled:opacity-60"
+              className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#7f1d1d] px-5 py-3 font-black text-white shadow-lg shadow-[#7f1d1d]/20 transition hover:bg-[#991b1b] disabled:brightness-75"
               disabled={
                 actionLoading === "shop-status" ||
                 settingsDraft.manualShopClosed
@@ -253,7 +253,7 @@ export function SettingsPage({
               onClick={() => toggleShopClosed(true)}
               type="button"
             >
-              {actionLoading === "shop-status" ? <ButtonSpinner dark /> : <XCircle size={18} />}
+              {actionLoading === "shop-status" ? <ButtonSpinner /> : <XCircle size={18} />}
               Close Shop
             </button>
           </div>
@@ -303,7 +303,7 @@ export function SettingsPage({
         ))}
         <div className="sm:col-span-2">
           <button
-            className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#081311] px-5 py-3 font-black text-white disabled:opacity-60"
+            className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#15803d] px-5 py-3 font-black text-white shadow-lg shadow-[#15803d]/25 transition hover:bg-[#166534] disabled:opacity-60"
             disabled={actionLoading === "settings-save"}
             type="submit"
           >

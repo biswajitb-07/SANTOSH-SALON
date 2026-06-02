@@ -1,0 +1,17 @@
+{
+  "name": "Santosh Salon Queue",
+  "short_name": "Santosh Salon",
+  "description": "Book salon services, track live queue tokens, and manage refunds.",
+  "start_url": "/?page=home",
+  "display": "standalone",
+  "background_color": "#06100e",
+  "theme_color": "#991b1b",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

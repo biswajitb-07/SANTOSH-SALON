@@ -56,6 +56,7 @@ import {
   Settings,
   SkipForward,
   Sparkles,
+  Star,
   Trash2,
   UserCheck,
   UsersRound,
@@ -99,6 +100,14 @@ import "./styles.css";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const STAFF_COUNT = 3;
+const PLATFORM_FEE_PER_PERSON = 2;
+const DEFAULT_BARBER_NAMES = ["Santosh", "Haircut specialist", "Beard stylist"];
+const DEFAULT_BARBER_IMAGES = [
+  "https://source.unsplash.com/900x900/?indian,barber,portrait",
+  "https://source.unsplash.com/900x900/?indian,hair-stylist,man",
+  "https://source.unsplash.com/900x900/?indian,salon,barber"
+];
+const DEFAULT_BARBER_IMAGE = DEFAULT_BARBER_IMAGES[0];
 const DAILY_CONFIRMED_LIMIT = 35;
 const SLOT_START_HOUR = 7;
 const BOOKING_END_HOUR = 23;
@@ -142,6 +151,7 @@ const loadRazorpayCheckout = () =>
 const navItems = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "queue", label: "Queue", icon: UsersRound },
+  { key: "barbers", label: "Barbers", icon: Scissors },
   { key: "services", label: "Haircut Design", icon: Scissors },
   { key: "refunds", label: "Refunds", icon: CreditCard },
   { key: "messages", label: "Messages", icon: MessageSquare },
@@ -158,6 +168,26 @@ const defaultSalonProfile = {
   address: "Main Market Road, Near City Chowk",
   openingTime: "07:00",
   closingTime: "23:00",
+  barbers: DEFAULT_BARBER_NAMES.map((name, index) => ({
+    name,
+    active: true,
+    imageUrl: DEFAULT_BARBER_IMAGES[index] || DEFAULT_BARBER_IMAGE,
+    imagePublicId: ""
+  })),
+  staffAttendance: {
+    Santosh: true,
+    "Haircut specialist": true,
+    "Beard stylist": true
+  },
+  barberAvailability: {
+    Santosh: { available: true, unavailableDates: [] },
+    "Haircut specialist": { available: true, unavailableDates: [] },
+    "Beard stylist": { available: true, unavailableDates: [] }
+  },
+  coupons: {
+    WELCOME10: { label: "Welcome offer", type: "percent", percent: 10, active: true, condition: "all" },
+    SALON20: { label: "Salon special", type: "amount", amount: 20, active: true, condition: "all" }
+  },
   manualShopClosed: false,
   manualCloseReason: ""
 };
@@ -190,21 +220,42 @@ const formatSlotTime = (hour, minute) => {
   });
 };
 
-const createTimeSlots = () => {
+const parseTimeToMinutes = (timeValue, fallbackHour) => {
+  const [hour = fallbackHour, minute = 0] = String(timeValue || "")
+    .split(":")
+    .map((value) => Number(value));
+  const safeHour = Number.isFinite(hour) ? hour : fallbackHour;
+  const safeMinute = Number.isFinite(minute) ? minute : 0;
+  return safeHour * 60 + safeMinute;
+};
+
+const createTimeSlots = (openingTime = "07:00", closingTime = "23:00") => {
   const slots = [];
+  let openingMinutes = parseTimeToMinutes(openingTime, SLOT_START_HOUR);
+  let closingMinutes = parseTimeToMinutes(closingTime, BOOKING_END_HOUR);
 
-  for (let hour = SLOT_START_HOUR; hour < BOOKING_END_HOUR; hour += 1) {
-    if (hour >= LUNCH_START_HOUR && hour < LUNCH_END_HOUR) continue;
+  if (closingMinutes <= openingMinutes) {
+    openingMinutes = SLOT_START_HOUR * 60;
+    closingMinutes = BOOKING_END_HOUR * 60;
+  }
 
-    for (let minute = 0; minute < 60; minute += SLOT_MINUTES) {
-      slots.push({
-        value: `${String(hour).padStart(2, "0")}:${String(minute).padStart(
-          2,
-          "0"
-        )}`,
-        label: formatSlotTime(hour, minute)
-      });
+  for (
+    let slotMinutes = openingMinutes;
+    slotMinutes < closingMinutes;
+    slotMinutes += SLOT_MINUTES
+  ) {
+    const hour = Math.floor(slotMinutes / 60);
+    const minute = slotMinutes % 60;
+    if (hour >= LUNCH_START_HOUR && hour < LUNCH_END_HOUR) {
+      continue;
     }
+    slots.push({
+      value: `${String(hour).padStart(2, "0")}:${String(minute).padStart(
+        2,
+        "0"
+      )}`,
+      label: formatSlotTime(hour, minute)
+    });
   }
 
   return slots;
@@ -245,6 +296,14 @@ const sortBookingsForTurns = (bookings) =>
     const secondWaitlist = secondStatus === "waitlist" ? 1 : 0;
     if (firstWaitlist !== secondWaitlist) return firstWaitlist - secondWaitlist;
 
+    const firstPosition = Number(first.queuePosition || 0);
+    const secondPosition = Number(second.queuePosition || 0);
+    if (firstPosition || secondPosition) {
+      if (!firstPosition) return 1;
+      if (!secondPosition) return -1;
+      if (firstPosition !== secondPosition) return firstPosition - secondPosition;
+    }
+
     const slotDiff =
       getBookingSortMinutes(first) - getBookingSortMinutes(second);
     if (slotDiff) return slotDiff;
@@ -257,14 +316,17 @@ const sortBookingsForTurns = (bookings) =>
     return String(first.id || "").localeCompare(String(second.id || ""));
   });
 
-const getVisibleAdminTimeSlots = (bookingDate = toDateInputValue(new Date())) => {
+const getVisibleAdminTimeSlots = (
+  bookingDate = toDateInputValue(new Date()),
+  slots = timeSlots
+) => {
   const today = toDateInputValue(new Date());
   if (!bookingDate || bookingDate < today) return [];
-  if (bookingDate > today) return timeSlots;
+  if (bookingDate > today) return slots;
 
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  return timeSlots.filter((slot) => minutesFromSlot(slot.value) > currentMinutes);
+  return slots.filter((slot) => minutesFromSlot(slot.value) > currentMinutes);
 };
 
 const getDisplayDate = (dateValue) => {
@@ -358,6 +420,12 @@ const normalizeCustomer = (snapshotDoc, displayToken) => {
     userId: data.userId || "",
     email: data.email || data.customerEmail || "",
     peopleAhead: Number(data.peopleAhead || 0),
+    queuePosition: Number(data.queuePosition || 0),
+    barberName: data.barberName || data.preferredBarber || "Next available barber",
+    barberRating: Number(data.barberRating || 0),
+    barberReview: data.barberReview || "",
+    cancelReason: data.cancelReason || "",
+    notifiedAt: data.notifiedAt || null,
     createdAt: data.createdAt,
     createdSort: data.createdSort || 0
   };
@@ -424,6 +492,7 @@ const normalizeRefund = (snapshotDoc) => {
     expectedWindow: data.expectedWindow || "5-7 business days",
     refundDetails: data.refundDetails || null,
     cashfree: data.cashfree || null,
+    adminRefundNote: data.adminRefundNote || "",
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
     createdDateValue: createdAtDate ? toDateInputValue(createdAtDate) : "",
@@ -448,6 +517,57 @@ const statusTone = (status) =>
   String(status || "pending")
     .toLowerCase()
     .replace(/\s+/g, "_");
+
+const getProfileBarberNames = (profile = defaultSalonProfile) => {
+  const names = Array.isArray(profile.barbers)
+    ? profile.barbers
+        .filter((barber) => barber?.active !== false && barber?.name)
+        .map((barber) => barber.name.trim())
+        .filter(Boolean)
+    : [];
+  return names.length ? [...new Set(names)] : DEFAULT_BARBER_NAMES;
+};
+
+const getProfileBarbers = (profile = defaultSalonProfile) => {
+  const barbers = Array.isArray(profile.barbers)
+    ? profile.barbers
+        .map((barber, index) => ({
+          name: String(barber?.name || "").trim(),
+          active: barber?.active !== false,
+          imageUrl: barber?.imageUrl || DEFAULT_BARBER_IMAGES[index % DEFAULT_BARBER_IMAGES.length],
+          imagePublicId: barber?.imagePublicId || ""
+        }))
+        .filter((barber) => barber.name)
+    : [];
+
+  return barbers.length
+    ? barbers
+    : DEFAULT_BARBER_NAMES.map((name, index) => ({
+        name,
+        active: true,
+        imageUrl: DEFAULT_BARBER_IMAGES[index] || DEFAULT_BARBER_IMAGE,
+        imagePublicId: ""
+      }));
+};
+
+const getBarberAvailabilityForDate = (profile = defaultSalonProfile, dateValue) =>
+  getProfileBarberNames(profile).map((name) => {
+    const schedule = profile.barberAvailability?.[name] || {};
+    const unavailableDates = Array.isArray(schedule.unavailableDates)
+      ? schedule.unavailableDates
+      : [];
+    const legacyAvailable = profile.staffAttendance?.[name];
+    const baseAvailable =
+      schedule.available !== undefined
+        ? schedule.available !== false
+        : legacyAvailable !== false;
+
+    return {
+      name,
+      available: baseAvailable && !unavailableDates.includes(dateValue),
+      unavailableDates
+    };
+  });
 
 const getRequestErrorMessage = (error, fallback) =>
   error?.data?.error ||
@@ -508,6 +628,9 @@ function App() {
   const [userSearchTerm, setUserSearchTerm] = useState("");
   const [salonProfile, setSalonProfile] = useState(defaultSalonProfile);
   const [settingsDraft, setSettingsDraft] = useState(defaultSalonProfile);
+  const [couponDraft, setCouponDraft] = useState(defaultSalonProfile.coupons);
+  const [couponEditor, setCouponEditor] = useState(null);
+  const [barberEditor, setBarberEditor] = useState(null);
   const [serviceItems, setServiceItems] = useState([]);
   const [serviceDraft, setServiceDraft] = useState(defaultServiceDraft);
   const [editingServiceId, setEditingServiceId] = useState("");
@@ -525,6 +648,10 @@ function App() {
   const [selectedBookingIds, setSelectedBookingIds] = useState([]);
   const [selectedServiceIds, setSelectedServiceIds] = useState([]);
   const [selectedRefundIds, setSelectedRefundIds] = useState([]);
+  const [draggedQueueId, setDraggedQueueId] = useState("");
+  const [staffAvailabilityDate, setStaffAvailabilityDate] = useState(() =>
+    toDateInputValue(new Date())
+  );
   const [queuePage, setQueuePage] = useState(1);
   const [servicePage, setServicePage] = useState(1);
   const [refundPage, setRefundPage] = useState(1);
@@ -779,10 +906,12 @@ function App() {
             };
         setSalonProfile(nextProfile);
         setSettingsDraft(nextProfile);
+        setCouponDraft(nextProfile.coupons || defaultSalonProfile.coupons);
       },
       () => {
         setSalonProfile(defaultSalonProfile);
         setSettingsDraft(defaultSalonProfile);
+        setCouponDraft(defaultSalonProfile.coupons);
       }
     );
   }, [user]);
@@ -828,8 +957,13 @@ function App() {
     });
   };
 
+  const salonTimeSlots = createTimeSlots(
+    salonProfile.openingTime,
+    salonProfile.closingTime
+  );
+
   function getAdminBookableSlots(bookingDate, currentSlot = "") {
-    const visibleSlots = getVisibleAdminTimeSlots(bookingDate);
+    const visibleSlots = getVisibleAdminTimeSlots(bookingDate, salonTimeSlots);
     if (!visibleSlots.length) return [];
 
     const slotCounts = queueItems.reduce((counts, booking) => {
@@ -870,6 +1004,28 @@ function App() {
   const tomorrowQueueItems = queueItems.filter(
     (item) => item.bookingDate === tomorrowQueueDate
   );
+  const profileBarberNames = getProfileBarberNames(salonProfile);
+  const profileBarbers = getProfileBarbers(salonProfile);
+  const barberRatingSummary = profileBarberNames.reduce((accumulator, barberName) => {
+    const ratedBookings = queueItems.filter(
+      (item) =>
+        item.barberName === barberName &&
+        Number(item.barberRating || 0) > 0
+    );
+    const ratingCount = ratedBookings.length;
+    const ratingAverage = ratingCount
+      ? Math.round(
+          (ratedBookings.reduce(
+            (total, item) => total + Number(item.barberRating || 0),
+            0
+          ) /
+            ratingCount) *
+            10
+        ) / 10
+      : 0;
+    accumulator[barberName] = { ratingAverage, ratingCount };
+    return accumulator;
+  }, {});
   const activeQueueItems = todaysQueueItems.filter((item) =>
     activeTransferStatuses.has(String(item.status || "").toLowerCase())
   );
@@ -877,6 +1033,39 @@ function App() {
     ...item,
     token: index + 1
   }));
+  const todayBarberAvailability = getBarberAvailabilityForDate(
+    salonProfile,
+    todayQueueDate
+  );
+  const selectedDateBarberAvailability = getBarberAvailabilityForDate(
+    salonProfile,
+    staffAvailabilityDate
+  );
+  const inChairByBarber = profileBarberNames.map((barberName) => ({
+    barberName,
+    booking: activeDisplayQueue.find(
+      (item) =>
+        String(item.status || "").toLowerCase() === "in_chair" &&
+        item.barberName === barberName
+    )
+  }));
+  const idleAvailableBarberNames = todayBarberAvailability
+    .filter(
+      (barber) =>
+        barber.available &&
+        !inChairByBarber.some(
+          ({ barberName, booking }) => barberName === barber.name && booking
+        )
+    )
+    .map((barber) => barber.name);
+  const canCallCustomer = (customer) => {
+    if (String(customer.status || "").toLowerCase() !== "waiting") return false;
+    if (!idleAvailableBarberNames.length) return false;
+    if (!customer.barberName || customer.barberName === "Next available barber") {
+      return true;
+    }
+    return idleAvailableBarberNames.includes(customer.barberName);
+  };
   const selectedQueueTab =
     queueStatusTabs.find((tab) => tab.key === queueStatusTab) ||
     queueStatusTabs[0];
@@ -1085,11 +1274,11 @@ function App() {
         return accumulator;
       }, {})
   );
-  const hourlyRushData = timeSlots
+  const hourlyRushData = salonTimeSlots
     .filter((_, index) => index % 2 === 0)
     .map((slot) => {
       const hour = Number(slot.value.split(":")[0]);
-      const matchingSlots = timeSlots
+      const matchingSlots = salonTimeSlots
         .filter((item) => Number(item.value.split(":")[0]) === hour)
         .map((item) => item.value);
       const count = todaysQueueItems.filter((item) =>
@@ -1159,7 +1348,7 @@ function App() {
       : todayDateValue;
   const adminBookingSlots = bookingDraft
     ? getAdminBookableSlots(adminBookingDateValue, bookingDraft.timeSlot)
-    : timeSlots;
+    : salonTimeSlots;
   const adminBookingTimeSlotValue = adminBookingSlots.some(
     (slot) => slot.value === bookingDraft?.timeSlot
   )
@@ -1207,6 +1396,7 @@ function App() {
         updateDoc(booking.ref, {
           token: index + 1,
           peopleAhead: index,
+          queuePosition: index + 1,
           turnSortMinutes: getBookingSortMinutes(booking)
         })
       )
@@ -1215,7 +1405,8 @@ function App() {
     return activeBookings.map((booking, index) => ({
       ...booking,
       token: index + 1,
-      peopleAhead: index
+      peopleAhead: index,
+      queuePosition: index + 1
     }));
   };
 
@@ -1322,9 +1513,37 @@ function App() {
     const loadingKey = `customer-${customer.id}-${status}`;
     setActionLoading(loadingKey);
     try {
-      await updateDoc(doc(db, "customers", customer.id), {
+      const payload = {
         status,
         updatedAt: serverTimestamp()
+      };
+
+      if (status === "in_chair") {
+        const busyBarbers = activeDisplayQueue
+          .filter((item) => String(item.status || "").toLowerCase() === "in_chair")
+          .map((item) => item.barberName)
+          .filter(Boolean);
+        const availableBarbers = todayBarberAvailability
+          .filter((barber) => barber.available && !busyBarbers.includes(barber.name))
+          .map((barber) => barber.name);
+        const preferredBarber = customer.barberName;
+        const assignedBarber =
+          preferredBarber &&
+          preferredBarber !== "Next available barber" &&
+          availableBarbers.includes(preferredBarber)
+            ? preferredBarber
+            : availableBarbers[0];
+
+        if (!assignedBarber) {
+          throw new Error("No barber chair is available right now.");
+        }
+
+        payload.barberName = assignedBarber;
+        payload.calledAt = serverTimestamp();
+      }
+
+      await updateDoc(doc(db, "customers", customer.id), {
+        ...payload
       });
       if (["completed", "skipped", "cancelled"].includes(status)) {
         await promoteNextWaitlist(customer.bookingDate);
@@ -1342,6 +1561,396 @@ function App() {
     }
   };
 
+  const reorderQueueBooking = async (sourceId, targetId) => {
+    if (!sourceId || !targetId || sourceId === targetId) return;
+    const sourceIndex = activeDisplayQueue.findIndex((item) => item.id === sourceId);
+    const targetIndex = activeDisplayQueue.findIndex((item) => item.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const nextOrder = [...activeDisplayQueue];
+    const [moved] = nextOrder.splice(sourceIndex, 1);
+    nextOrder.splice(targetIndex, 0, moved);
+
+    setActionLoading("queue-reorder");
+    try {
+      const batch = writeBatch(db);
+      nextOrder.forEach((booking, index) => {
+        batch.update(doc(db, "customers", booking.id), {
+          queuePosition: index + 1,
+          token: index + 1,
+          peopleAhead: index,
+          updatedAt: serverTimestamp()
+        });
+      });
+      await batch.commit();
+      toast.success("Queue order updated.");
+    } catch (error) {
+      toast.error(getSafeErrorMessage(error, "Queue order could not be updated."));
+    } finally {
+      setDraggedQueueId("");
+      setActionLoading("");
+    }
+  };
+
+  const notifyTurnNear = async (customer) => {
+    if (!customer?.id) return;
+    const loadingKey = `customer-${customer.id}-notify`;
+    setActionLoading(loadingKey);
+    try {
+      await updateDoc(doc(db, "customers", customer.id), {
+        arrivalNote: "Your turn is near. Please reach Santosh Salon soon.",
+        notifiedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast.success(`Turn-near notification marked for ${customer.name}.`);
+    } catch (error) {
+      toast.error(getSafeErrorMessage(error, "Notification could not be saved."));
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const updateStaffAttendance = async (staffName, available) => {
+    if (!user || !staffName) return;
+    const loadingKey = `staff-${staffName}`;
+    setActionLoading(loadingKey);
+    try {
+      const currentSchedule = salonProfile.barberAvailability?.[staffName] || {
+        available: true,
+        unavailableDates: []
+      };
+      const unavailableDates = Array.isArray(currentSchedule.unavailableDates)
+        ? currentSchedule.unavailableDates
+        : [];
+      const nextUnavailableDates = available
+        ? unavailableDates.filter((dateValue) => dateValue !== staffAvailabilityDate)
+        : [...new Set([...unavailableDates, staffAvailabilityDate])];
+      const nextAvailability = {
+        ...(salonProfile.barberAvailability || {}),
+        [staffName]: {
+          available: currentSchedule.available !== false,
+          unavailableDates: nextUnavailableDates
+        }
+      };
+      await setDoc(
+        doc(db, "salons", user.uid),
+        {
+          barberAvailability: nextAvailability,
+          staffAttendance: profileBarberNames.reduce((accumulator, name) => {
+            accumulator[name] =
+              name === staffName ? available : salonProfile.staffAttendance?.[name] !== false;
+            return accumulator;
+          }, {}),
+          updatedAt: serverTimestamp()
+        },
+        { merge: true }
+      );
+      toast.success(
+        `${staffName} marked ${available ? "available" : "unavailable"} for ${getDisplayDate(staffAvailabilityDate)}.`
+      );
+    } catch (error) {
+      toast.error(getSafeErrorMessage(error, "Staff availability could not be updated."));
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const persistBarbers = async (nextBarbers, successMessage) => {
+    if (!user) return;
+    const normalizedBarbers = nextBarbers
+      .map((barber) => ({
+        name: String(barber.name || "").trim(),
+        active: barber.active !== false,
+        imageUrl: barber.imageUrl || DEFAULT_BARBER_IMAGE,
+        imagePublicId: barber.imagePublicId || ""
+      }))
+      .filter((barber) => barber.name);
+    const names = normalizedBarbers.map((barber) => barber.name);
+    const nextAvailability = names.reduce((accumulator, name) => {
+      accumulator[name] = salonProfile.barberAvailability?.[name] || {
+        available: true,
+        unavailableDates: []
+      };
+      return accumulator;
+    }, {});
+    const nextAttendance = names.reduce((accumulator, name) => {
+      accumulator[name] = salonProfile.staffAttendance?.[name] !== false;
+      return accumulator;
+    }, {});
+
+    setActionLoading("barbers-save");
+    try {
+      await updateDoc(doc(db, "salons", user.uid), {
+        barbers: normalizedBarbers,
+        barberAvailability: nextAvailability,
+        staffAttendance: nextAttendance,
+        updatedAt: serverTimestamp()
+      });
+      setBarberEditor(null);
+      toast.success(successMessage);
+    } catch (error) {
+      toast.error(getSafeErrorMessage(error, "Barber could not be saved."));
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const startBarberAdd = () => {
+    setBarberEditor({
+      mode: "add",
+      originalName: "",
+      name: "",
+      imageUrl: DEFAULT_BARBER_IMAGE,
+      imagePublicId: "",
+      imageFile: null,
+      imagePreview: "",
+      active: true
+    });
+  };
+
+  const startBarberEdit = (barber) => {
+    setBarberEditor({
+      mode: "edit",
+      originalName: barber.name,
+      name: barber.name,
+      imageUrl: barber.imageUrl || DEFAULT_BARBER_IMAGE,
+      imagePublicId: barber.imagePublicId || "",
+      imageFile: null,
+      imagePreview: "",
+      active: barber.active !== false
+    });
+  };
+
+  const handleBarberImageChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid barber image.");
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Image must be smaller than 8MB.");
+      return;
+    }
+
+    setBarberEditor((value) => ({
+      ...value,
+      imageFile: file,
+      imagePreview: URL.createObjectURL(file)
+    }));
+  };
+
+  const saveBarberEditor = async () => {
+    if (!barberEditor) return;
+    const nextName = barberEditor.name.trim();
+    if (!nextName) {
+      toast.error("Barber name is required.");
+      return;
+    }
+    const existingBarbers =
+      profileBarbers.length
+        ? profileBarbers
+        : DEFAULT_BARBER_NAMES.map((name) => ({
+            name,
+            active: true,
+            imageUrl: DEFAULT_BARBER_IMAGE,
+            imagePublicId: ""
+          }));
+    const duplicate = existingBarbers.some(
+      (barber) =>
+        barber.name.toLowerCase() === nextName.toLowerCase() &&
+        barber.name !== barberEditor.originalName
+    );
+    if (duplicate) {
+      toast.error("A barber with this name already exists.");
+      return;
+    }
+
+    setActionLoading("barbers-save");
+    let imageUrl = barberEditor.imageUrl || DEFAULT_BARBER_IMAGE;
+    let imagePublicId = barberEditor.imagePublicId || "";
+    try {
+      if (barberEditor.imageFile) {
+        const uploadedImage = await uploadServiceImage(barberEditor.imageFile);
+        imageUrl = uploadedImage.imageUrl;
+        imagePublicId = uploadedImage.imagePublicId;
+      }
+    } catch (error) {
+      setActionLoading("");
+      toast.error(getSafeErrorMessage(error, "Barber image could not be uploaded."));
+      return;
+    }
+
+    const nextBarber = {
+      name: nextName,
+      active: barberEditor.active !== false,
+      imageUrl,
+      imagePublicId
+    };
+    const nextBarbers =
+      barberEditor.mode === "add"
+        ? [...existingBarbers, nextBarber]
+        : existingBarbers.map((barber) =>
+            barber.name === barberEditor.originalName
+              ? nextBarber
+              : barber
+          );
+    persistBarbers(
+      nextBarbers,
+      barberEditor.mode === "add" ? "Barber added." : "Barber updated."
+    );
+  };
+
+  const deleteBarber = (name) => {
+    const busy = activeDisplayQueue.some(
+      (item) =>
+        String(item.status || "").toLowerCase() === "in_chair" &&
+        item.barberName === name
+    );
+    if (busy) {
+      toast.error("This barber is currently serving a customer.");
+      return;
+    }
+    const existingBarbers =
+      profileBarbers.length
+        ? profileBarbers
+        : DEFAULT_BARBER_NAMES.map((barberName) => ({
+            name: barberName,
+            active: true,
+            imageUrl: DEFAULT_BARBER_IMAGE,
+            imagePublicId: ""
+          }));
+    const nextBarbers = existingBarbers.filter((barber) => barber.name !== name);
+    persistBarbers(nextBarbers, "Barber deleted.");
+  };
+
+  const normalizeCoupons = (coupons) =>
+    Object.entries(coupons).reduce((accumulator, [code, coupon]) => {
+      const safeCode = String(code || "").trim().toUpperCase();
+      if (!safeCode) return accumulator;
+      const type = coupon.type === "amount" ? "amount" : "percent";
+      const percent = Number(coupon.percent || 0);
+      const amount = Number(coupon.amount || 0);
+      if (type === "percent" && percent <= 0) return accumulator;
+      if (type === "amount" && amount <= 0) return accumulator;
+      accumulator[safeCode] = {
+        label: coupon.label || safeCode,
+        type,
+        percent: type === "percent" ? percent : 0,
+        amount: type === "amount" ? amount : 0,
+        active: coupon.active !== false,
+        condition: coupon.condition || "all",
+        minAmount: Number(coupon.minAmount || 0),
+        maxAmount: Number(coupon.maxAmount || 0)
+      };
+      return accumulator;
+    }, {});
+
+  const persistCoupons = async (nextCoupons, successMessage = "Coupons saved.") => {
+    if (!user) return;
+    setActionLoading("coupons-save");
+    try {
+      const normalizedCoupons = normalizeCoupons(nextCoupons);
+      await updateDoc(doc(db, "salons", user.uid), {
+        coupons: normalizedCoupons,
+        updatedAt: serverTimestamp()
+      });
+      setCouponDraft(normalizedCoupons);
+      setCouponEditor(null);
+      toast.success(successMessage);
+    } catch (error) {
+      toast.error(getSafeErrorMessage(error, "Coupons could not be saved."));
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const startCouponAdd = () => {
+    setCouponEditor({
+      mode: "add",
+      originalCode: "",
+      code: "",
+      label: "",
+      type: "percent",
+      percent: 10,
+      amount: 0,
+      condition: "all",
+      minAmount: 0,
+      maxAmount: 0,
+      active: true
+    });
+  };
+
+  const startCouponEdit = (code, coupon) => {
+    setCouponEditor({
+      mode: "edit",
+      originalCode: code,
+      code,
+      label: coupon.label || code,
+      type: coupon.type === "amount" ? "amount" : "percent",
+      percent: Number(coupon.percent || 0),
+      amount: Number(coupon.amount || 0),
+      condition: coupon.condition || "all",
+      minAmount: Number(coupon.minAmount || 0),
+      maxAmount: Number(coupon.maxAmount || 0),
+      active: coupon.active !== false
+    });
+  };
+
+  const saveCouponEditor = () => {
+    if (!couponEditor) return;
+    const safeCode = String(couponEditor.code || "").trim().toUpperCase();
+    const type = couponEditor.type === "amount" ? "amount" : "percent";
+    const percent = Number(couponEditor.percent || 0);
+    const amount = Number(couponEditor.amount || 0);
+    if (!safeCode) {
+      toast.error("Coupon code is required.");
+      return;
+    }
+    if (type === "percent" && percent <= 0) {
+      toast.error("Set a valid percent discount.");
+      return;
+    }
+    if (type === "amount" && amount <= 0) {
+      toast.error("Set a valid amount discount.");
+      return;
+    }
+    if (couponEditor.condition === "min" && Number(couponEditor.minAmount || 0) <= 0) {
+      toast.error("Set a valid minimum price.");
+      return;
+    }
+    if (couponEditor.condition === "max" && Number(couponEditor.maxAmount || 0) <= 0) {
+      toast.error("Set a valid maximum price.");
+      return;
+    }
+    const nextCoupons = { ...couponDraft };
+    if (couponEditor.originalCode && couponEditor.originalCode !== safeCode) {
+      delete nextCoupons[couponEditor.originalCode];
+    }
+    nextCoupons[safeCode] = {
+      label: couponEditor.label || safeCode,
+      type,
+      percent: type === "percent" ? percent : 0,
+      amount: type === "amount" ? amount : 0,
+      active: couponEditor.active !== false,
+      condition: couponEditor.condition || "all",
+      minAmount: Number(couponEditor.minAmount || 0),
+      maxAmount: Number(couponEditor.maxAmount || 0)
+    };
+    persistCoupons(
+      nextCoupons,
+      couponEditor.mode === "add" ? "Coupon added." : "Coupon updated."
+    );
+  };
+
+  const deleteCoupon = (code) => {
+    const nextCoupons = { ...couponDraft };
+    delete nextCoupons[code];
+    persistCoupons(nextCoupons, "Coupon deleted.");
+  };
+
   const openBookingEditor = (customer) => {
     if (!customer?.id) {
       toast.warning("Customer id missing.");
@@ -1355,8 +1964,9 @@ function App() {
       mobile: customer.phone,
       email: customer.email || "",
       service: customer.service,
+      barberName: customer.barberName || "Next available barber",
       bookingDate: customer.bookingDate,
-      timeSlot: customer.timeSlot || timeSlots[0]?.value || "",
+      timeSlot: customer.timeSlot || salonTimeSlots[0]?.value || "",
       status: customer.status,
       amount: customer.amount || 0
     });
@@ -1373,6 +1983,7 @@ function App() {
       mobile: "",
       email: "",
       service: firstService?.title || "Classic Haircut",
+      barberName: "Next available barber",
       bookingDate: today,
       timeSlot: visibleSlots[0]?.value || "",
       status: "waiting",
@@ -1432,8 +2043,8 @@ function App() {
 
         const bookingDate = draftDate;
         const selectedSlot =
-          timeSlots.find((slot) => slot.value === effectiveTimeSlot) ||
-          timeSlots[0];
+          salonTimeSlots.find((slot) => slot.value === effectiveTimeSlot) ||
+          salonTimeSlots[0];
         const selectedStatus = bookingDraft.status || "waiting";
         const slotConfirmedCount = await getSlotConfirmedCountForDate(
           bookingDate,
@@ -1452,6 +2063,7 @@ function App() {
           mobile: bookingDraft.mobile.trim() || matchedUser.phone,
           email: matchedUser.email,
           service: bookingDraft.service.trim(),
+          barberName: bookingDraft.barberName || "Next available barber",
           bookingDate,
           bookingDay: bookingDate === toDateInputValue(new Date()) ? "today" : "",
           bookingLabel:
@@ -1463,7 +2075,10 @@ function App() {
           peopleAhead: 0,
           status: selectedStatus,
           amount: Number(bookingDraft.amount || 0),
-          payableAmount: Number(bookingDraft.amount || 0),
+          platformFee: PLATFORM_FEE_PER_PERSON,
+          payableAmount: Number(bookingDraft.amount || 0) + PLATFORM_FEE_PER_PERSON,
+          refundableAmount: Number(bookingDraft.amount || 0),
+          nonRefundableFee: PLATFORM_FEE_PER_PERSON,
           paymentProvider: "admin",
           paymentStatus: "admin_created",
           userId: matchedUser.id,
@@ -1487,8 +2102,8 @@ function App() {
       }
 
       const selectedSlot =
-        timeSlots.find((slot) => slot.value === effectiveTimeSlot) ||
-        timeSlots[0];
+        salonTimeSlots.find((slot) => slot.value === effectiveTimeSlot) ||
+        salonTimeSlots[0];
       const slotConfirmedCount = await getSlotConfirmedCountForDate(
         bookingDraft.bookingDate,
         selectedSlot?.value || "",
@@ -1509,6 +2124,7 @@ function App() {
         mobile: bookingDraft.mobile.trim(),
         email: bookingDraft.email?.trim() || "",
         service: bookingDraft.service.trim(),
+        barberName: bookingDraft.barberName || "Next available barber",
         bookingDate: draftDate,
         bookingDisplayDate: getDisplayDate(draftDate),
         timeSlot: selectedSlot?.value || "",
@@ -1881,6 +2497,22 @@ function App() {
     const loadingKey = `refund-${refund.id}-${status}`;
     setActionLoading(loadingKey);
     try {
+      const adminRefundNote =
+        status === "rejected"
+          ? window.prompt("Reason visible to customer:", refund.adminRefundNote || "")
+          : status === "reviewing"
+            ? "Admin is reviewing your refund request."
+            : status === "processing"
+              ? "Refund has been initiated and is waiting for payment provider confirmation."
+              : status === "completed"
+                ? "Refund completed to the original payment method."
+                : refund.adminRefundNote || "";
+
+      if (status === "rejected" && adminRefundNote === null) {
+        setActionLoading("");
+        return;
+      }
+
       if (status === "completed") {
         if (!refund.orderId || refund.orderId === "-") {
           throw new Error("Cashfree order ID is required to process refund.");
@@ -1937,6 +2569,7 @@ function App() {
               ...refundDetails,
               raw: data.refund || null
             },
+            adminRefundNote,
             adminId: user.uid,
             adminEmail: user.email || "",
             updatedAt: serverTimestamp()
@@ -1956,6 +2589,7 @@ function App() {
 
       await updateDoc(doc(db, "refundRequests", refund.id), {
         status,
+        adminRefundNote,
         adminId: user.uid,
         adminEmail: user.email || "",
         updatedAt: serverTimestamp()
@@ -2039,10 +2673,22 @@ function App() {
     Boolean(refund?.id && actionLoading.startsWith(`refund-${refund.id}-`));
 
   const callNextCustomer = () => {
-    const nextCustomer = activeDisplayQueue.find((item) => item.status === "waiting");
+    const busyBarbers = activeDisplayQueue
+      .filter((item) => String(item.status || "").toLowerCase() === "in_chair")
+      .map((item) => item.barberName)
+      .filter(Boolean);
+    const idleAvailableBarbers = todayBarberAvailability
+      .filter((barber) => barber.available && !busyBarbers.includes(barber.name))
+      .map((barber) => barber.name);
+    const nextCustomer = activeDisplayQueue.find((item) => {
+      if (item.status !== "waiting") return false;
+      if (!idleAvailableBarbers.length) return false;
+      if (!item.barberName || item.barberName === "Next available barber") return true;
+      return idleAvailableBarbers.includes(item.barberName);
+    });
     if (!nextCustomer) {
-      setNotice("No waiting customer found.");
-      toast.info("No waiting customer found.");
+      setNotice("No eligible waiting customer or free barber chair found.");
+      toast.info("No eligible waiting customer or free barber chair found.");
       return;
     }
     updateCustomerStatus(nextCustomer, "in_chair");
@@ -2090,8 +2736,8 @@ function App() {
         }
 
         const slot =
-          timeSlots[Math.floor(transferIndex / STAFF_COUNT)] ||
-          timeSlots[timeSlots.length - 1];
+          salonTimeSlots[Math.floor(transferIndex / STAFF_COUNT)] ||
+          salonTimeSlots[salonTimeSlots.length - 1];
 
         await updateDoc(doc(db, "customers", booking.id), {
           bookingDate: tomorrow,
@@ -2155,9 +2801,65 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
+  const exportDailySalesReport = () => {
+    const today = toDateInputValue(new Date());
+    const todaysItems = analyticsItems.filter((item) => item.bookingDate === today);
+    const headers = [
+      "Token",
+      "Customer",
+      "Mobile",
+      "Service",
+      "Barber",
+      "Payment",
+      "Status",
+      "Amount",
+      "Cashfree Fee"
+    ];
+    const rows = todaysItems.map((item) => [
+      item.token,
+      item.name,
+      item.phone,
+      item.service || "",
+      item.barberName || "",
+      statusLabel(item.paymentStatus),
+      statusLabel(item.status),
+      item.amount || 0,
+      item.cashfreeFee || 0
+    ]);
+    const totals = [
+      "",
+      "TOTAL",
+      "",
+      "",
+      "",
+      "",
+      "",
+      todaysItems.reduce((total, item) => total + Number(item.amount || 0), 0),
+      todaysItems.reduce((total, item) => total + Number(item.cashfreeFee || 0), 0)
+    ];
+    const csv = [headers, ...rows, totals]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `daily-sales-${today}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const saveSalonSettings = async (event) => {
     event.preventDefault();
     setNotice("");
+    const openingMinutes = parseTimeToMinutes(settingsDraft.openingTime, SLOT_START_HOUR);
+    const closingMinutes = parseTimeToMinutes(settingsDraft.closingTime, BOOKING_END_HOUR);
+    if (closingMinutes <= openingMinutes) {
+      const message = "Closing time must be after opening time.";
+      setNotice(message);
+      toast.error(message);
+      return;
+    }
 
     setActionLoading("settings-save");
     try {
@@ -3001,7 +3703,7 @@ function App() {
                     </p>
                     <h2 className="text-3xl font-black">Live customers</h2>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="grid gap-2 sm:grid-cols-4">
                     <button
                       className="action-chip action-export min-h-12 px-4"
                       onClick={exportQueue}
@@ -3011,12 +3713,20 @@ function App() {
                       Export
                     </button>
                     <button
+                      className="action-chip action-export min-h-12 px-4"
+                      onClick={exportDailySalesReport}
+                      type="button"
+                    >
+                      <Download size={18} />
+                      Sales CSV
+                    </button>
+                    <button
                       className="action-chip action-add min-h-12 px-4"
                       onClick={openAdminBookingDialog}
                       type="button"
                     >
                       <UserCheck size={18} />
-                      Add Booking
+                      Walk-in
                     </button>
                     <button
                       className="action-chip action-close min-h-12 px-4 disabled:opacity-60"
@@ -3171,6 +3881,7 @@ function App() {
                       <col className="w-[125px]" />
                       <col className="w-[150px]" />
                       <col className="w-[125px]" />
+                      <col className="w-[150px]" />
                       <col className="w-[110px]" />
                       <col className="w-[120px]" />
                       <col className="w-[120px]" />
@@ -3186,6 +3897,7 @@ function App() {
                         <th className="px-5 py-4">Mobile</th>
                         <th className="px-5 py-4">Service</th>
                         <th className="px-5 py-4">Booking</th>
+                        <th className="px-5 py-4">Barber</th>
                         <th className="px-5 py-4">Slot</th>
                         <th className="px-5 py-4">Payment</th>
                         <th className="px-5 py-4">Status</th>
@@ -3194,7 +3906,14 @@ function App() {
                     </thead>
                     <tbody>
                       {paginatedQueue.map((customer) => (
-                        <tr className="border-t border-[#35201f]" key={customer.id || customer.token}>
+                        <tr
+                          className="border-t border-[#35201f]"
+                          draggable={activePage === "queue" && activeTransferStatuses.has(String(customer.status || "").toLowerCase())}
+                          key={customer.id || customer.token}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDragStart={() => setDraggedQueueId(customer.id)}
+                          onDrop={() => reorderQueueBooking(draggedQueueId, customer.id)}
+                        >
                           <td className="px-5 py-4">
                             <input
                               checked={selectedBookingIds.includes(customer.id)}
@@ -3212,6 +3931,9 @@ function App() {
                           <td className="px-5 py-4 text-sm font-bold text-[#991b1b]">
                             {customer.bookingLabel}
                           </td>
+                          <td className="px-5 py-4 text-sm font-bold text-[#f9c66d]">
+                            {customer.barberName || "Next available barber"}
+                          </td>
                           <td className="px-5 py-4 text-sm font-bold text-[#f4fbf8]">
                             {customer.timeSlotLabel || customer.timeSlot || "-"}
                           </td>
@@ -3224,12 +3946,11 @@ function App() {
                             </span>
                           </td>
                           <td className="px-4 py-4">
-                            <div className="grid grid-cols-[56px_56px_62px_56px_66px] gap-2">
+                            <div className="grid grid-cols-[56px_56px_62px_64px_56px_66px] gap-2">
                               <button
                                 className="action-chip action-compact action-call h-11 rounded-xl text-xs disabled:opacity-60"
                                 disabled={
-                                  String(customer.status || "").toLowerCase() !==
-                                    "waiting" ||
+                                  !canCallCustomer(customer) ||
                                   actionLoading === `customer-${customer.id}-in_chair`
                                 }
                                 onClick={() => updateCustomerStatus(customer, "in_chair")}
@@ -3262,6 +3983,14 @@ function App() {
                                 type="button"
                               >
                                 {actionLoading === `customer-${customer.id}-completed` ? <ButtonSpinner dark /> : "Done"}
+                              </button>
+                              <button
+                                className="action-chip action-compact action-call h-11 rounded-xl text-xs disabled:opacity-60"
+                                disabled={actionLoading === `customer-${customer.id}-notify`}
+                                onClick={() => notifyTurnNear(customer)}
+                                type="button"
+                              >
+                                {actionLoading === `customer-${customer.id}-notify` ? <ButtonSpinner dark /> : "Notify"}
                               </button>
                               <button
                                 className="action-chip action-compact action-edit h-11 rounded-xl text-xs"
@@ -3305,6 +4034,499 @@ function App() {
                       No {selectedQueueTab.label.toLowerCase()} bookings found for today.
                     </p>
                   ) : null}
+                </div>
+              </section>
+            ) : null}
+
+            {activePage === "barbers" ? (
+              <section className="soft-shadow rounded-3xl bg-[var(--color-surface)] p-5 sm:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
+                      Barbers
+                    </p>
+                    <h2 className="mt-1 text-3xl font-black">
+                      Chair status and availability
+                    </h2>
+                    <p className="mt-2 max-w-2xl text-sm font-bold text-[#9db2ad]">
+                      Manage which barber is available on each date. The booking page uses this to show barber choices, and queue calls use it to assign up to 3 simultaneous haircuts.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[#24170d] px-4 py-2 text-sm font-black text-[#f9c66d]">
+                    {todayBarberAvailability.filter((barber) => barber.available).length}/{profileBarberNames.length} available today
+                  </span>
+                </div>
+
+                <div className="mt-6 rounded-3xl border border-[#35201f] bg-[#0b1714] p-4">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#fca5a5]">
+                        Barber list
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-[#9db2ad]">
+                        Add, edit, or delete barbers shown in customer booking.
+                      </p>
+                    </div>
+                    <button
+                      className="action-chip action-add min-h-11 px-4 disabled:opacity-60"
+                      disabled={Boolean(barberEditor)}
+                      onClick={startBarberAdd}
+                      type="button"
+                    >
+                      <UserCheck size={18} />
+                      Add Barber
+                    </button>
+                  </div>
+
+                  {barberEditor ? (
+                    <div className="mb-4 rounded-2xl border border-[#f9c66d]/25 bg-[#081311] p-4">
+                      <p className="text-sm font-black text-[#f9c66d]">
+                        {barberEditor.mode === "add" ? "Add Barber" : `Edit ${barberEditor.originalName}`}
+                      </p>
+                      <div className="mt-4 grid gap-4 lg:grid-cols-[160px_1fr]">
+                        <div>
+                          <img
+                            alt={barberEditor.name || "Barber preview"}
+                            className="h-40 w-full rounded-2xl border border-[#35201f] object-cover"
+                            src={barberEditor.imagePreview || barberEditor.imageUrl || DEFAULT_BARBER_IMAGE}
+                          />
+                          <label className="mt-3 flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/30 bg-[#24170d] px-4 text-sm font-black text-[#f9c66d]">
+                            <ImagePlus size={17} />
+                            Upload Image
+                            <input
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleBarberImageChange}
+                              type="file"
+                            />
+                          </label>
+                        </div>
+                        <div>
+                          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                            <input
+                              className="h-12 rounded-2xl border border-[#35201f] bg-[#0b1714] px-4 font-bold text-[#f4fbf8] outline-none"
+                              onChange={(event) =>
+                                setBarberEditor((value) => ({ ...value, name: event.target.value }))
+                              }
+                              placeholder="Barber name"
+                              value={barberEditor.name}
+                            />
+                            <button
+                              className={`min-h-12 rounded-2xl px-4 font-black ${
+                                barberEditor.active
+                                  ? "bg-[#123125] text-[#bbf7d0]"
+                                  : "bg-[#2a1111] text-[#fca5a5]"
+                              }`}
+                              onClick={() =>
+                                setBarberEditor((value) => ({ ...value, active: !value.active }))
+                              }
+                              type="button"
+                            >
+                              {barberEditor.active ? "Active" : "Inactive"}
+                            </button>
+                          </div>
+                          <div className="mt-4 flex flex-wrap justify-end gap-2">
+                            <button
+                              className="action-chip action-close min-h-12 px-4"
+                              onClick={() => setBarberEditor(null)}
+                              type="button"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              className="action-chip action-save min-h-12 px-4 disabled:opacity-60"
+                              disabled={actionLoading === "barbers-save"}
+                              onClick={saveBarberEditor}
+                              type="button"
+                            >
+                              {actionLoading === "barbers-save" ? <ButtonSpinner /> : <CheckCircle2 size={18} />}
+                              {barberEditor.mode === "add" ? "Save Barber" : "Save Changes"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {profileBarbers.map((barber) => {
+                      const rating = barberRatingSummary[barber.name] || {
+                        ratingAverage: 0,
+                        ratingCount: 0
+                      };
+                      return (
+                      <article
+                        className="rounded-2xl border border-[#35201f] bg-[#081311] p-4"
+                        key={barber.name}
+                      >
+                        <img
+                          alt={barber.name}
+                          className="h-40 w-full rounded-2xl object-cover"
+                          src={barber.imageUrl || DEFAULT_BARBER_IMAGE}
+                        />
+                        <div className="mt-4 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xl font-black text-[#f4fbf8]">{barber.name}</p>
+                            <p className="mt-1 text-sm font-bold text-[#9db2ad]">
+                              {todayBarberAvailability.find((item) => item.name === barber.name)?.available
+                                ? "Available today"
+                                : "Unavailable today"}
+                            </p>
+                          </div>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#24170d] px-3 py-1 text-sm font-black text-[#f9c66d]">
+                            <Star size={15} />
+                            {rating.ratingCount ? rating.ratingAverage : "-"}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm font-bold text-[#9db2ad]">
+                          {rating.ratingCount} customer rating{rating.ratingCount === 1 ? "" : "s"}
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button
+                            className="action-chip action-edit min-h-11 px-4"
+                            disabled={Boolean(barberEditor)}
+                            onClick={() => startBarberEdit(barber)}
+                            type="button"
+                          >
+                            <Edit size={17} />
+                            Edit
+                          </button>
+                          <button
+                            className="action-chip action-delete min-h-11 px-4 disabled:opacity-60"
+                            disabled={Boolean(barberEditor) || profileBarberNames.length <= 1}
+                            onClick={() => deleteBarber(barber.name)}
+                            type="button"
+                          >
+                            <Trash2 size={17} />
+                            Delete
+                          </button>
+                        </div>
+                      </article>
+                    );
+                    })}
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-3xl border border-[#35201f] bg-[#0b1714] p-4">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#fca5a5]">
+                      Chair status
+                    </p>
+                    <p className="text-xs font-bold text-[#9db2ad]">
+                      Up to 3 haircuts can run at the same time.
+                    </p>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {inChairByBarber.map(({ barberName, booking }) => {
+                      const available = todayBarberAvailability.find(
+                        (barber) => barber.name === barberName
+                      )?.available;
+                      return (
+                        <div
+                          className={`rounded-3xl border px-5 py-4 ${
+                            booking
+                              ? "border-[#f9c66d]/30 bg-[#24170d] text-[#f9c66d]"
+                              : available
+                                ? "border-[#14532d]/40 bg-[#123125] text-[#bbf7d0]"
+                                : "border-[#5a2525] bg-[#2a1111] text-[#fca5a5]"
+                          }`}
+                          key={barberName}
+                        >
+                          <p className="text-xs font-black uppercase tracking-[0.12em]">
+                            {barberName}
+                          </p>
+                          <p className="mt-3 text-3xl font-black">
+                            {booking ? `Token ${booking.token}` : available ? "Idle" : "Unavailable"}
+                          </p>
+                          <p className="mt-2 truncate text-sm font-bold">
+                            {booking?.name || (available ? "Ready for next customer" : "Not working today")}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-3xl border border-[#35201f] bg-[#0b1714] p-4">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#fca5a5]">
+                        Staff availability
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-[#9db2ad]">
+                        Select date, then mark each barber available or unavailable.
+                      </p>
+                    </div>
+                    <input
+                      className="h-11 rounded-xl border border-[#35201f] bg-[#081311] px-3 text-sm font-bold text-[#f4fbf8]"
+                      onChange={(event) => setStaffAvailabilityDate(event.target.value)}
+                      type="date"
+                      value={staffAvailabilityDate}
+                    />
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {selectedDateBarberAvailability.map(({ name: staffName, available }) => (
+                      <button
+                        className={`min-h-14 rounded-2xl px-4 text-sm font-black transition disabled:opacity-60 ${
+                          available
+                            ? "bg-[#123125] text-[#bbf7d0]"
+                            : "bg-[#2a1111] text-[#fca5a5]"
+                        }`}
+                        disabled={actionLoading === `staff-${staffName}`}
+                        key={staffName}
+                        onClick={() => updateStaffAttendance(staffName, !available)}
+                        type="button"
+                      >
+                        {staffName}: {available ? "Available" : "Unavailable"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-3xl border border-[#35201f] bg-[#0b1714] p-4">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#fca5a5]">
+                        Coupon handling
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-[#9db2ad]">
+                        Customer checkout only applies coupons saved here.
+                      </p>
+                    </div>
+                    <button
+                      className="action-chip action-add min-h-11 px-4 disabled:opacity-60"
+                      disabled={Boolean(couponEditor)}
+                      onClick={startCouponAdd}
+                      type="button"
+                    >
+                      <CheckCircle2 size={18} />
+                      Add Coupon
+                    </button>
+                  </div>
+
+                  <div className="grid gap-3">
+                    {couponEditor ? (
+                      <div className="rounded-2xl border border-[#f9c66d]/25 bg-[#081311] p-4">
+                        <p className="text-sm font-black text-[#f9c66d]">
+                          {couponEditor.mode === "add" ? "Add Coupon" : `Edit ${couponEditor.originalCode}`}
+                        </p>
+                        <div className="mt-4 grid gap-3 lg:grid-cols-[130px_1fr_130px_130px_150px_130px_120px]">
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#9db2ad]">
+                              Code
+                            </span>
+                            <input
+                              className="h-11 w-full rounded-xl border border-[#35201f] bg-[#0b1714] px-3 font-black uppercase text-[#f4fbf8] outline-none"
+                              onChange={(event) =>
+                                setCouponEditor((value) => ({
+                                  ...value,
+                                  code: event.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, "")
+                                }))
+                              }
+                              value={couponEditor.code}
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#9db2ad]">
+                              Label
+                            </span>
+                            <input
+                              className="h-11 w-full rounded-xl border border-[#35201f] bg-[#0b1714] px-3 font-bold text-[#f4fbf8] outline-none"
+                              onChange={(event) =>
+                                setCouponEditor((value) => ({ ...value, label: event.target.value }))
+                              }
+                              value={couponEditor.label}
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#9db2ad]">
+                              Type
+                            </span>
+                            <select
+                              className="h-11 w-full rounded-xl border border-[#35201f] bg-[#0b1714] px-3 font-bold text-[#f4fbf8] outline-none"
+                              onChange={(event) =>
+                                setCouponEditor((value) => ({ ...value, type: event.target.value }))
+                              }
+                              value={couponEditor.type}
+                            >
+                              <option value="percent">Percent</option>
+                              <option value="amount">Amount</option>
+                            </select>
+                          </label>
+                          {couponEditor.type === "amount" ? (
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#9db2ad]">
+                              Amount
+                            </span>
+                            <input
+                              className="h-11 w-full rounded-xl border border-[#35201f] bg-[#0b1714] px-3 font-bold text-[#f4fbf8] outline-none"
+                              min="0"
+                              onChange={(event) =>
+                                setCouponEditor((value) => ({
+                                  ...value,
+                                  amount: Number(event.target.value || 0)
+                                }))
+                              }
+                              type="number"
+                              value={couponEditor.amount}
+                            />
+                          </label>
+                          ) : (
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#9db2ad]">
+                              Percent
+                            </span>
+                            <input
+                              className="h-11 w-full rounded-xl border border-[#35201f] bg-[#0b1714] px-3 font-bold text-[#f4fbf8] outline-none"
+                              min="0"
+                              onChange={(event) =>
+                                setCouponEditor((value) => ({
+                                  ...value,
+                                  percent: Number(event.target.value || 0)
+                                }))
+                              }
+                              type="number"
+                              value={couponEditor.percent}
+                            />
+                          </label>
+                          )}
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#9db2ad]">
+                              Condition
+                            </span>
+                            <select
+                              className="h-11 w-full rounded-xl border border-[#35201f] bg-[#0b1714] px-3 font-bold text-[#f4fbf8] outline-none"
+                              onChange={(event) =>
+                                setCouponEditor((value) => ({ ...value, condition: event.target.value }))
+                              }
+                              value={couponEditor.condition}
+                            >
+                              <option value="all">All prices</option>
+                              <option value="min">Above price</option>
+                              <option value="max">Below price</option>
+                            </select>
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#9db2ad]">
+                              Price
+                            </span>
+                            <input
+                              className="h-11 w-full rounded-xl border border-[#35201f] bg-[#0b1714] px-3 font-bold text-[#f4fbf8] outline-none disabled:opacity-50"
+                              disabled={couponEditor.condition === "all"}
+                              min="0"
+                              onChange={(event) =>
+                                setCouponEditor((value) => ({
+                                  ...value,
+                                  minAmount:
+                                    value.condition === "min"
+                                      ? Number(event.target.value || 0)
+                                      : value.minAmount,
+                                  maxAmount:
+                                    value.condition === "max"
+                                      ? Number(event.target.value || 0)
+                                      : value.maxAmount
+                                }))
+                              }
+                              type="number"
+                              value={
+                                couponEditor.condition === "min"
+                                  ? couponEditor.minAmount
+                                  : couponEditor.condition === "max"
+                                    ? couponEditor.maxAmount
+                                    : 0
+                              }
+                            />
+                          </label>
+                          <button
+                            className={`mt-5 min-h-11 rounded-xl px-3 text-sm font-black lg:mt-5 ${
+                              couponEditor.active
+                                ? "bg-[#123125] text-[#bbf7d0]"
+                                : "bg-[#2a1111] text-[#fca5a5]"
+                            }`}
+                            onClick={() =>
+                              setCouponEditor((value) => ({ ...value, active: !value.active }))
+                            }
+                            type="button"
+                          >
+                            {couponEditor.active ? "Active" : "Inactive"}
+                          </button>
+                        </div>
+                        <div className="mt-4 flex flex-wrap justify-end gap-2">
+                          <button
+                            className="action-chip action-close min-h-11 px-4"
+                            onClick={() => setCouponEditor(null)}
+                            type="button"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            className="action-chip action-save min-h-11 px-4 disabled:opacity-60"
+                            disabled={actionLoading === "coupons-save"}
+                            onClick={saveCouponEditor}
+                            type="button"
+                          >
+                            {actionLoading === "coupons-save" ? <ButtonSpinner /> : <CheckCircle2 size={18} />}
+                            {couponEditor.mode === "add" ? "Save Coupon" : "Save Changes"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {Object.entries(couponDraft).map(([code, coupon]) => (
+                      <div
+                        className="grid gap-3 rounded-2xl border border-[#35201f] bg-[#081311] p-4 lg:grid-cols-[1fr_auto]"
+                        key={code}
+                      >
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-xl font-black text-[#f4fbf8]">{code}</p>
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-black ${
+                                coupon.active !== false
+                                  ? "bg-[#123125] text-[#bbf7d0]"
+                                  : "bg-[#2a1111] text-[#fca5a5]"
+                              }`}
+                            >
+                              {coupon.active !== false ? "Active" : "Inactive"}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm font-bold text-[#9db2ad]">
+                            {coupon.label || code}
+                          </p>
+                          <p className="mt-2 text-sm font-black text-[#f9c66d]">
+                            {coupon.type === "amount"
+                              ? `Rs. ${Number(coupon.amount || 0)} off`
+                              : `${Number(coupon.percent || 0)}% off`}
+                            {coupon.condition === "min"
+                              ? ` above Rs. ${Number(coupon.minAmount || 0)}`
+                              : coupon.condition === "max"
+                                ? ` below Rs. ${Number(coupon.maxAmount || 0)}`
+                                : " for all prices"}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                          <button
+                            className="action-chip action-edit min-h-11 px-4"
+                            disabled={Boolean(couponEditor)}
+                            onClick={() => startCouponEdit(code, coupon)}
+                            type="button"
+                          >
+                            <Edit size={17} />
+                            Edit
+                          </button>
+                          <button
+                            className="action-chip action-delete min-h-11 px-4 disabled:opacity-60"
+                            disabled={Boolean(couponEditor) || actionLoading === "coupons-save"}
+                            onClick={() => deleteCoupon(code)}
+                            type="button"
+                          >
+                            <Trash2 size={17} />
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </section>
             ) : null}
@@ -3749,6 +4971,7 @@ function App() {
       />
       <BookingDialog
         actionLoading={actionLoading}
+        barberOptions={["Next available barber", ...profileBarberNames]}
         bookingDateValue={adminBookingDateValue}
         draft={bookingDraft}
         mode={adminBookingMode ? "create" : "edit"}

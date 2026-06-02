@@ -1,6 +1,7 @@
 export const adminNavItems = [
   "dashboard",
   "queue",
+  "barbers",
   "services",
   "refunds",
   "messages",
@@ -32,6 +33,7 @@ export function formatAdminPageTitle(page) {
     {
       dashboard: "Dashboard",
       queue: "Queue",
+      barbers: "Barbers",
       services: "Haircut Design",
       refunds: "Refunds",
       messages: "Messages",

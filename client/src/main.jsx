@@ -6,6 +6,7 @@ import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDocs,
   limit,
@@ -19,6 +20,7 @@ import {
 import {
   ArrowRight,
   Phone,
+  Tag,
   X
 } from "lucide-react";
 import { auth, db, googleProvider } from "./lib/firebase.js";
@@ -46,13 +48,14 @@ import {
   businessPages,
   getClientRoute,
   legalPages,
+  serviceSeoPages,
   titleCase,
   writeClientRoute
 } from "./lib/routing.js";
 import { applyClientSeo } from "./lib/seo.js";
 import { useRevealOnScroll } from "./lib/animations.js";
 import { defaultServices, getServiceImageUrl } from "./lib/services.js";
-import { BookingPage, HomePage } from "./pages/bookingPages.jsx";
+import { BarbersPage, BookingPage, HomePage } from "./pages/bookingPages.jsx";
 import { ProfilePage } from "./pages/ProfilePage.jsx";
 import {
   AboutPage,
@@ -61,6 +64,7 @@ import {
   GalleryPage,
   LegalPage,
   PricingPage,
+  ServiceSeoPage,
   StaffPage
 } from "./pages/staticPages.jsx";
 import { store } from "./store/store.js";
@@ -72,14 +76,33 @@ const BOOKING_CLOSED_MESSAGE =
 const STAFF_COUNT = 3;
 const DAILY_CONFIRMED_LIMIT = 35;
 const WAITLIST_LIMIT = 10;
+const USER_BOOKING_HISTORY_LIMIT = 3;
+const PLATFORM_FEE_PER_PERSON = 2;
+const BARBER_OPTIONS = [
+  "Next available barber",
+  "Santosh",
+  "Haircut specialist",
+  "Beard stylist"
+];
+const DEFAULT_BARBER_NAMES = ["Santosh", "Haircut specialist", "Beard stylist"];
+const DEFAULT_BARBER_IMAGES = [
+  "https://source.unsplash.com/900x900/?indian,barber,portrait",
+  "https://source.unsplash.com/900x900/?indian,hair-stylist,man",
+  "https://source.unsplash.com/900x900/?indian,salon,barber"
+];
+const DEFAULT_BARBER_IMAGE = DEFAULT_BARBER_IMAGES[0];
+const DEFAULT_COUPONS = {
+  WELCOME10: { label: "Welcome offer", percent: 10 },
+  SALON20: { label: "Salon special", type: "amount", amount: 20 }
+};
 const ONLINE_BOOKING_START_HOUR = 6;
 const SLOT_START_HOUR = 7;
 const BOOKING_END_HOUR = 23;
 const LUNCH_START_HOUR = 13;
 const LUNCH_END_HOUR = 14;
 const SLOT_MINUTES = 30;
-const activeBookingStatuses = new Set(["waiting", "in_chair", "waitlist"]);
-const confirmedBookingStatuses = new Set(["waiting", "in_chair"]);
+const activeBookingStatuses = new Set(["confirmed", "waiting", "in_chair", "waitlist"]);
+const confirmedBookingStatuses = new Set(["confirmed", "waiting", "in_chair"]);
 
 const getTimestampMillis = (value) => {
   if (!value) return 0;
@@ -104,6 +127,14 @@ const sortBookingsForTurns = (bookings) =>
     const firstWaitlist = firstStatus === "waitlist" ? 1 : 0;
     const secondWaitlist = secondStatus === "waitlist" ? 1 : 0;
     if (firstWaitlist !== secondWaitlist) return firstWaitlist - secondWaitlist;
+
+    const firstPosition = Number(first.queuePosition || 0);
+    const secondPosition = Number(second.queuePosition || 0);
+    if (firstPosition || secondPosition) {
+      if (!firstPosition) return 1;
+      if (!secondPosition) return -1;
+      if (firstPosition !== secondPosition) return firstPosition - secondPosition;
+    }
 
     const slotDiff =
       getBookingSortMinutes(first) - getBookingSortMinutes(second);
@@ -148,22 +179,43 @@ const formatSlotTime = (hour, minute) => {
   });
 };
 
-const createTimeSlots = () => {
+const parseTimeToMinutes = (timeValue, fallbackHour) => {
+  const [hour = fallbackHour, minute = 0] = String(timeValue || "")
+    .split(":")
+    .map((value) => Number(value));
+  const safeHour = Number.isFinite(hour) ? hour : fallbackHour;
+  const safeMinute = Number.isFinite(minute) ? minute : 0;
+  return safeHour * 60 + safeMinute;
+};
+
+const createTimeSlots = (openingTime = "07:00", closingTime = "23:00") => {
   const slots = [];
+  let openingMinutes = parseTimeToMinutes(openingTime, SLOT_START_HOUR);
+  let closingMinutes = parseTimeToMinutes(closingTime, BOOKING_END_HOUR);
 
-  for (let hour = SLOT_START_HOUR; hour < BOOKING_END_HOUR; hour += 1) {
-    if (hour >= LUNCH_START_HOUR && hour < LUNCH_END_HOUR) continue;
+  if (closingMinutes <= openingMinutes) {
+    openingMinutes = SLOT_START_HOUR * 60;
+    closingMinutes = BOOKING_END_HOUR * 60;
+  }
 
-    for (let minute = 0; minute < 60; minute += SLOT_MINUTES) {
-      const value = `${String(hour).padStart(2, "0")}:${String(minute).padStart(
-        2,
-        "0"
-      )}`;
-      slots.push({
-        value,
-        label: formatSlotTime(hour, minute)
-      });
+  for (
+    let slotMinutes = openingMinutes;
+    slotMinutes < closingMinutes;
+    slotMinutes += SLOT_MINUTES
+  ) {
+    const hour = Math.floor(slotMinutes / 60);
+    const minute = slotMinutes % 60;
+    if (hour >= LUNCH_START_HOUR && hour < LUNCH_END_HOUR) {
+      continue;
     }
+    const value = `${String(hour).padStart(2, "0")}:${String(minute).padStart(
+      2,
+      "0"
+    )}`;
+    slots.push({
+      value,
+      label: formatSlotTime(hour, minute)
+    });
   }
 
   return slots;
@@ -174,15 +226,6 @@ const timeSlots = createTimeSlots();
 const minutesFromSlot = (slotValue = "") => {
   const [hour = "0", minute = "0"] = slotValue.split(":");
   return Number(hour) * 60 + Number(minute);
-};
-
-const parseTimeToMinutes = (timeValue, fallbackHour) => {
-  const [hour = fallbackHour, minute = 0] = String(timeValue || "")
-    .split(":")
-    .map((value) => Number(value));
-  const safeHour = Number.isFinite(hour) ? hour : fallbackHour;
-  const safeMinute = Number.isFinite(minute) ? minute : 0;
-  return safeHour * 60 + safeMinute;
 };
 
 const formatTimeValue = (timeValue, fallbackHour) => {
@@ -205,7 +248,10 @@ const getBookingWindowMessage = (gate = {}) =>
   )} to ${formatTimeValue(
     gate.closingTime,
     BOOKING_END_HOUR
-  )}. First haircut slot starts at ${formatTimeValue(null, SLOT_START_HOUR)}. Lunch/rest break is 1 PM to 2 PM.`;
+  )}. First haircut slot starts at ${formatTimeValue(
+    gate.openingTime,
+    SLOT_START_HOUR
+  )}. Lunch/rest break is 1 PM to 2 PM.`;
 
 const isCustomerBookingWindowOpen = (gate = {}) => {
   const now = new Date();
@@ -255,6 +301,58 @@ const getCashfreeChargePreview = (amount, peopleCount = 1) => {
   };
 };
 
+const getCouponDiscount = (code, amount, peopleCount = 1, coupons = DEFAULT_COUPONS) => {
+  const coupon = coupons[String(code || "").trim().toUpperCase()];
+  if (!coupon || coupon.active === false) return 0;
+  const total = Number(amount || 0) * Number(peopleCount || 1);
+  if (coupon.condition === "min" && total < Number(coupon.minAmount || 0)) return 0;
+  if (coupon.condition === "max" && total > Number(coupon.maxAmount || 0)) return 0;
+  if (coupon.type === "amount") {
+    const couponAmount = Math.max(0, Number(coupon.amount || 0));
+    return Math.min(total, couponAmount);
+  }
+  const percent = Math.max(0, Number(coupon.percent || 0));
+  return percent ? Math.round(total * percent) / 100 : 0;
+};
+
+const normalizeBarberAvailability = (salon = {}, dateValue = toDateInputValue(new Date())) =>
+  getSalonBarberNames(salon).map((name, index) => {
+    const schedule = salon.barberAvailability?.[name];
+    const legacyAvailable = salon.staffAttendance?.[name];
+    const unavailableDates = Array.isArray(schedule?.unavailableDates)
+      ? schedule.unavailableDates
+      : [];
+    const available =
+      schedule?.available !== undefined
+        ? schedule.available !== false
+        : legacyAvailable !== false;
+
+    return {
+      name,
+      available: available && !unavailableDates.includes(dateValue),
+      imageUrl:
+        Array.isArray(salon.barbers)
+          ? salon.barbers.find((barber) => barber?.name === name)?.imageUrl ||
+            DEFAULT_BARBER_IMAGES[index % DEFAULT_BARBER_IMAGES.length]
+          : DEFAULT_BARBER_IMAGES[index % DEFAULT_BARBER_IMAGES.length],
+      imagePublicId:
+        Array.isArray(salon.barbers)
+          ? salon.barbers.find((barber) => barber?.name === name)?.imagePublicId || ""
+          : "",
+      unavailableDates
+    };
+  });
+
+const getSalonBarberNames = (salon = {}) => {
+  const names = Array.isArray(salon.barbers)
+    ? salon.barbers
+        .filter((barber) => barber?.active !== false && barber?.name)
+        .map((barber) => barber.name.trim())
+        .filter(Boolean)
+    : [];
+  return names.length ? [...new Set(names)] : DEFAULT_BARBER_NAMES;
+};
+
 const normalizeService = (snapshotDoc) => {
   const data = snapshotDoc.data();
   const amount = Number(data.amount || data.priceAmount || 0);
@@ -279,7 +377,9 @@ const normalizeQueueItem = (snapshotDoc, displayToken) => {
   return {
     id: snapshotDoc.id,
     token: displayToken || data.token || "-",
+    queuePosition: Number(data.queuePosition || 0),
     name: data.name || "Customer",
+    barberName: data.barberName || data.preferredBarber || "Next available barber",
     status: status.replace(/_/g, " "),
     eta:
       status === "in_chair"
@@ -336,6 +436,7 @@ const reindexQueueDate = async (bookingDate) => {
       updateDoc(booking.ref, {
         token: index + 1,
         peopleAhead: index,
+        queuePosition: index + 1,
         turnSortMinutes: getBookingSortMinutes(booking)
       })
     )
@@ -344,11 +445,12 @@ const reindexQueueDate = async (bookingDate) => {
   return activeBookings.map((booking, index) => ({
     ...booking,
     token: index + 1,
-    peopleAhead: index
+    peopleAhead: index,
+    queuePosition: index + 1
   }));
 };
 
-const getBookingDayStats = async (bookingDate) => {
+const getBookingDayStats = async (bookingDate, slots = timeSlots) => {
   const bookingSnapshot = await getDocs(
     firestoreQuery(
       collection(db, "customers"),
@@ -378,7 +480,7 @@ const getBookingDayStats = async (bookingDate) => {
     bookings,
     confirmedCount,
     waitlistCount,
-    availableSlots: timeSlots.filter(
+    availableSlots: slots.filter(
       (slot) => (slotCounts[slot.value] || 0) < STAFF_COUNT
     ),
     slotCounts
@@ -397,6 +499,50 @@ const getActiveUserBookings = async (userId) => {
     );
 };
 
+const pruneUserBookingHistory = async (userId) => {
+  const bookingSnapshot = await getDocs(
+    firestoreQuery(collection(db, "customers"), where("userId", "==", userId))
+  );
+  const inactiveStatuses = new Set([
+    "completed",
+    "cancelled",
+    "skipped",
+    "no_show"
+  ]);
+  const groups = bookingSnapshot.docs.reduce((accumulator, snapshotDoc) => {
+    const data = snapshotDoc.data();
+    const groupId = data.bookingGroupId || snapshotDoc.id;
+    const group = accumulator[groupId] || {
+      key: groupId,
+      docs: [],
+      latestSort: 0,
+      hasActive: false
+    };
+    const status = String(data.status || "").toLowerCase();
+    const createdSort =
+      Number(data.createdSort || 0) ||
+      data.createdAt?.toMillis?.() ||
+      data.createdAt?.toDate?.()?.getTime?.() ||
+      0;
+    group.docs.push(snapshotDoc);
+    group.latestSort = Math.max(group.latestSort, createdSort);
+    group.hasActive = group.hasActive || !inactiveStatuses.has(status);
+    accumulator[groupId] = group;
+    return accumulator;
+  }, {});
+
+  const oldInactiveGroups = Object.values(groups)
+    .sort((first, second) => second.latestSort - first.latestSort)
+    .slice(USER_BOOKING_HISTORY_LIMIT)
+    .filter((group) => !group.hasActive);
+
+  await Promise.all(
+    oldInactiveGroups.flatMap((group) =>
+      group.docs.map((snapshotDoc) => deleteDoc(doc(db, "customers", snapshotDoc.id)))
+    )
+  );
+};
+
 function CheckoutModal({
   bookingGate,
   service,
@@ -412,12 +558,15 @@ function CheckoutModal({
     mobile: "",
     bookingDay: "today",
     timeSlot: "",
+    preferredBarber: BARBER_OPTIONS[0],
+    couponCode: "",
     includeGuest: false,
     guestName: "",
     guestMobile: "",
     paymentMethod: "online"
   });
   const [status, setStatus] = useState(null);
+  const [appliedCouponCode, setAppliedCouponCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [slotState, setSlotState] = useState({
     loading: true,
@@ -426,6 +575,10 @@ function CheckoutModal({
     waitlistCount: 0
   });
   const slotDragScroll = useDragScroll({ enabled: true });
+  const bookingTimeSlots = createTimeSlots(
+    bookingGate.openingTime,
+    bookingGate.closingTime
+  );
 
   useBodyScrollLock(Boolean(service));
 
@@ -435,12 +588,15 @@ function CheckoutModal({
       mobile: "",
       bookingDay: "today",
       timeSlot: "",
+      preferredBarber: BARBER_OPTIONS[0],
+      couponCode: "",
       includeGuest: false,
       guestName: "",
       guestMobile: "",
       paymentMethod: "online"
     });
     setStatus(null);
+    setAppliedCouponCode("");
   }, [service, user]);
 
   useEffect(() => {
@@ -450,11 +606,11 @@ function CheckoutModal({
     const bookingOption = getBookingOption(form.bookingDay);
     setSlotState((current) => ({ ...current, loading: true }));
 
-    getBookingDayStats(bookingOption.date)
+    getBookingDayStats(bookingOption.date, bookingTimeSlots)
       .then((stats) => {
         if (cancelled) return;
         const requiredSeats = form.includeGuest ? 2 : 1;
-        const visibleSlots = getVisibleTimeSlots(form.bookingDay, timeSlots).filter(
+        const visibleSlots = getVisibleTimeSlots(form.bookingDay, bookingTimeSlots).filter(
           (slot) =>
             STAFF_COUNT - Number(stats.slotCounts[slot.value] || 0) >=
             requiredSeats
@@ -491,24 +647,87 @@ function CheckoutModal({
     return () => {
       cancelled = true;
     };
-  }, [form.bookingDay, form.includeGuest, service]);
+  }, [bookingGate.closingTime, bookingGate.openingTime, form.bookingDay, form.includeGuest, service]);
+
+  useEffect(() => {
+    if (!service || form.preferredBarber === BARBER_OPTIONS[0]) return;
+    const available = (bookingGate.barbers || normalizeBarberAvailability())
+      .filter((barber) => barber.available)
+      .map((barber) => barber.name);
+    if (!available.includes(form.preferredBarber)) {
+      setForm((value) => ({ ...value, preferredBarber: BARBER_OPTIONS[0] }));
+    }
+  }, [bookingGate.barbers, form.preferredBarber, service]);
 
   if (!service) return null;
 
   const guestMobile = form.guestMobile.replace(/\D/g, "");
   const peopleCount = form.includeGuest ? 2 : 1;
-  const onlineChargePreview = getCashfreeChargePreview(
+  const bookingOptionForBarber = getBookingOption(form.bookingDay);
+  const availableBarbers = (bookingGate.barbers || normalizeBarberAvailability())
+    .filter((barber) => barber.available)
+    .map((barber) => barber.name);
+  const barberChoices = [BARBER_OPTIONS[0], ...availableBarbers];
+  const salonCoupons = bookingGate.coupons || DEFAULT_COUPONS;
+  const couponCode = appliedCouponCode;
+  const typedCouponCode = form.couponCode.trim().toUpperCase();
+  const discountAmount = getCouponDiscount(
+    appliedCouponCode,
     service.amount,
+    peopleCount,
+    salonCoupons
+  );
+  const platformFeeTotal = PLATFORM_FEE_PER_PERSON * peopleCount;
+  const discountedServiceAmount = Math.max(
+    0,
+    Math.round((Number(service.amount || 0) * peopleCount - discountAmount) * 100) / 100
+  );
+  const perPersonServiceAmount =
+    Math.round((discountedServiceAmount / peopleCount) * 100) / 100;
+  const onlineChargePreview = getCashfreeChargePreview(
+    perPersonServiceAmount + PLATFORM_FEE_PER_PERSON,
     peopleCount
   );
   const cashChargePreview = {
-    serviceAmount: Math.round(Number(service.amount || 0) * peopleCount * 100) / 100,
+    serviceAmount: discountedServiceAmount,
     cashfreeFeePercent: 0,
     cashfreeFee: 0,
-    payableAmount: Math.round(Number(service.amount || 0) * peopleCount * 100) / 100
+    payableAmount: Math.round((discountedServiceAmount + platformFeeTotal) * 100) / 100
   };
   const chargePreview =
     form.paymentMethod === "cod" ? cashChargePreview : onlineChargePreview;
+
+  const selectedBarberAvailable =
+    form.preferredBarber === BARBER_OPTIONS[0] ||
+    availableBarbers.includes(form.preferredBarber);
+
+  const applyCoupon = () => {
+    if (!typedCouponCode) {
+      setAppliedCouponCode("");
+      toast.info("Enter a coupon code first.");
+      return;
+    }
+
+    const nextDiscount = getCouponDiscount(
+      typedCouponCode,
+      service.amount,
+      peopleCount,
+      salonCoupons
+    );
+    if (!nextDiscount) {
+      const coupon = salonCoupons[typedCouponCode];
+      setAppliedCouponCode("");
+      toast.error(
+        coupon
+          ? "Coupon is not applicable for this booking amount."
+          : "Coupon is not available."
+      );
+      return;
+    }
+
+    setAppliedCouponCode(typedCouponCode);
+    toast.success(`${typedCouponCode} applied.`);
+  };
 
   const submitCheckout = async (event) => {
     event.preventDefault();
@@ -541,7 +760,18 @@ function CheckoutModal({
     }
 
     const bookingOption = getBookingOption(form.bookingDay);
-    const selectedSlot = timeSlots.find((slot) => slot.value === form.timeSlot);
+    const selectedSlot = bookingTimeSlots.find((slot) => slot.value === form.timeSlot);
+
+    if (!selectedBarberAvailable || !availableBarbers.length) {
+      const message =
+        "Selected barber is unavailable for this booking day. Please choose an available barber.";
+      setStatus({
+        type: "error",
+        message
+      });
+      toast.error(message);
+      return;
+    }
 
     if (!isCustomerBookingWindowOpen(bookingGate)) {
       const message = getBookingWindowMessage(bookingGate);
@@ -607,7 +837,7 @@ function CheckoutModal({
         return;
       }
 
-      const prePaymentStats = await getBookingDayStats(bookingOption.date);
+      const prePaymentStats = await getBookingDayStats(bookingOption.date, bookingTimeSlots);
       const prePaymentWaitlist =
         prePaymentStats.confirmedCount + customers.length >
         DAILY_CONFIRMED_LIMIT;
@@ -714,7 +944,7 @@ function CheckoutModal({
         charge = order.charge || onlineChargePreview;
       }
 
-      const dayStats = await getBookingDayStats(bookingOption.date);
+      const dayStats = await getBookingDayStats(bookingOption.date, bookingTimeSlots);
       const slotCount = selectedSlot
         ? Number(dayStats.slotCounts[selectedSlot.value] || 0)
         : 0;
@@ -744,25 +974,31 @@ function CheckoutModal({
           : 0;
       const perCustomerPayable =
         form.paymentMethod === "online"
-          ? Math.round((Number(service.amount || 0) + perCustomerCashfreeFee) * 100) /
+          ? Math.round((Number(perPersonServiceAmount || 0) + PLATFORM_FEE_PER_PERSON + perCustomerCashfreeFee) * 100) /
             100
-          : Number(service.amount || 0);
+          : Math.round((Number(perPersonServiceAmount || 0) + PLATFORM_FEE_PER_PERSON) * 100) / 100;
 
       for (const [index, customer] of customers.entries()) {
         const bookingRef = await addDoc(collection(db, "customers"), {
           name: customer.name,
           mobile: customer.mobile,
           service: service.title,
-          amount: service.amount,
-          serviceAmount: service.amount,
+          amount: perPersonServiceAmount,
+          serviceAmount: perPersonServiceAmount,
+          originalServiceAmount: service.amount,
+          couponCode,
+          discountAmount:
+            Math.round((Number(discountAmount || 0) / customers.length) * 100) / 100,
+          platformFee: PLATFORM_FEE_PER_PERSON,
+          groupPlatformFee: platformFeeTotal,
           payableAmount: perCustomerPayable,
-          refundableAmount: service.amount,
-          groupServiceAmount: charge.serviceAmount,
+          refundableAmount: perPersonServiceAmount,
+          groupServiceAmount: discountedServiceAmount,
           groupPayableAmount: charge.payableAmount,
           cashfreeFeePercent: charge.cashfreeFeePercent ?? 1.6,
           cashfreeFee: perCustomerCashfreeFee,
           groupCashfreeFee: charge.cashfreeFee,
-          nonRefundableFee: perCustomerCashfreeFee,
+          nonRefundableFee: perCustomerCashfreeFee + PLATFORM_FEE_PER_PERSON,
           token: 0,
           status: isWaitlist ? "waitlist" : "waiting",
           paymentStatus:
@@ -777,6 +1013,7 @@ function CheckoutModal({
           timeSlotLabel: isWaitlist
             ? "Waiting list"
             : selectedSlot?.label || "Waiting list",
+          barberName: form.preferredBarber,
           cashfreeOrderId: order?.order_id || "",
           cashfreeCfOrderId: order?.cf_order_id || paidOrder.cf_order_id || null,
           cashfreePaymentId: paidPayment.cf_payment_id || "",
@@ -833,6 +1070,11 @@ function CheckoutModal({
         },
         { merge: true }
       );
+      try {
+        await pruneUserBookingHistory(user.uid);
+      } catch {
+        toast.info("Booking saved. Old history cleanup will retry on your next booking.");
+      }
 
       setStatus({
         type: "success",
@@ -1078,6 +1320,63 @@ function CheckoutModal({
               {getBookingWindowMessage(bookingGate)}
             </p>
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-2 block text-sm font-bold">Barber Preference</span>
+              <select
+                className="h-12 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] px-4 text-[#f4fbf8] outline-none transition focus:border-[#f87171] focus:ring-4 focus:ring-[#ef4444]/20"
+                onChange={(event) =>
+                  setForm((value) => ({ ...value, preferredBarber: event.target.value }))
+                }
+                value={form.preferredBarber}
+              >
+                {barberChoices.map((barber) => (
+                  <option key={barber} value={barber}>{barber}</option>
+                ))}
+              </select>
+              <span className="mt-2 block text-xs font-bold text-[#9db2ad]">
+                {availableBarbers.length
+                  ? `${availableBarbers.length} barber available for ${bookingOptionForBarber.label}.`
+                  : "No barber is available for this day."}
+              </span>
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-bold">Offer / Coupon</span>
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <div className="relative">
+                <Tag
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-[#71908a]"
+                  size={18}
+                />
+                <input
+                  className="h-12 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] pl-11 pr-4 uppercase text-[#f4fbf8] outline-none transition focus:border-[#f87171] focus:ring-4 focus:ring-[#ef4444]/20"
+                  onChange={(event) => {
+                    setAppliedCouponCode("");
+                    setForm((value) => ({ ...value, couponCode: event.target.value.toUpperCase() }));
+                  }}
+                  placeholder="WELCOME10"
+                  value={form.couponCode}
+                />
+              </div>
+                <button
+                  className="min-h-12 rounded-2xl border border-[#991b1b] bg-[#2a1111] px-5 text-sm font-black text-[#fca5a5] transition hover:bg-[#991b1b] hover:text-white"
+                  onClick={appliedCouponCode ? () => setAppliedCouponCode("") : applyCoupon}
+                  type="button"
+                >
+                  {appliedCouponCode ? "Remove" : "Apply"}
+                </button>
+              </div>
+              {appliedCouponCode ? (
+                <span className="mt-2 block text-xs font-bold text-[#f9c66d]">
+                  {appliedCouponCode} applied.
+                </span>
+              ) : typedCouponCode ? (
+                <span className="mt-2 block text-xs font-bold text-[#9db2ad]">
+                  Click Apply to use this coupon.
+                </span>
+              ) : null}
+            </label>
+          </div>
           <div>
             <span className="mb-2 block text-sm font-bold">Payment Method</span>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -1120,8 +1419,16 @@ function CheckoutModal({
                 {peopleCount > 1 ? ` x ${peopleCount}` : ""}
               </p>
               <p className="font-black text-[#f9c66d]">
-                {formatMoney(chargePreview.serviceAmount)}
+                {formatMoney(discountedServiceAmount)}
               </p>
+            </div>
+            <div className="mt-3 grid gap-2 text-sm font-bold text-[#9db2ad] sm:grid-cols-2">
+              <div className="rounded-xl bg-[#101a18] px-3 py-2">
+                Service duration: {service.time || "25 min"}
+              </div>
+              <div className="rounded-xl bg-[#101a18] px-3 py-2">
+                Barber: {form.preferredBarber}
+              </div>
             </div>
             <div className="mt-3 grid gap-2 text-sm font-bold text-[#f4fbf8]">
               <div className="flex items-center justify-between gap-3 rounded-xl bg-[#101a18] px-3 py-2">
@@ -1136,6 +1443,16 @@ function CheckoutModal({
               ) : null}
             </div>
             <div className="mt-3 space-y-2 text-sm font-bold text-[#9db2ad]">
+              {discountAmount > 0 ? (
+                <div className="flex items-center justify-between gap-3 text-[#f9c66d]">
+                  <span>Coupon discount {couponCode}</span>
+                  <span>-{formatMoney(discountAmount)}</span>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between gap-3">
+                <span>Platform fee Rs. {PLATFORM_FEE_PER_PERSON} x {peopleCount}</span>
+                <span>{formatMoney(platformFeeTotal)}</span>
+              </div>
               {form.paymentMethod === "online" ? (
                 <div className="flex items-center justify-between gap-3">
                   <span>Cashfree charge 1.60%</span>
@@ -1153,6 +1470,9 @@ function CheckoutModal({
               </div>
             </div>
           </div>
+          <p className="rounded-2xl border border-[#f9c66d]/20 bg-[#24170d] px-4 py-3 text-sm font-bold leading-6 text-[#f9c66d]">
+            Cancellation is available before service starts. Refunds are for the eligible service amount only; platform fee and Cashfree charges are non-refundable.
+          </p>
           <button
             className="shine-button flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 py-4 font-black text-white shadow-lg shadow-[#991b1b]/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={loading}
@@ -1216,7 +1536,13 @@ function App() {
     displayToken: 1,
     tokenLabel: "Next Token",
     tokenHint: "Next customer token",
-    waitingCount: 0
+    waitingCount: 0,
+    servingChairs: DEFAULT_BARBER_NAMES.map((barberName) => ({
+      barberName,
+      token: "-",
+      customerName: "Chair available",
+      status: "Idle"
+    }))
   });
   const [queueLoading, setQueueLoading] = useState(true);
   const [bookingGate, setBookingGate] = useState({
@@ -1225,6 +1551,8 @@ function App() {
     message: "Checking salon booking status...",
     openingTime: "07:00",
     closingTime: "23:00",
+    barbers: normalizeBarberAvailability(),
+    coupons: DEFAULT_COUPONS,
     manualShopClosed: false,
     premiumActive: false
   });
@@ -1308,6 +1636,29 @@ function App() {
         const currentBooking = activeBookings.find(
           (booking) => String(booking.status || "").toLowerCase() === "in_chair"
         );
+        const inChairBookings = activeBookings.filter(
+          (booking) => String(booking.status || "").toLowerCase() === "in_chair"
+        );
+        const chairBarberNames = (bookingGate.barbers || normalizeBarberAvailability())
+          .map((barber) => barber.name);
+        const servingChairs = chairBarberNames.map((barberName) => {
+          const booking = inChairBookings.find(
+            (item) => (item.barberName || item.preferredBarber) === barberName
+          );
+          return booking
+            ? {
+                barberName,
+                token: booking.token || "-",
+                customerName: booking.name || "Customer",
+                status: "Haircut running"
+              }
+            : {
+                barberName,
+                token: "-",
+                customerName: "Chair available",
+                status: "Idle"
+              };
+        });
         const nextWaitingBooking =
           waitingBookings.find(
             (booking) => String(booking.status || "").toLowerCase() === "waiting"
@@ -1335,7 +1686,8 @@ function App() {
             : nextWaitingBooking
               ? "Next customer to call"
               : "Queue empty now",
-          waitingCount: waitingBookings.length
+          waitingCount: waitingBookings.length,
+          servingChairs
         });
         setQueueLoading(false);
       },
@@ -1345,12 +1697,18 @@ function App() {
           displayToken: 1,
           tokenLabel: "Next Token",
           tokenHint: "Queue empty now",
-          waitingCount: 0
+          waitingCount: 0,
+          servingChairs: (bookingGate.barbers || normalizeBarberAvailability()).map((barber) => ({
+            barberName: barber.name,
+            token: "-",
+            customerName: "Chair available",
+            status: "Idle"
+          }))
         });
         setQueueLoading(false);
       }
     );
-  }, [page]);
+  }, [page, bookingGate.barbers]);
 
   useEffect(() => {
     if (!["home", "booking"].includes(page)) {
@@ -1403,6 +1761,8 @@ function App() {
             message: BOOKING_CLOSED_MESSAGE,
             openingTime: "07:00",
             closingTime: "23:00",
+            barbers: normalizeBarberAvailability(),
+            coupons: DEFAULT_COUPONS,
             manualShopClosed: false,
             premiumActive: false
           });
@@ -1439,6 +1799,8 @@ function App() {
           message,
           openingTime: scheduleGate.openingTime,
           closingTime: scheduleGate.closingTime,
+          barbers: normalizeBarberAvailability(salon),
+          coupons: salon.coupons || DEFAULT_COUPONS,
           manualShopClosed: manualClosed,
           premiumActive
         });
@@ -1450,6 +1812,8 @@ function App() {
           message: BOOKING_CLOSED_MESSAGE,
           openingTime: "07:00",
           closingTime: "23:00",
+          barbers: normalizeBarberAvailability(),
+          coupons: DEFAULT_COUPONS,
           manualShopClosed: false,
           premiumActive: false
         });
@@ -1654,12 +2018,14 @@ function App() {
           user={user}
         />
       ) : null}
+      {page === "barbers" ? <BarbersPage bookingGate={bookingGate} /> : null}
       {page === "about" ? <AboutPage /> : null}
       {page === "contact" ? <ContactPage user={user} /> : null}
       {page === "pricing" ? <PricingPage /> : null}
       {page === "gallery" ? <GalleryPage /> : null}
       {page === "staff" ? <StaffPage /> : null}
       {page === "faq" ? <FaqPage /> : null}
+      {serviceSeoPages.includes(page) ? <ServiceSeoPage page={page} /> : null}
       {legalPages.includes(page) ? <LegalPage page={page} /> : null}
       {page === "profile" ? (
         <ProfilePage

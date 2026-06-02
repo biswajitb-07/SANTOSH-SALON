@@ -12,12 +12,17 @@ import {
   where
 } from "firebase/firestore";
 import {
+  CalendarClock,
   CalendarCheck2,
+  Clock3,
   Download,
   Eye,
+  Gift,
   LogIn,
   LogOut,
   MessageCircle,
+  Share2,
+  Star,
   UserRound,
   X
 } from "lucide-react";
@@ -36,7 +41,96 @@ import {
 } from "../lib/formatters.js";
 import { downloadBookingInvoice } from "../lib/invoice.js";
 
-const BOOKING_PAGE_SIZE = 4;
+const BOOKING_PAGE_SIZE = 3;
+const STAFF_COUNT = 3;
+const PLATFORM_FEE_PER_PERSON = 2;
+const SERVICE_ESTIMATE_MINUTES = {
+  haircut: 25,
+  beard: 15,
+  facial: 40,
+  wash: 20,
+  color: 60,
+  default: 25
+};
+const cancelReasons = [
+  "I cannot visit today",
+  "Booked wrong time",
+  "Booked wrong service",
+  "Payment or booking issue",
+  "Other reason"
+];
+const rescheduleSlots = [
+  ["07:00", "7:00 AM"],
+  ["07:30", "7:30 AM"],
+  ["08:00", "8:00 AM"],
+  ["08:30", "8:30 AM"],
+  ["09:00", "9:00 AM"],
+  ["09:30", "9:30 AM"],
+  ["10:00", "10:00 AM"],
+  ["10:30", "10:30 AM"],
+  ["11:00", "11:00 AM"],
+  ["11:30", "11:30 AM"],
+  ["12:00", "12:00 PM"],
+  ["12:30", "12:30 PM"],
+  ["14:00", "2:00 PM"],
+  ["14:30", "2:30 PM"],
+  ["15:00", "3:00 PM"],
+  ["15:30", "3:30 PM"],
+  ["16:00", "4:00 PM"],
+  ["16:30", "4:30 PM"],
+  ["17:00", "5:00 PM"],
+  ["17:30", "5:30 PM"],
+  ["18:00", "6:00 PM"],
+  ["18:30", "6:30 PM"],
+  ["19:00", "7:00 PM"],
+  ["19:30", "7:30 PM"],
+  ["20:00", "8:00 PM"],
+  ["20:30", "8:30 PM"],
+  ["21:00", "9:00 PM"],
+  ["21:30", "9:30 PM"],
+  ["22:00", "10:00 PM"]
+];
+
+const toDateInputValue = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getDisplayDate = (dateValue) =>
+  new Date(`${dateValue}T00:00:00`).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  });
+
+const getServiceEstimateMinutes = (service = "") => {
+  const normalized = service.toLowerCase();
+  const key = Object.keys(SERVICE_ESTIMATE_MINUTES).find((item) =>
+    normalized.includes(item)
+  );
+  return SERVICE_ESTIMATE_MINUTES[key] || SERVICE_ESTIMATE_MINUTES.default;
+};
+
+const getLiveWaitEstimate = (booking) => {
+  if (!booking) return "-";
+  if (booking.status === "waitlist") return "Admin will confirm your slot";
+  if (!["waiting", "in_chair"].includes(booking.status)) return "-";
+  if (booking.status === "in_chair") return "Serving now";
+  const estimate =
+    Math.ceil(Number(booking.peopleAhead || 0) / STAFF_COUNT) *
+    getServiceEstimateMinutes(booking.service);
+  return estimate <= 0 ? "Your turn is near" : `${estimate} min approx`;
+};
+
+const getRefundStepIndex = (status = "") => {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "completed") return 2;
+  if (["processing", "reviewing"].includes(normalized)) return 1;
+  if (normalized) return 0;
+  return -1;
+};
 
 const normalizeUserBooking = (snapshotDoc) => {
   const data = snapshotDoc.data();
@@ -58,8 +152,9 @@ const normalizeUserBooking = (snapshotDoc) => {
   const payableAmount = Number(
     data.payableAmount && Number(data.payableAmount) > serviceAmount
       ? data.payableAmount
-      : serviceAmount + cashfreeFee
+      : serviceAmount + cashfreeFee + Number(data.platformFee || 0)
   );
+  const platformFee = Number(data.platformFee || 0);
 
   return {
     id: snapshotDoc.id,
@@ -84,9 +179,10 @@ const normalizeUserBooking = (snapshotDoc) => {
     amount: payableAmount,
     serviceAmount,
     cashfreeFee,
+    platformFee,
     cashfreeFeePercent: Number(data.cashfreeFeePercent || 1.6),
     refundableAmount: Number(data.refundableAmount || serviceAmount),
-    nonRefundableFee: Number(data.nonRefundableFee || cashfreeFee),
+    nonRefundableFee: Number(data.nonRefundableFee || cashfreeFee + platformFee),
     paymentProvider: data.paymentProvider || "-",
     paymentStatus: String(data.paymentStatus || "-").toLowerCase(),
     paymentId:
@@ -103,6 +199,12 @@ const normalizeUserBooking = (snapshotDoc) => {
     orderId: data.cashfreeOrderId || data.razorpayOrderId || "-",
     refundStatus: String(data.refundStatus || "").toLowerCase(),
     refundRequestId: data.refundRequestId || "",
+    cancelReason: data.cancelReason || "",
+    adminRefundNote: data.adminRefundNote || "",
+    barberName: data.barberName || data.preferredBarber || "Next available barber",
+    barberRating: Number(data.barberRating || 0),
+    barberReview: data.barberReview || "",
+    notifiedAt: data.notifiedAt || null,
     customerType: data.customerType || "self",
     bookingGroupId: data.bookingGroupId || "",
     bookingGroupSize,
@@ -127,10 +229,10 @@ const getBookingMinutes = (booking) => {
 
 const sortUserBookings = (bookings) =>
   [...bookings].sort((first, second) => {
-    const firstActive = ["waiting", "waitlist", "in_chair"].includes(first.status)
+    const firstActive = ["confirmed", "waiting", "waitlist", "in_chair"].includes(first.status)
       ? 0
       : 1;
-    const secondActive = ["waiting", "waitlist", "in_chair"].includes(second.status)
+    const secondActive = ["confirmed", "waiting", "waitlist", "in_chair"].includes(second.status)
       ? 0
       : 1;
     if (firstActive !== secondActive) return firstActive - secondActive;
@@ -170,6 +272,10 @@ const groupUserBookings = (bookings) =>
         (total, item) => total + Number(item.cashfreeFee || 0),
         0
       );
+      existingGroup.totalPlatformFee = existingGroup.items.reduce(
+        (total, item) => total + Number(item.platformFee || 0),
+        0
+      );
       return groups;
     }
 
@@ -178,10 +284,182 @@ const groupUserBookings = (bookings) =>
       items: [booking],
       totalAmount: Number(booking.amount || 0),
       totalServiceAmount: Number(booking.serviceAmount || 0),
-      totalCashfreeFee: Number(booking.cashfreeFee || 0)
+      totalCashfreeFee: Number(booking.cashfreeFee || 0),
+      totalPlatformFee: Number(booking.platformFee || 0)
     });
     return groups;
   }, []);
+
+function RefundStatusTracker({ refund }) {
+  if (!refund) return null;
+  const stepIndex = getRefundStepIndex(refund.status);
+  const steps = ["Requested", "Processing", "Completed"];
+
+  return (
+    <div className="mt-3 rounded-2xl border border-[#35201f] bg-[#101a18] p-3">
+      <div className="grid grid-cols-3 gap-2">
+        {steps.map((step, index) => (
+          <div
+            className={`rounded-xl px-3 py-2 text-center text-[11px] font-black ${
+              index <= stepIndex
+                ? "bg-[#2a1111] text-[#fca5a5]"
+                : "bg-[#0b1714] text-[#637371]"
+            }`}
+            key={step}
+          >
+            {step}
+          </div>
+        ))}
+      </div>
+      {refund.adminRefundNote ? (
+        <p className="mt-3 rounded-xl bg-[#24170d] px-3 py-2 text-xs font-bold text-[#f9c66d]">
+          Admin note: {refund.adminRefundNote}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function CancelReasonDialog({ booking, loading, onClose, onConfirm }) {
+  const [reason, setReason] = useState(cancelReasons[0]);
+  const [note, setNote] = useState("");
+  useBodyScrollLock(Boolean(booking));
+
+  useEffect(() => {
+    setReason(cancelReasons[0]);
+    setNote("");
+  }, [booking]);
+
+  if (!booking) return null;
+
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-start justify-center overflow-y-auto bg-black/65 px-3 py-3 backdrop-blur-md sm:items-center sm:py-6">
+      <form
+        className="queue-shadow w-full max-w-lg rounded-3xl border border-[#f9c66d]/15 bg-[#081311] p-5 text-[#f4fbf8]"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onConfirm(booking, reason, note);
+        }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="section-kicker">Cancel Booking</p>
+            <h2 className="mt-1 text-2xl font-black">Select a reason</h2>
+          </div>
+          <button className="grid h-10 w-10 place-items-center rounded-xl bg-[#0b1714]" onClick={onClose} type="button">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="mt-5 grid gap-2">
+          {cancelReasons.map((item) => (
+            <label className="flex items-center gap-3 rounded-2xl border border-[#35201f] bg-[#0b1714] px-4 py-3 text-sm font-black" key={item}>
+              <input
+                checked={reason === item}
+                className="h-4 w-4 accent-[#991b1b]"
+                onChange={() => setReason(item)}
+                type="radio"
+              />
+              {item}
+            </label>
+          ))}
+        </div>
+        <textarea
+          className="mt-4 min-h-24 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] p-4 text-[#f4fbf8] outline-none focus:border-[#f87171]"
+          onChange={(event) => setNote(event.target.value)}
+          placeholder="Optional note"
+          value={note}
+        />
+        <button
+          className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 font-black text-white disabled:opacity-60"
+          disabled={loading}
+          type="submit"
+        >
+          {loading ? <ButtonSpinner /> : null}
+          {loading ? "Cancelling..." : "Confirm Cancellation"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function RescheduleDialog({ booking, loading, onClose, onConfirm }) {
+  const today = toDateInputValue(new Date());
+  const tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrow = toDateInputValue(tomorrowDate);
+  const [draft, setDraft] = useState({
+    bookingDate: booking?.bookingDate || today,
+    timeSlot: booking?.timeSlot || rescheduleSlots[0][0]
+  });
+  useBodyScrollLock(Boolean(booking));
+
+  useEffect(() => {
+    setDraft({
+      bookingDate: booking?.bookingDate || today,
+      timeSlot: booking?.timeSlot || rescheduleSlots[0][0]
+    });
+  }, [booking, today]);
+
+  if (!booking) return null;
+
+  const selectedSlot = rescheduleSlots.find(([value]) => value === draft.timeSlot);
+
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-start justify-center overflow-y-auto bg-black/65 px-3 py-3 backdrop-blur-md sm:items-center sm:py-6">
+      <form
+        className="queue-shadow w-full max-w-lg rounded-3xl border border-[#f9c66d]/15 bg-[#081311] p-5 text-[#f4fbf8]"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onConfirm(booking, draft, selectedSlot?.[1] || draft.timeSlot);
+        }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="section-kicker">Reschedule</p>
+            <h2 className="mt-1 text-2xl font-black">{booking.service}</h2>
+          </div>
+          <button className="grid h-10 w-10 place-items-center rounded-xl bg-[#0b1714]" onClick={onClose} type="button">
+            <X size={20} />
+          </button>
+        </div>
+        <label className="mt-5 block">
+          <span className="mb-2 block text-sm font-bold">Booking day</span>
+          <select
+            className="h-12 w-full rounded-2xl border border-[#35201f] bg-[#0b1714] px-4 outline-none"
+            onChange={(event) => setDraft((value) => ({ ...value, bookingDate: event.target.value }))}
+            value={draft.bookingDate}
+          >
+            <option value={today}>Today, {getDisplayDate(today)}</option>
+            <option value={tomorrow}>Tomorrow, {getDisplayDate(tomorrow)}</option>
+          </select>
+        </label>
+        <label className="mt-4 block">
+          <span className="mb-2 block text-sm font-bold">Time slot</span>
+          <select
+            className="h-12 w-full rounded-2xl border border-[#35201f] bg-[#0b1714] px-4 outline-none"
+            onChange={(event) => setDraft((value) => ({ ...value, timeSlot: event.target.value }))}
+            value={draft.timeSlot}
+          >
+            {rescheduleSlots.map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+        <p className="mt-4 rounded-2xl border border-[#f9c66d]/20 bg-[#24170d] px-4 py-3 text-sm font-bold text-[#f9c66d]">
+          Reschedule request updates your booking slot. Admin may adjust it if salon capacity changes.
+        </p>
+        <button
+          className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 font-black text-white disabled:opacity-60"
+          disabled={loading}
+          type="submit"
+        >
+          {loading ? <ButtonSpinner /> : <CalendarClock size={18} />}
+          {loading ? "Rescheduling..." : "Save New Slot"}
+        </button>
+      </form>
+    </div>
+  );
+}
 
 function RefundRequestDialog({ booking, user, onClose }) {
   useBodyScrollLock(Boolean(booking));
@@ -242,7 +520,10 @@ function RefundRequestDialog({ booking, user, onClose }) {
         amount: Number(booking.refundableAmount || booking.serviceAmount || 0),
         paidAmount: Number(booking.amount || 0),
         cashfreeFee: Number(booking.cashfreeFee || 0),
-        nonRefundableFee: Number(booking.nonRefundableFee || booking.cashfreeFee || 0),
+        platformFee: Number(booking.platformFee || 0),
+        nonRefundableFee: Number(
+          booking.nonRefundableFee || booking.cashfreeFee + booking.platformFee || 0
+        ),
         reason: form.reason.trim(),
         refundMethod: "original_payment_method",
         upiId: "",
@@ -268,24 +549,30 @@ function RefundRequestDialog({ booking, user, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] grid place-items-center bg-black/65 px-3 py-3 backdrop-blur-md sm:px-4 sm:py-6">
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto bg-black/65 px-2 py-2 backdrop-blur-md sm:items-center sm:px-4 sm:py-6">
       <form
-        className="queue-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-[2rem] border border-[#f9c66d]/15 bg-[#081311]/95 p-5 text-[#f4fbf8] sm:max-h-[90vh] sm:max-w-2xl sm:p-6"
+        className="queue-shadow max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto rounded-[1.25rem] border border-[#f9c66d]/15 bg-[#081311]/95 p-4 text-[#f4fbf8] sm:max-h-[90vh] sm:max-w-2xl sm:rounded-[2rem] sm:p-6"
         onSubmit={submitRefund}
       >
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="section-kicker">
               Refund Request
             </p>
-            <h2 className="mt-1 text-3xl font-black">{booking.service}</h2>
-            <p className="mt-2 text-sm font-bold text-[#9db2ad]">
-              {booking.name} • Token {booking.token} • Refund{" "}
-              {formatMoney(booking.refundableAmount)}
+            <h2 className="mt-1 break-words text-2xl font-black leading-tight sm:text-3xl">
+              {booking.service}
+            </h2>
+            <p className="mt-2 text-sm font-bold leading-relaxed text-[#9db2ad]">
+              <span className="break-words">{booking.name}</span>
+              <span className="mx-1.5 text-[#5f706b]">•</span>
+              <span>Token {booking.token}</span>
+              <span className="mx-1.5 text-[#5f706b]">•</span>
+              <span>Refund {formatMoney(booking.refundableAmount)}</span>
             </p>
           </div>
           <button
-            className="grid h-11 w-11 place-items-center rounded-2xl border border-[#35201f] bg-[#0b1714] text-[#f4fbf8] transition hover:border-[#f9c66d]/35"
+            aria-label="Close refund request"
+            className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl border border-[#35201f] bg-[#0b1714] text-[#f4fbf8] transition hover:border-[#f9c66d]/35 sm:h-11 sm:w-11 sm:rounded-2xl"
             onClick={onClose}
             type="button"
           >
@@ -310,22 +597,30 @@ function RefundRequestDialog({ booking, user, onClose }) {
           ))}
         </div>
 
-        <p className="mt-4 rounded-2xl border border-[#f87171]/20 bg-[#3a1515] px-4 py-3 text-sm font-bold text-[#fee2e2]">
+        <p className="mt-4 rounded-2xl border border-[#f87171]/20 bg-[#3a1515] px-4 py-3 text-sm font-bold leading-relaxed text-[#fee2e2]">
           This is a partial refund for this one booking only. Other people in
           the same Cashfree payment stay active. Refunds usually complete in
           5-7 business days.
         </p>
-        {booking.cashfreeFee > 0 ? (
+        {booking.cashfreeFee > 0 || booking.platformFee > 0 ? (
           <div className="mt-3 grid gap-2 rounded-2xl border border-[#f9c66d]/20 bg-[#24170d] p-4 text-sm font-black text-[#f9c66d]">
-            <div className="flex justify-between gap-3">
+            <div className="flex flex-wrap justify-between gap-2">
               <span>Total paid</span>
               <span>{formatMoney(booking.amount)}</span>
             </div>
-            <div className="flex justify-between gap-3">
-              <span>Cashfree charge not refundable</span>
-              <span>{formatMoney(booking.cashfreeFee)}</span>
-            </div>
-            <div className="flex justify-between gap-3 border-t border-[#f9c66d]/20 pt-2">
+            {booking.platformFee > 0 ? (
+              <div className="flex flex-wrap justify-between gap-2">
+                <span>Platform fee not refundable</span>
+                <span>{formatMoney(booking.platformFee)}</span>
+              </div>
+            ) : null}
+            {booking.cashfreeFee > 0 ? (
+              <div className="flex flex-wrap justify-between gap-2">
+                <span>Cashfree charge not refundable</span>
+                <span>{formatMoney(booking.cashfreeFee)}</span>
+              </div>
+            ) : null}
+            <div className="flex flex-wrap justify-between gap-2 border-t border-[#f9c66d]/20 pt-2">
               <span>Refund eligible</span>
               <span>{formatMoney(booking.refundableAmount)}</span>
             </div>
@@ -369,9 +664,12 @@ export function ProfilePage({
   const [refundRequests, setRefundRequests] = useState([]);
   const [refundBooking, setRefundBooking] = useState(null);
   const [cancelBookingId, setCancelBookingId] = useState("");
+  const [pendingCancelBooking, setPendingCancelBooking] = useState(null);
+  const [rescheduleBooking, setRescheduleBooking] = useState(null);
+  const [rescheduleBookingId, setRescheduleBookingId] = useState("");
   const [bookingPage, setBookingPage] = useState(1);
   const [selectedBookingGroupKey, setSelectedBookingGroupKey] = useState("");
-  const groupedBookings = groupUserBookings(bookings);
+  const groupedBookings = groupUserBookings(bookings).slice(0, 3);
 
   const totalBookingPages = Math.max(
     1,
@@ -453,7 +751,7 @@ export function ProfilePage({
     );
   }, [user, bookingsOnly]);
 
-  const cancelBooking = async (booking) => {
+  const cancelBooking = async (booking, reason, note) => {
     if (!booking || !["waiting", "waitlist"].includes(booking.status)) return;
 
     setCancelBookingId(booking.id);
@@ -461,6 +759,8 @@ export function ProfilePage({
       await updateDoc(doc(db, "customers", booking.id), {
         status: "cancelled",
         cancelledBy: "customer",
+        cancelReason: reason || "Customer cancelled",
+        cancelNote: note?.trim() || "",
         cancelledAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -473,6 +773,7 @@ export function ProfilePage({
       } else {
         toast.success("Booking cancelled.");
       }
+      setPendingCancelBooking(null);
     } catch (error) {
       toast.error(getSafeErrorMessage(error, "Booking could not be cancelled."));
     } finally {
@@ -480,8 +781,67 @@ export function ProfilePage({
     }
   };
 
+  const rescheduleCustomerBooking = async (booking, draft, slotLabel) => {
+    if (!booking || !["waiting", "waitlist"].includes(booking.status)) return;
+
+    setRescheduleBookingId(booking.id);
+    try {
+      const today = toDateInputValue(new Date());
+      const bookingDate = draft.bookingDate || today;
+      await updateDoc(doc(db, "customers", booking.id), {
+        bookingDate,
+        bookingDay: bookingDate === today ? "today" : "scheduled",
+        bookingLabel: bookingDate === today ? "Today" : "Scheduled",
+        bookingDisplayDate: getDisplayDate(bookingDate),
+        timeSlot: draft.timeSlot,
+        timeSlotLabel: slotLabel,
+        rescheduleRequestedBy: "customer",
+        rescheduledAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast.success("Booking rescheduled.");
+      setRescheduleBooking(null);
+    } catch (error) {
+      toast.error(getSafeErrorMessage(error, "Booking could not be rescheduled."));
+    } finally {
+      setRescheduleBookingId("");
+    }
+  };
+
+  const shareBookingInvoice = async (booking) => {
+    const text = `${booking.service} booking for ${booking.name}. Token ${booking.token}. Amount ${formatMoney(booking.amount)}. Status ${formatBookingStatus(booking.status)}.`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Santosh Salon booking receipt",
+          text
+        });
+      } else {
+        await navigator.clipboard?.writeText(text);
+        toast.success("Receipt details copied.");
+      }
+    } catch {
+      toast.info("Receipt share cancelled.");
+    }
+  };
+
+  const rateBarber = async (booking, rating) => {
+    if (!booking?.id || booking.status !== "completed") return;
+
+    try {
+      await updateDoc(doc(db, "customers", booking.id), {
+        barberRating: rating,
+        barberRatedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast.success(`You rated ${booking.barberName} ${rating} star${rating === 1 ? "" : "s"}.`);
+    } catch (error) {
+      toast.error(getSafeErrorMessage(error, "Rating could not be saved."));
+    }
+  };
+
   const getBookingViewState = (booking) => {
-    const activeBooking = ["waiting", "waitlist", "in_chair"].includes(
+    const activeBooking = ["confirmed", "waiting", "waitlist", "in_chair"].includes(
       booking.status
     );
     const bookingRefund = refundRequests.find(
@@ -594,6 +954,8 @@ export function ProfilePage({
             ["Name", user.displayName || "Not available"],
             ["Email", user.email || "Not available"],
             ["Login Provider", "Google"],
+            ["Total Visits", String(bookings.filter((booking) => booking.status === "completed").length)],
+            ["Loyalty Points", `${bookings.filter((booking) => booking.status === "completed").length * 10} pts`],
             ["User ID", user.uid]
           ].map(([label, value]) => (
             <div className="rounded-2xl border border-[#35201f] bg-[#0b1714] p-4" key={label}>
@@ -642,7 +1004,7 @@ export function ProfilePage({
               ];
               const peopleAhead = group.items
                 .map((booking) =>
-                  ["waiting", "waitlist", "in_chair"].includes(booking.status)
+                  ["confirmed", "waiting", "waitlist", "in_chair"].includes(booking.status)
                     ? Number(booking.peopleAhead || 0)
                     : null
                 )
@@ -677,6 +1039,11 @@ export function ProfilePage({
                         <span className="rounded-full bg-[#101a18] px-3 py-2">
                           {formatMoney(group.totalAmount)}
                         </span>
+                        {group.totalPlatformFee > 0 ? (
+                          <span className="rounded-full bg-[#24170d] px-3 py-2 text-[#f9c66d]">
+                            Platform fee {formatMoney(group.totalPlatformFee)}
+                          </span>
+                        ) : null}
                         {group.totalCashfreeFee > 0 ? (
                           <span className="rounded-full bg-[#24170d] px-3 py-2 text-[#f9c66d]">
                             Cashfree charge {formatMoney(group.totalCashfreeFee)}
@@ -684,6 +1051,9 @@ export function ProfilePage({
                         ) : null}
                         <span className="rounded-full bg-[#2a1111] px-3 py-2 text-[#991b1b]">
                           {statusLabels.join(", ")}
+                        </span>
+                        <span className="rounded-full bg-[#24170d] px-3 py-2 text-[#f9c66d]">
+                          ETA {getLiveWaitEstimate(primaryBooking)}
                         </span>
                       </div>
                     </div>
@@ -797,7 +1167,11 @@ export function ProfilePage({
                           "People Ahead",
                           activeBooking ? booking.peopleAhead : "-"
                         ],
+                        ["Live ETA", getLiveWaitEstimate(booking)],
+                        ["Service Duration", `${getServiceEstimateMinutes(booking.service)} min approx`],
+                        ["Barber", booking.barberName],
                         ["Service Amount", formatMoney(booking.serviceAmount)],
+                        ["Platform Fee", formatMoney(booking.platformFee || 0)],
                         ["Cashfree Charge", formatMoney(booking.cashfreeFee)],
                         ["Total Paid", formatMoney(booking.amount)],
                         ["Method", formatStatus(booking.paymentProvider)],
@@ -818,6 +1192,42 @@ export function ProfilePage({
                         </div>
                       ))}
                     </div>
+
+                    {booking.status === "completed" &&
+                    booking.barberName &&
+                    booking.barberName !== "Next available barber" ? (
+                      <div className="mt-4 rounded-2xl border border-[#35201f] bg-[#101a18] p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#637371]">
+                              Rate Barber
+                            </p>
+                            <p className="mt-1 text-sm font-bold text-[#9db2ad]">
+                              {booking.barberRating
+                                ? `You rated ${booking.barberName} ${booking.barberRating}/5`
+                                : `How was ${booking.barberName}?`}
+                            </p>
+                          </div>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map((rating) => (
+                              <button
+                                aria-label={`Rate ${rating} star`}
+                                className={`grid h-10 w-10 place-items-center rounded-xl border transition ${
+                                  Number(booking.barberRating || 0) >= rating
+                                    ? "border-[#f9c66d]/35 bg-[#24170d] text-[#f9c66d]"
+                                    : "border-[#35201f] bg-[#0b1714] text-[#637371] hover:text-[#f9c66d]"
+                                }`}
+                                key={rating}
+                                onClick={() => rateBarber(booking, rating)}
+                                type="button"
+                              >
+                                <Star size={18} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
 
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#35201f] pt-3">
                       <p className="max-w-xl text-sm font-bold text-[#637371]">
@@ -843,21 +1253,40 @@ export function ProfilePage({
                           <Download size={16} />
                           {refundInProgress ? "Refund Invoice" : "Invoice"}
                         </button>
+                        <button
+                          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/35 bg-[#24170d] px-4 py-3 text-sm font-black text-[#f9c66d] transition hover:bg-[#33200f]"
+                          onClick={() => shareBookingInvoice(booking)}
+                          type="button"
+                        >
+                          <Share2 size={16} />
+                          Share
+                        </button>
                         {["waiting", "waitlist"].includes(booking.status) ? (
-                          <button
-                            className="min-h-12 rounded-2xl border border-[#f87171]/40 bg-[#2a1111] px-4 py-3 text-sm font-black text-[#fca5a5] transition hover:bg-[#3a1515] disabled:opacity-60"
-                            disabled={cancelBookingId === booking.id}
-                            onClick={() => cancelBooking(booking)}
-                            type="button"
-                          >
-                            {cancelBookingId === booking.id ? (
-                              <span className="inline-flex items-center gap-2">
-                                <ButtonSpinner dark /> Cancelling...
-                              </span>
-                            ) : (
-                              "Cancel"
-                            )}
-                          </button>
+                          <>
+                            <button
+                              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/35 bg-transparent px-4 py-3 text-sm font-black text-[#f9c66d] transition hover:bg-[#24170d] disabled:opacity-60"
+                              disabled={rescheduleBookingId === booking.id}
+                              onClick={() => setRescheduleBooking(booking)}
+                              type="button"
+                            >
+                              <CalendarClock size={16} />
+                              Reschedule
+                            </button>
+                            <button
+                              className="min-h-12 rounded-2xl border border-[#f87171]/40 bg-[#2a1111] px-4 py-3 text-sm font-black text-[#fca5a5] transition hover:bg-[#3a1515] disabled:opacity-60"
+                              disabled={cancelBookingId === booking.id}
+                              onClick={() => setPendingCancelBooking(booking)}
+                              type="button"
+                            >
+                              {cancelBookingId === booking.id ? (
+                                <span className="inline-flex items-center gap-2">
+                                  <ButtonSpinner dark /> Cancelling...
+                                </span>
+                              ) : (
+                                "Cancel"
+                              )}
+                            </button>
+                          </>
                         ) : null}
                         {booking.status === "cancelled" &&
                         booking.paymentProvider === "cashfree" &&
@@ -877,15 +1306,32 @@ export function ProfilePage({
                       </div>
                     </div>
                     {activeBooking ? (
-                      <p className="mt-3 rounded-2xl bg-[#2a1111] px-3 py-2 text-xs font-black text-[#991b1b]">
-                        {booking.arrivalNote}
-                      </p>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                        {[
+                          [Clock3, "Live wait", getLiveWaitEstimate(booking)],
+                          [CalendarCheck2, "Arrive note", booking.arrivalNote],
+                          [Gift, "Loyalty", "+10 pts after completion"]
+                        ].map(([Icon, title, text]) => (
+                          <div className="rounded-2xl bg-[#2a1111] px-3 py-2 text-xs font-black text-[#991b1b]" key={title}>
+                            <p className="flex items-center gap-2 text-[#fca5a5]">
+                              <Icon size={14} /> {title}
+                            </p>
+                            <p className="mt-1 text-[#991b1b]">{text}</p>
+                          </div>
+                        ))}
+                      </div>
                     ) : null}
+                    <RefundStatusTracker refund={bookingRefund} />
                     {booking.cashfreeFee > 0 ? (
                       <p className="mt-3 rounded-2xl bg-[#24170d] px-3 py-2 text-xs font-black text-[#f9c66d]">
                         Refund eligible amount is {formatMoney(booking.refundableAmount)}.
-                        Cashfree charge {formatMoney(booking.cashfreeFee)} is
-                        non-refundable.
+                        Platform fee {formatMoney(booking.platformFee || 0)}
+                        and Cashfree charge {formatMoney(booking.cashfreeFee)} are non-refundable.
+                      </p>
+                    ) : booking.platformFee > 0 ? (
+                      <p className="mt-3 rounded-2xl bg-[#24170d] px-3 py-2 text-xs font-black text-[#f9c66d]">
+                        Refund eligible amount is {formatMoney(booking.refundableAmount)}.
+                        Platform fee {formatMoney(booking.platformFee)} is non-refundable.
                       </p>
                     ) : null}
                   </article>
@@ -897,11 +1343,25 @@ export function ProfilePage({
         document.body
       ) : null}
       {bookingsOnly ? (
-      <RefundRequestDialog
-        booking={refundBooking}
-        onClose={() => setRefundBooking(null)}
-        user={user}
-      />
+      <>
+        <RefundRequestDialog
+          booking={refundBooking}
+          onClose={() => setRefundBooking(null)}
+          user={user}
+        />
+        <CancelReasonDialog
+          booking={pendingCancelBooking}
+          loading={Boolean(cancelBookingId)}
+          onClose={() => setPendingCancelBooking(null)}
+          onConfirm={cancelBooking}
+        />
+        <RescheduleDialog
+          booking={rescheduleBooking}
+          loading={Boolean(rescheduleBookingId)}
+          onClose={() => setRescheduleBooking(null)}
+          onConfirm={rescheduleCustomerBooking}
+        />
+      </>
       ) : null}
     </section>
   );

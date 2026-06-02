@@ -1,6 +1,13 @@
-export const primaryPages = ["home", "booking", "about", "contact"];
+export const primaryPages = ["home", "booking", "barbers", "about", "contact"];
 
 export const businessPages = ["pricing", "gallery", "staff", "faq"];
+
+export const serviceSeoPages = [
+  "haircut-service",
+  "beard-styling-service",
+  "facial-grooming-service",
+  "hair-wash-service"
+];
 
 export const legalPages = [
   "privacy-policy",
@@ -12,6 +19,7 @@ export const legalPages = [
 export const routedPages = [
   ...primaryPages,
   ...businessPages,
+  ...serviceSeoPages,
   "profile",
   "my-bookings",
   ...legalPages
@@ -21,13 +29,18 @@ export function titleCase(value = "") {
   const labels = {
     about: "About Us",
     contact: "Contact Us",
+    barbers: "Barbers",
     refund: "Refund",
     profile: "Profile",
     "my-bookings": "My Bookings",
     "privacy-policy": "Privacy Policy",
     "terms-and-conditions": "Terms",
     "cancellation-refund-policy": "Refund Policy",
-    "payment-policy": "Payment Policy"
+    "payment-policy": "Payment Policy",
+    "haircut-service": "Haircut Service",
+    "beard-styling-service": "Beard Styling",
+    "facial-grooming-service": "Facial Grooming",
+    "hair-wash-service": "Hair Wash"
   };
 
   return (

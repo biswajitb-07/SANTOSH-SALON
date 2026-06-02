@@ -1,6 +1,13 @@
 import { ImagePlus, Save, XCircle } from "lucide-react";
 import { ButtonSpinner, useBodyScrollLock } from "./common.jsx";
 
+const defaultBarberOptions = [
+  "Next available barber",
+  "Santosh",
+  "Haircut specialist",
+  "Beard stylist"
+];
+
 export function ServiceDialog({
   actionLoading,
   draft,
@@ -118,7 +125,7 @@ export function ServiceDialog({
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row">
           <button
-            className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#081311] px-5 py-3 font-black text-white disabled:opacity-60"
+            className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#15803d] px-5 py-3 font-black text-white shadow-lg shadow-[#15803d]/20 transition hover:bg-[#166534] disabled:opacity-60"
             disabled={actionLoading === "service-save"}
             type="submit"
           >
@@ -144,6 +151,7 @@ export function ServiceDialog({
 
 export function BookingDialog({
   actionLoading,
+  barberOptions = defaultBarberOptions,
   bookingDateValue,
   draft,
   mode,
@@ -267,6 +275,22 @@ export function BookingDialog({
           </label>
           <label className="block">
             <span className="mb-2 block text-sm font-bold text-[#f4fbf8]">
+              Barber
+            </span>
+            <select
+              className="h-12 w-full rounded-2xl border border-[#35201f] px-4 outline-none focus:border-[#991b1b]"
+              onChange={(event) => updateDraft({ barberName: event.target.value })}
+              value={draft.barberName || "Next available barber"}
+            >
+              {barberOptions.map((barber) => (
+                <option key={barber} value={barber}>
+                  {barber}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-[#f4fbf8]">
               Status
             </span>
             <select
@@ -284,7 +308,7 @@ export function BookingDialog({
           </label>
         </div>
         <button
-          className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#081311] px-5 py-3 font-black text-white disabled:opacity-60"
+          className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#15803d] px-5 py-3 font-black text-white shadow-lg shadow-[#15803d]/20 transition hover:bg-[#166534] disabled:opacity-60"
           disabled={actionLoading === "booking-save"}
           type="submit"
         >

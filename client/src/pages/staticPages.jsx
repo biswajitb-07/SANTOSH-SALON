@@ -525,6 +525,15 @@ export function GalleryPage() {
     ["/assets/haircut-styles.png", "Haircut style wall"],
     ["/assets/owner-santosh-portrait.png", "Owner portrait"]
   ];
+  const beforeAfter = [
+    ["Classic cleanup", "/assets/haircut-feature.png", "/assets/haircut-styles.png"],
+    ["Beard shape finish", "/assets/owner-santosh-portrait.png", "/assets/salon-hero.png"]
+  ];
+  const reviews = [
+    ["Amit Kumar", "Live token helped me reach exactly near my turn."],
+    ["Rahul Singh", "Clean haircut, easy payment, and clear refund policy."],
+    ["Vikas Sharma", "The booking flow is simple on mobile."]
+  ];
 
   return (
     <section className={pageShellClass}>
@@ -540,6 +549,41 @@ export function GalleryPage() {
               <figcaption className="p-4 font-black text-[#f4fbf8]">{alt}</figcaption>
             </figure>
           ))}
+        </div>
+        <div className="mt-8">
+          <p className="section-kicker">Before / After</p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {beforeAfter.map(([title, before, after]) => (
+              <article className="rounded-3xl border border-[#35201f] bg-[#101a18] p-4" key={title}>
+                <h2 className="text-xl font-black text-white">{title}</h2>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <figure>
+                    <img alt={`${title} before`} className="h-44 w-full rounded-2xl object-cover" src={before} />
+                    <figcaption className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#9db2ad]">Before</figcaption>
+                  </figure>
+                  <figure>
+                    <img alt={`${title} after`} className="h-44 w-full rounded-2xl object-cover" src={after} />
+                    <figcaption className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#f9c66d]">After</figcaption>
+                  </figure>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+        <div className="mt-8 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+          <aside className="rounded-3xl border border-[#f9c66d]/20 bg-[#24170d] p-5 text-[#f9c66d]">
+            <p className="section-kicker">Offers</p>
+            <h2 className="mt-2 text-2xl font-black">Use WELCOME10 at checkout.</h2>
+            <p className="mt-2 text-sm font-bold">New customers can apply the coupon in the booking modal.</p>
+          </aside>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {reviews.map(([name, text]) => (
+              <article className="rounded-3xl border border-[#35201f] bg-[#101a18] p-5" key={name}>
+                <p className="font-black text-white">{name}</p>
+                <p className="mt-2 text-sm leading-6 text-[#9db2ad]">{text}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -569,6 +613,69 @@ export function StaffPage() {
             </article>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+export function ServiceSeoPage({ page }) {
+  const services = {
+    "haircut-service": {
+      title: "Haircut service in Santosh Salon",
+      image: "/assets/haircut-feature.png",
+      price: "From Rs. 120",
+      text: "Classic, modern, and clean haircut services with live token booking and estimated wait time."
+    },
+    "beard-styling-service": {
+      title: "Beard styling and trimming",
+      image: "/assets/owner-santosh-portrait.png",
+      price: "From Rs. 80",
+      text: "Sharp beard shaping, trimming, and finishing with easy queue booking."
+    },
+    "facial-grooming-service": {
+      title: "Facial grooming service",
+      image: "/assets/salon-hero.png",
+      price: "From Rs. 250",
+      text: "Premium grooming care for a clean, fresh salon finish."
+    },
+    "hair-wash-service": {
+      title: "Hair wash service",
+      image: "/assets/haircut-styles.png",
+      price: "From Rs. 70",
+      text: "Fresh hair wash service with simple time-slot booking."
+    }
+  };
+  const content = services[page] || services["haircut-service"];
+
+  return (
+    <section className={pageShellClass}>
+      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <div className="luxury-glass rounded-[2rem] p-6 queue-shadow sm:p-8">
+          <p className="section-kicker">Salon Service</p>
+          <h1 className="mt-2 text-4xl font-black leading-tight sm:text-5xl">
+            {content.title}
+          </h1>
+          <p className="mt-4 max-w-3xl text-lg leading-8 text-[#9db2ad]">
+            {content.text}
+          </p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            {[
+              ["Price", content.price],
+              ["Booking", "Live token"],
+              ["Refund", "Policy shown at checkout"]
+            ].map(([label, value]) => (
+              <div className="rounded-2xl border border-[#35201f] bg-[#0b1714] p-4" key={label}>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#991b1b]">{label}</p>
+                <p className="mt-2 font-black text-[#f4fbf8]">{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <img
+          alt={content.title}
+          className="h-[360px] w-full rounded-[2rem] object-cover queue-shadow"
+          src={content.image}
+        />
       </div>
     </section>
   );
