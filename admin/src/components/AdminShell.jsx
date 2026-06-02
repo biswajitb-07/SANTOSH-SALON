@@ -24,7 +24,6 @@ import {
   Eye,
   ImagePlus,
   LogOut,
-  Menu,
   PhoneCall,
   Scissors,
   Search,
@@ -313,13 +312,6 @@ export function AdminShell(props) {
           <header className="sticky top-0 z-20 border-b border-white/70 bg-[#06100e]/92 px-3 py-3 backdrop-blur sm:px-6 lg:px-8">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-3">
-                <button
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[var(--color-surface)] shadow-sm lg:hidden"
-                  onClick={() => setAdminMoreOpen(true)}
-                  type="button"
-                >
-                  <Menu size={20} />
-                </button>
                 <div className="min-w-0">
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[#991b1b]">
                     {activeNavItem.label}

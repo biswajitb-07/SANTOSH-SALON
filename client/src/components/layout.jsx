@@ -146,6 +146,7 @@ export function Header({
     { key: "pricing", label: "Pricing", icon: ReceiptText },
     { key: "faq", label: "FAQ", icon: CircleHelp }
   ];
+  const moreActive = menuOpen || morePages.some((item) => item.key === page);
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -281,18 +282,15 @@ export function Header({
         />
       </header>
 
-      <nav className="fixed inset-x-0 bottom-0 z-[70] px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3 lg:hidden">
-        <div className="relative mx-auto grid h-[76px] max-w-md grid-cols-5 items-center gap-1 rounded-[1.75rem] border border-[#35201f] bg-[#070f0d]/95 px-2 shadow-[0_-12px_40px_rgba(0,0,0,0.45),0_18px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
-          {bottomItems.map((item, index) => {
+      <nav className="fixed inset-x-0 bottom-0 z-[70] px-3 pb-[calc(env(safe-area-inset-bottom)+0.65rem)] pt-3 lg:hidden">
+        <div className="client-mobile-nav">
+          {bottomItems.slice(0, 2).map((item) => {
             const Icon = item.icon;
             const active = page === item.key || (item.key === "my-bookings" && page === "my-bookings");
-            const columnClass = index >= 2 ? `col-start-${index + 2}` : "";
             return (
               <button
-                className={`relative flex h-[60px] flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[10px] font-black transition duration-200 ${columnClass} ${
-                  active
-                    ? "border border-[#f9c66d]/45 bg-[#151b15] text-[#f9c66d] shadow-[0_0_20px_rgba(249,198,109,0.22),inset_0_0_18px_rgba(249,198,109,0.08)]"
-                    : "text-[#9db2ad] hover:bg-[#101a18] hover:text-white"
+                className={`client-mobile-nav-item ${
+                  active ? "client-mobile-nav-item-active" : ""
                 }`}
                 disabled={item.loginAction && loginLoading}
                 key={item.key}
@@ -310,30 +308,44 @@ export function Header({
           })}
           <button
             aria-label="Open more menu"
-            className={`absolute left-1/2 top-0 grid h-[66px] w-[66px] -translate-x-1/2 -translate-y-7 place-items-center rounded-full border transition duration-200 ${
-              menuOpen
-                ? "border-[#f9c66d]/55 bg-[#151b15] text-[#f9c66d] shadow-[0_0_26px_rgba(249,198,109,0.34),0_16px_34px_rgba(0,0,0,0.45),inset_0_0_18px_rgba(249,198,109,0.1)]"
-                : "border-[#35201f] bg-[#101a18] text-[#f9c66d] shadow-[0_14px_30px_rgba(0,0,0,0.42)]"
+            aria-expanded={menuOpen}
+            className={`client-mobile-nav-more ${
+              moreActive ? "client-mobile-nav-more-active" : ""
             }`}
             onClick={() => setMenuOpen((value) => !value)}
             type="button"
           >
-            <span className="relative grid h-full w-full place-items-center">
-              <ChevronsUp
-                className={`transition-transform duration-200 ${
-                  menuOpen ? "rotate-180" : ""
-                }`}
-                size={28}
-              />
-            </span>
+            <ChevronsUp
+              className={`transition-transform duration-200 ${
+                menuOpen ? "rotate-180" : ""
+              }`}
+              size={22}
+            />
+            <span>More</span>
           </button>
-          <span
-            className={`pointer-events-none absolute left-1/2 top-[42px] -translate-x-1/2 text-[10px] font-black ${
-              menuOpen ? "text-[#f9c66d]" : "text-[#9db2ad]"
-            }`}
-          >
-            More
-          </span>
+
+          {bottomItems.slice(2).map((item) => {
+            const Icon = item.icon;
+            const active = page === item.key || (item.key === "my-bookings" && page === "my-bookings");
+            return (
+              <button
+                className={`client-mobile-nav-item ${
+                  active ? "client-mobile-nav-item-active" : ""
+                }`}
+                disabled={item.loginAction && loginLoading}
+                key={item.key}
+                onClick={() => handleBottomAction(item)}
+                type="button"
+              >
+                {item.loginAction && loginLoading ? (
+                  <ButtonSpinner />
+                ) : (
+                  <Icon size={20} />
+                )}
+                <span>{item.loginAction && loginLoading ? "Wait" : item.label}</span>
+              </button>
+            );
+          })}
         </div>
       </nav>
 
