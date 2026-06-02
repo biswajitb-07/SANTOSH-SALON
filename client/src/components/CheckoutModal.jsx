@@ -47,6 +47,45 @@ import {
   timeSlots,
   WAITLIST_LIMIT
 } from "../lib/bookingFlow.js";
+
+function DottedBookingLoader() {
+  const dots = Array.from({ length: 12 }, (_, index) => {
+    const angle = (index * Math.PI * 2) / 12;
+    const radius = 24;
+    return {
+      cx: 32 + Math.sin(angle) * radius,
+      cy: 32 - Math.cos(angle) * radius,
+      opacity: 0.24 + index * 0.058
+    };
+  });
+
+  return (
+    <div
+      aria-label="Processing booking"
+      className="mx-auto grid h-20 w-20 place-items-center rounded-full border border-[#f9c66d]/20 bg-[#24170d]/60"
+      role="status"
+    >
+      <svg
+        aria-hidden="true"
+        className="h-16 w-16 animate-spin"
+        style={{ transformBox: "fill-box", transformOrigin: "center" }}
+        viewBox="0 0 64 64"
+      >
+        {dots.map((dot, index) => (
+          <circle
+            cx={dot.cx}
+            cy={dot.cy}
+            fill="#f9c66d"
+            key={index}
+            opacity={dot.opacity}
+            r="4.2"
+          />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 export function CheckoutModal({
   bookingGate,
   service,
@@ -1065,7 +1104,7 @@ export function CheckoutModal({
         {loading && showProcessingOverlay ? (
           <div className="absolute inset-0 z-30 grid place-items-center bg-[#06100e]/82 px-5 text-center backdrop-blur-md">
             <div className="w-full max-w-sm rounded-3xl border border-[#f9c66d]/20 bg-[#081311] p-6 queue-shadow">
-              <ButtonSpinner />
+              <DottedBookingLoader />
               <h3 className="mt-4 text-xl font-black text-[#f4fbf8]">
                 Processing your booking
               </h3>
