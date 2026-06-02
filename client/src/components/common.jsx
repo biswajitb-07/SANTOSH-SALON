@@ -34,6 +34,8 @@ export function UserAvatar({ user, size = "h-10 w-10" }) {
           className={`${size} rounded-full object-cover transition-opacity ${
             imageReady ? "opacity-100" : "opacity-0"
           }`}
+          decoding="async"
+          loading="lazy"
           onError={() => setImageFailed(true)}
           onLoad={() => setImageReady(true)}
           referrerPolicy="no-referrer"

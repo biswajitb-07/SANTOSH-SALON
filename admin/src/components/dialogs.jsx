@@ -104,6 +104,8 @@ export function ServiceDialog({
               <img
                 alt="Service preview"
                 className="h-56 w-full rounded-2xl object-cover"
+                decoding="async"
+                loading="lazy"
                 src={draft.imagePreview || draft.imageUrl}
               />
             ) : (

@@ -36,6 +36,8 @@ export function AboutPage() {
           <img
             alt="Santosh Salon owner"
             className="h-full w-full rounded-full object-cover object-[63%_34%]"
+            decoding="async"
+            loading="lazy"
             src="/assets/owner-santosh-avatar.png"
           />
           <div className="absolute -bottom-2 left-1/2 w-[86%] -translate-x-1/2 rounded-full border border-[#f9c66d]/25 bg-[#06100e]/88 px-4 py-3 text-center text-white shadow-2xl backdrop-blur">
@@ -545,7 +547,13 @@ export function GalleryPage() {
         <div className="mt-7 grid gap-4 sm:grid-cols-2">
           {gallery.map(([src, alt]) => (
             <figure className="overflow-hidden rounded-3xl border border-[#35201f] bg-[#101a18]" key={src}>
-              <img alt={alt} className="h-64 w-full object-cover" src={src} />
+              <img
+                alt={alt}
+                className="h-64 w-full object-cover"
+                decoding="async"
+                loading="lazy"
+                src={src}
+              />
               <figcaption className="p-4 font-black text-[#f4fbf8]">{alt}</figcaption>
             </figure>
           ))}
@@ -558,11 +566,23 @@ export function GalleryPage() {
                 <h2 className="text-xl font-black text-white">{title}</h2>
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <figure>
-                    <img alt={`${title} before`} className="h-44 w-full rounded-2xl object-cover" src={before} />
+                    <img
+                      alt={`${title} before`}
+                      className="h-44 w-full rounded-2xl object-cover"
+                      decoding="async"
+                      loading="lazy"
+                      src={before}
+                    />
                     <figcaption className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#9db2ad]">Before</figcaption>
                   </figure>
                   <figure>
-                    <img alt={`${title} after`} className="h-44 w-full rounded-2xl object-cover" src={after} />
+                    <img
+                      alt={`${title} after`}
+                      className="h-44 w-full rounded-2xl object-cover"
+                      decoding="async"
+                      loading="lazy"
+                      src={after}
+                    />
                     <figcaption className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#f9c66d]">After</figcaption>
                   </figure>
                 </div>
@@ -674,6 +694,8 @@ export function ServiceSeoPage({ page }) {
         <img
           alt={content.title}
           className="h-[360px] w-full rounded-[2rem] object-cover queue-shadow"
+          decoding="async"
+          loading="lazy"
           src={content.image}
         />
       </div>

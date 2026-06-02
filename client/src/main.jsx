@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";
 import { Toaster, toast } from "sonner";
@@ -56,19 +56,25 @@ import { applyClientSeo } from "./lib/seo.js";
 import { useRevealOnScroll } from "./lib/animations.js";
 import { defaultServices, getServiceImageUrl } from "./lib/services.js";
 import { BarbersPage, BookingPage, HomePage } from "./pages/bookingPages.jsx";
-import { ProfilePage } from "./pages/ProfilePage.jsx";
-import {
-  AboutPage,
-  ContactPage,
-  FaqPage,
-  GalleryPage,
-  LegalPage,
-  PricingPage,
-  ServiceSeoPage,
-  StaffPage
-} from "./pages/staticPages.jsx";
 import { store } from "./store/store.js";
 import "./styles.css";
+
+const lazyPage = (loader, exportName) =>
+  React.lazy(() =>
+    loader().then((module) => ({
+      default: module[exportName]
+    }))
+  );
+
+const ProfilePage = lazyPage(() => import("./pages/ProfilePage.jsx"), "ProfilePage");
+const AboutPage = lazyPage(() => import("./pages/staticPages.jsx"), "AboutPage");
+const ContactPage = lazyPage(() => import("./pages/staticPages.jsx"), "ContactPage");
+const FaqPage = lazyPage(() => import("./pages/staticPages.jsx"), "FaqPage");
+const GalleryPage = lazyPage(() => import("./pages/staticPages.jsx"), "GalleryPage");
+const LegalPage = lazyPage(() => import("./pages/staticPages.jsx"), "LegalPage");
+const PricingPage = lazyPage(() => import("./pages/staticPages.jsx"), "PricingPage");
+const ServiceSeoPage = lazyPage(() => import("./pages/staticPages.jsx"), "ServiceSeoPage");
+const StaffPage = lazyPage(() => import("./pages/staticPages.jsx"), "StaffPage");
 
 const SALON_SLUG = import.meta.env.VITE_SALON_SLUG || "santosh";
 const BOOKING_CLOSED_MESSAGE =
@@ -1727,7 +1733,7 @@ function App() {
   }, [page]);
 
   useEffect(() => {
-    if (!["home", "booking"].includes(page)) {
+    if (!["home", "booking", "barbers"].includes(page)) {
       return undefined;
     }
 
@@ -1980,61 +1986,63 @@ function App() {
           </p>
         </div>
       ) : null}
-      {page === "home" ? (
-        <HomePage
-          bookingGate={bookingGate}
-          loginLoading={loginLoading}
-        onLogin={login}
-        onNavigate={navigatePage}
-        onPhotoPreview={setPhotoPreviewService}
-        onServiceSelect={requestServiceSelection}
-        queueItems={queueItems}
-        queueStats={queueStats}
-        queueLoading={queueLoading}
-          services={salonServices.slice(0, 4)}
-        user={user}
-      />
-      ) : null}
-      {page === "booking" ? (
-        <BookingPage
-          bookingGate={bookingGate}
-          loginLoading={loginLoading}
-          onLogin={login}
-          onPhotoPreview={setPhotoPreviewService}
-          onServiceSelect={requestServiceSelection}
-          services={salonServices}
-          user={user}
-        />
-      ) : null}
-      {page === "barbers" ? <BarbersPage bookingGate={bookingGate} /> : null}
-      {page === "about" ? <AboutPage /> : null}
-      {page === "contact" ? <ContactPage user={user} /> : null}
-      {page === "pricing" ? <PricingPage /> : null}
-      {page === "gallery" ? <GalleryPage /> : null}
-      {page === "staff" ? <StaffPage /> : null}
-      {page === "faq" ? <FaqPage /> : null}
-      {serviceSeoPages.includes(page) ? <ServiceSeoPage page={page} /> : null}
-      {legalPages.includes(page) ? <LegalPage page={page} /> : null}
-      {page === "profile" ? (
-        <ProfilePage
-          loginLoading={loginLoading}
-          logoutLoading={logoutLoading}
-          onMyBookings={() => navigatePage("my-bookings")}
-          onLogin={login}
-          onLogout={requestLogout}
-          user={user}
-        />
-      ) : null}
-      {page === "my-bookings" ? (
-        <ProfilePage
-          bookingsOnly
-          loginLoading={loginLoading}
-          logoutLoading={logoutLoading}
-          onLogin={login}
-          onLogout={requestLogout}
-          user={user}
-        />
-      ) : null}
+      <Suspense fallback={<PageSkeleton />}>
+        {page === "home" ? (
+          <HomePage
+            bookingGate={bookingGate}
+            loginLoading={loginLoading}
+            onLogin={login}
+            onNavigate={navigatePage}
+            onPhotoPreview={setPhotoPreviewService}
+            onServiceSelect={requestServiceSelection}
+            queueItems={queueItems}
+            queueStats={queueStats}
+            queueLoading={queueLoading}
+            services={salonServices.slice(0, 4)}
+            user={user}
+          />
+        ) : null}
+        {page === "booking" ? (
+          <BookingPage
+            bookingGate={bookingGate}
+            loginLoading={loginLoading}
+            onLogin={login}
+            onPhotoPreview={setPhotoPreviewService}
+            onServiceSelect={requestServiceSelection}
+            services={salonServices}
+            user={user}
+          />
+        ) : null}
+        {page === "barbers" ? <BarbersPage bookingGate={bookingGate} /> : null}
+        {page === "about" ? <AboutPage /> : null}
+        {page === "contact" ? <ContactPage user={user} /> : null}
+        {page === "pricing" ? <PricingPage /> : null}
+        {page === "gallery" ? <GalleryPage /> : null}
+        {page === "staff" ? <StaffPage /> : null}
+        {page === "faq" ? <FaqPage /> : null}
+        {serviceSeoPages.includes(page) ? <ServiceSeoPage page={page} /> : null}
+        {legalPages.includes(page) ? <LegalPage page={page} /> : null}
+        {page === "profile" ? (
+          <ProfilePage
+            loginLoading={loginLoading}
+            logoutLoading={logoutLoading}
+            onMyBookings={() => navigatePage("my-bookings")}
+            onLogin={login}
+            onLogout={requestLogout}
+            user={user}
+          />
+        ) : null}
+        {page === "my-bookings" ? (
+          <ProfilePage
+            bookingsOnly
+            loginLoading={loginLoading}
+            logoutLoading={logoutLoading}
+            onLogin={login}
+            onLogout={requestLogout}
+            user={user}
+          />
+        ) : null}
+      </Suspense>
       <CheckoutModal
         bookingGate={bookingGate}
         onBookingSuccess={handleBookingSuccess}
@@ -2072,6 +2080,8 @@ function App() {
               <img
                 alt={photoPreviewService.title}
                 className="max-h-[72vh] w-full rounded-3xl object-contain"
+                decoding="async"
+                loading="eager"
                 src={photoPreviewService.imageUrl || ""}
               />
             </div>

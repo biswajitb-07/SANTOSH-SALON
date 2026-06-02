@@ -79,6 +79,8 @@ export function UsersPage({
                       <img
                         alt={customer.name}
                         className="h-10 w-10 rounded-full object-cover"
+                        decoding="async"
+                        loading="lazy"
                         src={customer.photoURL}
                       />
                     ) : (

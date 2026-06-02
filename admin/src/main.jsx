@@ -4242,6 +4242,8 @@ function App() {
                             <img
                               alt={barberEditor.name || "Barber preview"}
                               className="h-40 w-full rounded-2xl border border-[#35201f] object-cover"
+                              decoding="async"
+                              loading="lazy"
                               src={barberEditor.imagePreview || barberEditor.imageUrl}
                             />
                           ) : (
@@ -4324,6 +4326,8 @@ function App() {
                           <img
                             alt={barber.name}
                             className="h-40 w-full rounded-2xl object-cover"
+                            decoding="async"
+                            loading="lazy"
                             src={displayImageUrl}
                           />
                         ) : (
@@ -4791,6 +4795,8 @@ function App() {
                               <img
                                 alt={service.title}
                                 className="h-full w-full object-cover transition duration-300 group-hover:scale-105 group-hover:brightness-75"
+                                decoding="async"
+                                loading="lazy"
                                 src={service.imageUrl}
                               />
                             </button>
@@ -5194,6 +5200,8 @@ function App() {
               <img
                 alt={photoPreviewService.title}
                 className="max-h-[72vh] w-full rounded-3xl object-contain"
+                decoding="async"
+                loading="eager"
                 src={photoPreviewService.imageUrl}
               />
             </div>

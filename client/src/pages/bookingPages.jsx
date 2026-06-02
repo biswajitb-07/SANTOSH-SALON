@@ -423,6 +423,8 @@ function ServicesSection({
                   <img
                     alt={service.title}
                     className="h-full w-full object-cover object-center transition duration-500 group-hover:scale-105 group-hover:brightness-75"
+                    decoding="async"
+                    loading="lazy"
                     src={service.imageUrl || getServiceImageUrl(service.title)}
                   />
                 </button>
@@ -688,6 +690,8 @@ export function BarbersPage({ bookingGate }) {
                 <img
                   alt={barber.name}
                   className="h-64 w-full object-cover"
+                  decoding="async"
+                  loading="lazy"
                   src={barber.imageUrl}
                 />
               ) : (
