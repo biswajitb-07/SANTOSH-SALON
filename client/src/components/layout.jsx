@@ -1,5 +1,19 @@
 import { useEffect, useState } from "react";
-import { Download, LogIn, Menu, Scissors, X } from "lucide-react";
+import {
+  CalendarCheck2,
+  CircleHelp,
+  ChevronsUp,
+  Download,
+  GalleryHorizontalEnd,
+  Home,
+  LogIn,
+  Mail,
+  ReceiptText,
+  Scissors,
+  Sparkles,
+  UserRound,
+  X
+} from "lucide-react";
 import { ButtonSpinner, UserAvatar } from "./common.jsx";
 import { primaryPages, titleCase } from "../lib/routing.js";
 
@@ -50,7 +64,7 @@ function TopProgress({ routeProgress, routeProgressActive, scrollProgress }) {
 export function ScrollPercentBadge({ visible, value }) {
   return (
     <div
-      className={`pointer-events-none fixed bottom-5 right-4 z-40 grid h-14 w-14 place-items-center rounded-full border border-[#f9c66d]/30 bg-[#101a18] text-sm font-black text-[#f9c66d] shadow-2xl shadow-black/40 ring-4 ring-black/30 transition-all duration-300 sm:bottom-6 sm:right-6 ${
+      className={`pointer-events-none fixed bottom-24 right-4 z-40 grid h-14 w-14 place-items-center rounded-full border border-[#f9c66d]/30 bg-[#101a18] text-sm font-black text-[#f9c66d] shadow-2xl shadow-black/40 ring-4 ring-black/30 transition-all duration-300 sm:bottom-6 sm:right-6 ${
         visible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
       }`}
     >
@@ -113,27 +127,53 @@ export function Header({
   const [menuOpen, setMenuOpen] = useState(false);
   const { canInstall, install } = usePwaInstallPrompt();
   const navPages = user ? [...primaryPages, "profile"] : primaryPages;
+  const bottomItems = [
+    { key: "home", label: "Home", icon: Home },
+    { key: "booking", label: "Booking", icon: CalendarCheck2 },
+    { key: "barbers", label: "Barbers", icon: Scissors },
+    {
+      key: user ? "my-bookings" : "profile",
+      label: user ? "Bookings" : "Login",
+      icon: user ? UserRound : LogIn,
+      loginAction: !user
+    }
+  ];
+  const morePages = [
+    { key: "about", label: "About Us", icon: Sparkles },
+    { key: "contact", label: "Contact Us", icon: Mail },
+    ...(user ? [{ key: "profile", label: "Profile", icon: UserRound }] : []),
+    { key: "gallery", label: "Gallery", icon: GalleryHorizontalEnd },
+    { key: "pricing", label: "Pricing", icon: ReceiptText },
+    { key: "faq", label: "FAQ", icon: CircleHelp }
+  ];
 
   useEffect(() => {
-    if (!menuOpen) {
-      document.body.classList.remove("drawer-open");
-      document.body.style.removeProperty("--scrollbar-width");
-      return undefined;
-    }
+    if (!menuOpen) return undefined;
 
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-    document.body.style.setProperty("--scrollbar-width", `${scrollbarWidth}px`);
-    document.body.classList.add("drawer-open");
+    const preventPageScroll = (event) => {
+      event.preventDefault();
+    };
+
+    window.addEventListener("wheel", preventPageScroll, { passive: false });
+    window.addEventListener("touchmove", preventPageScroll, { passive: false });
 
     return () => {
-      document.body.classList.remove("drawer-open");
-      document.body.style.removeProperty("--scrollbar-width");
+      window.removeEventListener("wheel", preventPageScroll);
+      window.removeEventListener("touchmove", preventPageScroll);
     };
   }, [menuOpen]);
 
   const go = (nextPage) => {
     setMenuOpen(false);
     onNavigate(nextPage);
+  };
+
+  const handleBottomAction = (item) => {
+    if (item.loginAction) {
+      onLogin();
+      return;
+    }
+    go(item.key);
   };
 
   return (
@@ -210,13 +250,28 @@ export function Header({
           )}
         </div>
 
-        <button
-          className="grid h-10 w-10 place-items-center rounded-2xl border border-[#35201f] bg-[#101a18] shadow-sm lg:hidden"
-          onClick={() => setMenuOpen((value) => !value)}
-          type="button"
-        >
-          {menuOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
+        {authLoading ? (
+          <span className="skeleton h-10 w-10 rounded-full lg:hidden" />
+        ) : user ? (
+          <button
+            aria-label="Open profile"
+            className="grid h-10 w-10 place-items-center rounded-full border border-[#35201f] bg-[#101a18] p-1 shadow-sm lg:hidden"
+            onClick={() => go("profile")}
+            type="button"
+          >
+            <UserAvatar size="h-8 w-8" user={user} />
+          </button>
+        ) : (
+          <button
+            aria-label="Login"
+            className="grid h-10 w-10 place-items-center rounded-full border border-[#35201f] bg-[#101a18] text-[#f9c66d] shadow-sm lg:hidden"
+            disabled={loginLoading}
+            onClick={onLogin}
+            type="button"
+          >
+            {loginLoading ? <ButtonSpinner /> : <UserRound size={20} />}
+          </button>
+        )}
       </div>
 
         <TopProgress
@@ -226,6 +281,62 @@ export function Header({
         />
       </header>
 
+      <nav className="fixed inset-x-0 bottom-0 z-[70] px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3 lg:hidden">
+        <div className="relative mx-auto grid h-[76px] max-w-md grid-cols-5 items-center gap-1 rounded-[1.75rem] border border-[#35201f] bg-[#070f0d]/95 px-2 shadow-[0_-12px_40px_rgba(0,0,0,0.45),0_18px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+          {bottomItems.map((item, index) => {
+            const Icon = item.icon;
+            const active = page === item.key || (item.key === "my-bookings" && page === "my-bookings");
+            const columnClass = index >= 2 ? `col-start-${index + 2}` : "";
+            return (
+              <button
+                className={`relative flex h-[60px] flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[10px] font-black transition duration-200 ${columnClass} ${
+                  active
+                    ? "border border-[#f9c66d]/45 bg-[#151b15] text-[#f9c66d] shadow-[0_0_20px_rgba(249,198,109,0.22),inset_0_0_18px_rgba(249,198,109,0.08)]"
+                    : "text-[#9db2ad] hover:bg-[#101a18] hover:text-white"
+                }`}
+                disabled={item.loginAction && loginLoading}
+                key={item.key}
+                onClick={() => handleBottomAction(item)}
+                type="button"
+              >
+                {item.loginAction && loginLoading ? (
+                  <ButtonSpinner />
+                ) : (
+                  <Icon size={20} />
+                )}
+                <span>{item.loginAction && loginLoading ? "Wait" : item.label}</span>
+              </button>
+            );
+          })}
+          <button
+            aria-label="Open more menu"
+            className={`absolute left-1/2 top-0 grid h-[66px] w-[66px] -translate-x-1/2 -translate-y-7 place-items-center rounded-full border transition duration-200 ${
+              menuOpen
+                ? "border-[#f9c66d]/55 bg-[#151b15] text-[#f9c66d] shadow-[0_0_26px_rgba(249,198,109,0.34),0_16px_34px_rgba(0,0,0,0.45),inset_0_0_18px_rgba(249,198,109,0.1)]"
+                : "border-[#35201f] bg-[#101a18] text-[#f9c66d] shadow-[0_14px_30px_rgba(0,0,0,0.42)]"
+            }`}
+            onClick={() => setMenuOpen((value) => !value)}
+            type="button"
+          >
+            <span className="relative grid h-full w-full place-items-center">
+              <ChevronsUp
+                className={`transition-transform duration-200 ${
+                  menuOpen ? "rotate-180" : ""
+                }`}
+                size={28}
+              />
+            </span>
+          </button>
+          <span
+            className={`pointer-events-none absolute left-1/2 top-[42px] -translate-x-1/2 text-[10px] font-black ${
+              menuOpen ? "text-[#f9c66d]" : "text-[#9db2ad]"
+            }`}
+          >
+            More
+          </span>
+        </div>
+      </nav>
+
       <div
         className={`fixed inset-0 z-[80] lg:hidden ${
           menuOpen ? "pointer-events-auto" : "pointer-events-none"
@@ -233,7 +344,7 @@ export function Header({
       >
         <button
           aria-label="Close menu"
-          className={`absolute inset-0 z-0 bg-black/50 transition-opacity duration-300 ${
+          className={`absolute inset-0 z-0 bg-black/55 transition-opacity duration-300 ease-out ${
             menuOpen ? "opacity-100" : "opacity-0"
           }`}
           onClick={() => setMenuOpen(false)}
@@ -244,10 +355,11 @@ export function Header({
           type="button"
         />
         <aside
-          className={`absolute left-0 top-0 z-10 flex h-dvh w-[86vw] max-w-[320px] flex-col border-r border-[#35201f] bg-[#101a18] p-4 shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-            menuOpen ? "translate-x-0" : "-translate-x-full"
+          className={`absolute inset-x-0 bottom-0 z-10 mx-auto flex max-h-[82dvh] w-full max-w-md origin-bottom flex-col overflow-y-auto rounded-t-[2rem] border border-b-0 border-[#35201f] bg-[#101a18]/98 p-4 pb-[calc(max(env(safe-area-inset-bottom),0.5rem)+0.75rem)] shadow-[0_-24px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            menuOpen ? "translate-y-0 scale-100 opacity-100" : "translate-y-full scale-95 opacity-0"
           }`}
         >
+          <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-[#f9c66d]/35" />
           <div className="mb-5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#991b1b] text-white">
@@ -271,7 +383,7 @@ export function Header({
           <div className="grid gap-2">
             {canInstall ? (
               <button
-                className="mb-2 flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/35 bg-[#24170d] px-4 font-black text-[#f9c66d]"
+                className="mb-2 flex min-h-12 items-center justify-center gap-3 rounded-2xl border border-[#f9c66d]/35 bg-[#24170d] px-4 font-black text-[#f9c66d] transition hover:bg-[#33200f]"
                 onClick={() => {
                   setMenuOpen(false);
                   install();
@@ -282,22 +394,35 @@ export function Header({
                 Install App
               </button>
             ) : null}
-            {navPages.map((item) => (
+            {morePages.map((item, index) => {
+              const Icon = item.icon;
+              return (
               <button
-                className={`min-h-12 rounded-2xl px-4 text-left text-lg font-bold transition ${
-                  page === item
-                    ? "bg-[#991b1b] text-white"
-                    : "bg-[#0b1714] text-[#9db2ad] hover:bg-[#1f1113] hover:text-white"
-                }`}
-                key={item}
-                onClick={() => go(item)}
+                className={`flex min-h-12 items-center gap-3 rounded-2xl border px-4 text-left text-base font-bold transition-all duration-300 ${
+                  page === item.key
+                    ? "border-[#f9c66d]/35 bg-[#24170d] text-[#f9c66d]"
+                    : "border-[#22332f] bg-[#0b1714] text-[#9db2ad] hover:border-[#f9c66d]/25 hover:bg-[#13211d] hover:text-white"
+                } ${menuOpen ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}
+                key={item.key}
+                onClick={() => go(item.key)}
+                style={{ transitionDelay: menuOpen ? `${index * 32}ms` : "0ms" }}
                 type="button"
               >
-                {titleCase(item)}
+                <span
+                  className={`grid h-9 w-9 place-items-center rounded-xl ${
+                    page === item.key
+                      ? "bg-[#f9c66d] text-[#140707]"
+                      : "bg-[#101f1b] text-[#f9c66d]"
+                  }`}
+                >
+                  <Icon size={18} />
+                </span>
+                {item.label}
               </button>
-            ))}
+            );
+            })}
             <button
-              className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-[#991b1b] font-black text-white"
+              className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full border border-[#f9c66d]/20 bg-[#991b1b] font-black text-white shadow-lg shadow-[#991b1b]/20 transition hover:bg-[#7f1d1d]"
               disabled={loginLoading}
               onClick={user ? () => go("profile") : onLogin}
               type="button"

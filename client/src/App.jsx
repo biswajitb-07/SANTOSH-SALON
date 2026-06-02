@@ -513,7 +513,7 @@ export function App() {
   }
 
   return (
-    <main className="min-h-screen bg-[#06100e] text-[#f4fbf8]">
+    <main className="min-h-screen bg-[#06100e] pb-24 text-[#f4fbf8] lg:pb-0">
       <Toaster
         position="top-center"
         className="app-toaster"
@@ -738,4 +738,3 @@ export function App() {
     </main>
   );
 }
-
