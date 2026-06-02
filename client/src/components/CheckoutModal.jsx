@@ -37,6 +37,7 @@ import {
   getCouponDiscount,
   getRequestErrorMessage,
   getVisibleTimeSlots,
+  isCustomerBookingWindowOpen,
   loadCashfreeCheckout,
   normalizeBarberAvailability,
   PLATFORM_FEE_PER_PERSON,
