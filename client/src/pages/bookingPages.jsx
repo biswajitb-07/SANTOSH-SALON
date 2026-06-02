@@ -360,7 +360,8 @@ function ServicesSection({
   bookingGate,
   mobileSlider = false,
   services,
-  pagination = null
+  pagination = null,
+  sectionRef = null
 }) {
   const sliderRef = useRef(null);
   const dragScroll = useDragScroll({ enabled: mobileSlider });
@@ -368,8 +369,8 @@ function ServicesSection({
     ? "services-slider drag-scroll flex snap-x gap-3 overflow-x-auto pb-4 pl-1 pr-[24vw] sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-4"
     : "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4";
   const cardClassName = mobileSlider
-    ? "queue-shadow luxury-glass min-w-[68vw] max-w-[68vw] shrink-0 snap-start overflow-hidden rounded-3xl transition hover:-translate-y-1 sm:min-w-0 sm:max-w-none sm:shrink"
-    : "queue-shadow luxury-glass overflow-hidden rounded-3xl transition hover:-translate-y-1";
+    ? "queue-shadow luxury-glass min-w-[68vw] max-w-[68vw] shrink-0 snap-start overflow-hidden rounded-3xl sm:min-w-0 sm:max-w-none sm:shrink"
+    : "queue-shadow luxury-glass overflow-hidden rounded-3xl";
 
   useEffect(() => {
     if (!mobileSlider || !sliderRef.current) return;
@@ -377,7 +378,7 @@ function ServicesSection({
   }, [mobileSlider, services.length, user?.uid]);
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8" ref={sectionRef}>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
@@ -425,7 +426,7 @@ function ServicesSection({
                 >
                   <img
                     alt={service.title}
-                    className="h-full w-full object-cover object-center transition duration-500 group-hover:scale-105 group-hover:brightness-75"
+                    className="h-full w-full object-cover object-center transition duration-300 group-hover:brightness-75"
                     decoding="async"
                     loading="lazy"
                     src={service.imageUrl || getServiceImageUrl(service.title)}
@@ -763,6 +764,7 @@ export function BookingPage({
   services
 }) {
   const [servicePage, setServicePage] = useState(1);
+  const servicesSectionRef = useRef(null);
   const totalServicePages = Math.max(
     1,
     Math.ceil(services.length / SERVICE_PAGE_SIZE)
@@ -776,6 +778,16 @@ export function BookingPage({
   useEffect(() => {
     setServicePage(1);
   }, [services.length]);
+
+  const handleServicePageChange = (nextPage) => {
+    setServicePage(nextPage);
+    window.requestAnimationFrame(() => {
+      servicesSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    });
+  };
 
   return (
     <>
@@ -817,8 +829,9 @@ export function BookingPage({
       pagination={{
         page: safeServicePage,
         totalPages: totalServicePages,
-        onPageChange: setServicePage
+        onPageChange: handleServicePageChange
       }}
+      sectionRef={servicesSectionRef}
       services={paginatedServices}
       user={user}
     />

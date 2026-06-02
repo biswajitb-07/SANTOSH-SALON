@@ -72,6 +72,8 @@ export function CheckoutModal({
   const [status, setStatus] = useState(null);
   const [appliedCouponCode, setAppliedCouponCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [processingLabel, setProcessingLabel] = useState("Opening Cashfree...");
+  const [showProcessingOverlay, setShowProcessingOverlay] = useState(false);
   const [slotState, setSlotState] = useState({
     loading: true,
     availableSlots: [],
@@ -302,6 +304,8 @@ export function CheckoutModal({
     }
 
     setLoading(true);
+    setShowProcessingOverlay(false);
+    setProcessingLabel("Checking booking details...");
     const customers = [
       {
         name: form.name.trim(),
@@ -320,6 +324,7 @@ export function CheckoutModal({
     ];
 
     try {
+      const paymentToastId = "cashfree-checkout-progress";
       const activeBookings = await getActiveUserBookings(user.uid);
       if (activeBookings.length) {
         const message =
@@ -408,10 +413,12 @@ export function CheckoutModal({
           order.charge?.payableAmount
         )}.`
       });
+      setProcessingLabel("Opening Cashfree checkout...");
       toast.info(
         `Payment pending. Complete Cashfree checkout for ${formatMoney(
           order.charge?.payableAmount
-        )}.`
+        )}.`,
+        { id: paymentToastId, duration: 2400 }
       );
 
       const cashfree = window.Cashfree({
@@ -431,17 +438,19 @@ export function CheckoutModal({
         );
       }
 
-      toast.info("Payment received. Verifying booking confirmation...");
+      setShowProcessingOverlay(true);
+      setProcessingLabel("Payment received. Verifying payment...");
       const verification = await verifyCustomerPayment(order.order_id).unwrap();
       if (!verification.verified) {
         throw new Error(verification.error || "Payment verification failed");
       }
-      toast.success("Payment verified successfully.");
+      setProcessingLabel("Payment verified. Creating your booking...");
 
       paidOrder = verification.order || {};
       paidPayment = verification.payment || {};
       charge = order.charge || onlineChargePreview;
 
+      setProcessingLabel("Checking latest queue availability...");
       const dayStats = await getBookingDayStats(bookingOption.date, bookingTimeSlots);
       const bookingGroupId = `grp_${Date.now()}_${user.uid.slice(0, 8)}`;
       let bookingRefs = [];
@@ -584,6 +593,7 @@ export function CheckoutModal({
       });
 
       try {
+        setProcessingLabel("Finalizing your queue turn...");
         const reindexResult = await reindexBookingDate({
           bookingDate: bookingOption.date,
           bookingGroupId
@@ -603,7 +613,10 @@ export function CheckoutModal({
           bookingCreatedAsWaitlist = true;
         }
       } catch {
-        toast.info("Booking saved. Estimated turn will refresh shortly.");
+        setStatus({
+          type: "info",
+          message: "Booking saved. Estimated turn will refresh shortly."
+        });
       }
 
       const firstTurn = bookedTurns[0] || "-";
@@ -612,6 +625,7 @@ export function CheckoutModal({
         ? `Estimated turn ${firstTurn}${bookedTurns.length > 1 ? `-${lastTurn}` : ""}`
         : "Waiting list";
 
+      setProcessingLabel("Saving booking history...");
       await setDoc(
         doc(db, "users", user.uid),
         {
@@ -632,9 +646,14 @@ export function CheckoutModal({
       try {
         await pruneUserBookingHistory(user.uid);
       } catch {
-        toast.info("Booking saved. Old history cleanup will retry on your next booking.");
+        setStatus({
+          type: "info",
+          message: "Booking saved. Old history cleanup will retry on your next booking."
+        });
       }
 
+      toast.dismiss(paymentToastId);
+      setProcessingLabel("Opening My Bookings...");
       setStatus({
         type: "success",
         message: `Cashfree payment verified. ${estimatedTurnText} ${
@@ -650,6 +669,7 @@ export function CheckoutModal({
         toastMessage: successToastMessage
       });
     } catch (error) {
+      toast.dismiss("cashfree-checkout-progress");
       const message = getRequestErrorMessage(
         error,
         "Cashfree payment failed. Please try again."
@@ -661,13 +681,15 @@ export function CheckoutModal({
       toast.error(
         `${message}. If money was debited, please wait for provider/bank auto-reversal or contact the salon with your payment/order ID.`
       );
+      setProcessingLabel("Opening Cashfree...");
+      setShowProcessingOverlay(false);
       setLoading(false);
     }
   };
 
   return (
     <div className="modal-fade fixed inset-0 z-[9999] flex h-[100dvh] items-center justify-center overflow-hidden bg-black/65 px-3 py-4 backdrop-blur-md sm:px-5 sm:py-6">
-      <section className="queue-shadow flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[#f9c66d]/15 bg-[#081311]/95 text-[#f4fbf8] sm:max-h-[min(820px,calc(100dvh-3rem))] sm:max-w-3xl sm:rounded-[2rem] lg:max-w-4xl">
+      <section className="queue-shadow relative flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[#f9c66d]/15 bg-[#081311]/95 text-[#f4fbf8] sm:max-h-[min(820px,calc(100dvh-3rem))] sm:max-w-3xl sm:rounded-[2rem] lg:max-w-4xl">
         <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#35201f] bg-[#081311]/95 px-5 py-4 backdrop-blur sm:px-6">
           <div>
             <p className="section-kicker">
@@ -1007,7 +1029,7 @@ export function CheckoutModal({
             {loading ? (
               <>
                 <ButtonSpinner />
-                Opening Cashfree...
+                {processingLabel}
               </>
             ) : (
               <>
@@ -1030,6 +1052,22 @@ export function CheckoutModal({
           >
             {status.message}
           </p>
+        ) : null}
+        {loading && showProcessingOverlay ? (
+          <div className="absolute inset-0 z-30 grid place-items-center bg-[#06100e]/82 px-5 text-center backdrop-blur-md">
+            <div className="w-full max-w-sm rounded-3xl border border-[#f9c66d]/20 bg-[#081311] p-6 queue-shadow">
+              <ButtonSpinner />
+              <h3 className="mt-4 text-xl font-black text-[#f4fbf8]">
+                Processing your booking
+              </h3>
+              <p className="mt-2 text-sm font-bold leading-6 text-[#f9c66d]">
+                {processingLabel}
+              </p>
+              <p className="mt-3 text-xs font-bold leading-5 text-[#9db2ad]">
+                Please wait. My Bookings will open automatically after confirmation.
+              </p>
+            </div>
+          </div>
         ) : null}
       </section>
     </div>

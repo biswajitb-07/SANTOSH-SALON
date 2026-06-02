@@ -848,7 +848,12 @@ export function ProfilePage({
           )}
           {!bookingsLoading && groupedBookings.length ? (
             <PaginationControls
-              onPageChange={setBookingPage}
+              onPageChange={(nextPage) => {
+                setBookingPage(nextPage);
+                window.requestAnimationFrame(() =>
+                  window.scrollTo({ top: 0, behavior: "smooth" })
+                );
+              }}
               page={safeBookingPage}
               totalPages={totalBookingPages}
             />
