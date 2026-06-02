@@ -304,39 +304,64 @@ const groupUserBookings = (bookings) =>
 function RefundStatusTracker({ refund }) {
   if (!refund) return null;
   const stepIndex = getRefundStepIndex(refund.status);
-  const steps = ["Requested", "Processing", "Completed"];
+  const steps = [
+    {
+      label: "Requested",
+      active: "border-[#fb7185] bg-[#991b1b] text-white shadow-[0_0_0_4px_rgba(251,113,133,0.16)]",
+      inactive: "border-[#5a2525] bg-[#140909] text-[#fb7185]/55",
+      text: "text-[#fb7185]",
+      line: "bg-[#fb7185]"
+    },
+    {
+      label: "Processing",
+      active: "border-[#f9c66d] bg-[#7c3f10] text-white shadow-[0_0_0_4px_rgba(249,198,109,0.16)]",
+      inactive: "border-[#5c3a18] bg-[#1b1208] text-[#f9c66d]/55",
+      text: "text-[#f9c66d]",
+      line: "bg-[#f9c66d]"
+    },
+    {
+      label: "Completed",
+      active: "border-[#86efac] bg-[#14532d] text-white shadow-[0_0_0_4px_rgba(134,239,172,0.16)]",
+      inactive: "border-[#214536] bg-[#07140f] text-[#86efac]/55",
+      text: "text-[#86efac]",
+      line: "bg-[#86efac]"
+    }
+  ];
 
   return (
     <div className="mt-3 rounded-2xl border border-[#35201f] bg-[#101a18] px-4 py-5">
       <div className="relative grid grid-cols-3">
         <span className="absolute left-[16.5%] right-[16.5%] top-4 h-1 rounded-full bg-[#2a1111]" />
-        <span
-          className="absolute left-[16.5%] top-4 h-1 rounded-full bg-[#f9c66d] transition-all"
-          style={{ width: `${Math.max(0, stepIndex) * 33.33}%` }}
-        />
-        {steps.map((step, index) => (
+        {stepIndex >= 1 ? (
+          <span className="absolute left-[16.5%] top-4 h-1 w-[33.5%] rounded-full bg-[#f9c66d] transition-all" />
+        ) : null}
+        {stepIndex >= 2 ? (
+          <span className="absolute left-[50%] top-4 h-1 w-[33.5%] rounded-full bg-[#86efac] transition-all" />
+        ) : null}
+        {steps.map((step, index) => {
+          const active = index <= stepIndex;
+          return (
           <div
             className="relative z-[1] flex flex-col items-center gap-2 text-center"
-            key={step}
+            key={step.label}
           >
             <span
-              className={`grid h-9 w-9 place-items-center rounded-full border-4 text-xs font-black ${
-                index <= stepIndex
-                  ? "border-[#f9c66d] bg-[#991b1b] text-white"
-                  : "border-[#35201f] bg-[#0b1714] text-[#637371]"
+              className={`grid h-9 w-9 place-items-center rounded-full border-4 text-xs font-black transition ${
+                active ? step.active : step.inactive
               }`}
             >
               {index + 1}
             </span>
             <span
-              className={`text-[11px] font-black ${
-                index <= stepIndex ? "text-[#f9c66d]" : "text-[#637371]"
+              className={`text-[11px] font-black transition ${
+                active ? step.text : "text-[#637371]"
               }`}
             >
-              {step}
+              {step.label}
             </span>
           </div>
-        ))}
+        );
+        })}
       </div>
       {refund.adminRefundNote ? (
         <p className="mt-3 rounded-xl bg-[#24170d] px-3 py-2 text-xs font-bold text-[#f9c66d]">
@@ -1240,8 +1265,8 @@ export function ProfilePage({
                     className="rounded-2xl border border-[#35201f] bg-[#0b1714] p-4"
                     key={booking.id}
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
+                    <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+                      <div className="min-w-0">
                         <p className="text-xs font-black uppercase tracking-[0.14em] text-[#991b1b]">
                           {turnLabel}
                         </p>
@@ -1255,9 +1280,82 @@ export function ProfilePage({
                           • {booking.mobile || "No mobile"}
                         </p>
                       </div>
-                      <span className="rounded-full bg-[#2a1111] px-3 py-1 text-xs font-black text-[#991b1b]">
-                        {formatBookingStatus(booking.status)}
-                      </span>
+                      <div className="grid gap-2 xl:min-w-[360px] xl:justify-items-end">
+                        <span className="w-fit rounded-full bg-[#2a1111] px-3 py-1 text-xs font-black text-[#991b1b]">
+                          {formatBookingStatus(booking.status)}
+                        </span>
+                        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap xl:justify-end">
+                          <button
+                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#991b1b] bg-transparent px-3 py-2 text-sm font-black text-[#fca5a5] transition hover:bg-[#991b1b] hover:text-white"
+                            onClick={() => {
+                              downloadBookingInvoice(
+                                booking,
+                                user,
+                                refundInProgress ? bookingRefund || booking : null
+                              );
+                              toast.success(
+                                refundInProgress
+                                  ? "Refund invoice downloaded."
+                                  : "Invoice downloaded."
+                              );
+                            }}
+                            type="button"
+                          >
+                            <Download size={16} />
+                            {refundInProgress ? "Refund Invoice" : "Invoice"}
+                          </button>
+                          <button
+                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/35 bg-[#24170d] px-3 py-2 text-sm font-black text-[#f9c66d] transition hover:bg-[#33200f]"
+                            onClick={() => shareBookingInvoice(booking)}
+                            type="button"
+                          >
+                            <Share2 size={16} />
+                            Share
+                          </button>
+                          {["waiting", "waitlist"].includes(booking.status) ? (
+                            <>
+                              <button
+                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/35 bg-transparent px-3 py-2 text-sm font-black text-[#f9c66d] transition hover:bg-[#24170d] disabled:opacity-60"
+                                disabled={rescheduleBookingId === booking.id}
+                                onClick={() => setRescheduleBooking(booking)}
+                                type="button"
+                              >
+                                <CalendarClock size={16} />
+                                Reschedule
+                              </button>
+                              <button
+                                className="min-h-11 rounded-2xl border border-[#f87171]/40 bg-[#2a1111] px-3 py-2 text-sm font-black text-[#fca5a5] transition hover:bg-[#3a1515] disabled:opacity-60"
+                                disabled={cancelBookingId === booking.id}
+                                onClick={() => setPendingCancelBooking(booking)}
+                                type="button"
+                              >
+                                {cancelBookingId === booking.id ? (
+                                  <span className="inline-flex items-center gap-2">
+                                    <ButtonSpinner dark /> Cancelling...
+                                  </span>
+                                ) : (
+                                  "Cancel"
+                                )}
+                              </button>
+                            </>
+                          ) : null}
+                          {booking.status === "cancelled" &&
+                          booking.paymentProvider === "cashfree" &&
+                          booking.paymentStatus === "paid" &&
+                          !refundInProgress ? (
+                            <button
+                              className="min-h-11 rounded-2xl border border-[#f9c66d]/35 bg-[#24170d] px-3 py-2 text-sm font-black text-[#f9c66d] transition hover:bg-[#33200f]"
+                              onClick={() => {
+                                setSelectedBookingGroupKey("");
+                                setRefundBooking(booking);
+                              }}
+                              type="button"
+                            >
+                              Refund
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -1336,77 +1434,6 @@ export function ProfilePage({
                         Booking history automatically keeps only recent visits.
                         Download or share your invoice now if you need it later.
                       </p>
-                      <div className="flex w-full flex-wrap justify-end gap-2 sm:w-auto">
-                        <button
-                          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#991b1b] bg-transparent px-4 py-3 text-sm font-black text-[#fca5a5] transition hover:bg-[#991b1b] hover:text-white"
-                          onClick={() => {
-                            downloadBookingInvoice(
-                              booking,
-                              user,
-                              refundInProgress ? bookingRefund || booking : null
-                            );
-                            toast.success(
-                              refundInProgress
-                                ? "Refund invoice downloaded."
-                                : "Invoice downloaded."
-                            );
-                          }}
-                          type="button"
-                        >
-                          <Download size={16} />
-                          {refundInProgress ? "Refund Invoice" : "Invoice"}
-                        </button>
-                        <button
-                          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/35 bg-[#24170d] px-4 py-3 text-sm font-black text-[#f9c66d] transition hover:bg-[#33200f]"
-                          onClick={() => shareBookingInvoice(booking)}
-                          type="button"
-                        >
-                          <Share2 size={16} />
-                          Share
-                        </button>
-                        {["waiting", "waitlist"].includes(booking.status) ? (
-                          <>
-                            <button
-                              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/35 bg-transparent px-4 py-3 text-sm font-black text-[#f9c66d] transition hover:bg-[#24170d] disabled:opacity-60"
-                              disabled={rescheduleBookingId === booking.id}
-                              onClick={() => setRescheduleBooking(booking)}
-                              type="button"
-                            >
-                              <CalendarClock size={16} />
-                              Reschedule
-                            </button>
-                            <button
-                              className="min-h-12 rounded-2xl border border-[#f87171]/40 bg-[#2a1111] px-4 py-3 text-sm font-black text-[#fca5a5] transition hover:bg-[#3a1515] disabled:opacity-60"
-                              disabled={cancelBookingId === booking.id}
-                              onClick={() => setPendingCancelBooking(booking)}
-                              type="button"
-                            >
-                              {cancelBookingId === booking.id ? (
-                                <span className="inline-flex items-center gap-2">
-                                  <ButtonSpinner dark /> Cancelling...
-                                </span>
-                              ) : (
-                                "Cancel"
-                              )}
-                            </button>
-                          </>
-                        ) : null}
-                        {booking.status === "cancelled" &&
-                        booking.paymentProvider === "cashfree" &&
-                        booking.paymentStatus === "paid" &&
-                        !refundInProgress ? (
-                          <button
-                            className="min-h-12 rounded-2xl border border-[#f9c66d]/35 bg-[#24170d] px-4 py-3 text-sm font-black text-[#f9c66d] transition hover:bg-[#33200f]"
-                            onClick={() => {
-                              setSelectedBookingGroupKey("");
-                              setRefundBooking(booking);
-                            }}
-                            type="button"
-                          >
-                            Refund
-                          </button>
-                        ) : null}
-                      </div>
                     </div>
                     {activeBooking ? (
                       <div className="mt-3 grid gap-2 sm:grid-cols-3">
