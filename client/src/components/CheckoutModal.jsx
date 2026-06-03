@@ -670,6 +670,7 @@ export function CheckoutModal({
       const estimatedTurnText = bookedTurns.length
         ? `Estimated turn ${firstTurn}${bookedTurns.length > 1 ? `-${lastTurn}` : ""}`
         : "Waiting list";
+      const userPhotoURL = getUserPhotoUrl(user);
 
       setProcessingLabel("Saving booking history...");
       await setDoc(
@@ -680,7 +681,7 @@ export function CheckoutModal({
           email: user.email || "",
           mobile,
           phone: mobile,
-          photoURL: getUserPhotoUrl(user),
+          ...(userPhotoURL ? { photoURL: userPhotoURL } : {}),
           latestService: service.title,
           latestBookingDate: bookingOption.date,
           latestTimeSlot: selectedSlot?.value || "",

@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Toaster, toast } from "sonner";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
@@ -140,6 +140,7 @@ export function App() {
     manualShopClosed: false,
     premiumActive: false
   });
+  const userPhotoRefreshRef = useRef("");
 
   useBodyScrollLock(Boolean(photoPreviewService));
 
@@ -187,6 +188,47 @@ export function App() {
 
     setDoc(doc(db, "users", user.uid), patch, { merge: true }).catch(() => {});
   }, [user]);
+
+  useEffect(() => {
+    if (!user?.uid || userPhotoRefreshRef.current === user.uid) return;
+    const hasPhoto =
+      user.photoURL ||
+      user.providerData?.some((provider) => provider?.photoURL) ||
+      userAccount?.photoURL ||
+      userAccount?.photoUrl;
+    if (hasPhoto) {
+      userPhotoRefreshRef.current = user.uid;
+      return;
+    }
+
+    userPhotoRefreshRef.current = user.uid;
+    user
+      .reload()
+      .then(() => {
+        const freshUser = auth.currentUser || user;
+        const photoURL =
+          freshUser.photoURL ||
+          freshUser.providerData?.find((provider) => provider?.photoURL)?.photoURL ||
+          "";
+        if (!photoURL) return;
+        setUser(freshUser);
+        return setDoc(
+          doc(db, "users", freshUser.uid),
+          {
+            uid: freshUser.uid,
+            email: freshUser.email || "",
+            name:
+              freshUser.displayName ||
+              freshUser.email?.split("@")[0] ||
+              "Customer",
+            photoURL,
+            updatedAt: serverTimestamp()
+          },
+          { merge: true }
+        );
+      })
+      .catch(() => {});
+  }, [user, userAccount]);
 
   const displayUser = useMemo(() => {
     if (!user) return null;
@@ -534,7 +576,30 @@ export function App() {
     setAuthError("");
     setLoginLoading(true);
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      await result.user.reload();
+      const freshUser = auth.currentUser || result.user;
+      const photoURL =
+        freshUser.photoURL ||
+        freshUser.providerData?.find((provider) => provider?.photoURL)?.photoURL ||
+        "";
+      if (photoURL) {
+        await setDoc(
+          doc(db, "users", freshUser.uid),
+          {
+            uid: freshUser.uid,
+            email: freshUser.email || "",
+            name:
+              freshUser.displayName ||
+              freshUser.email?.split("@")[0] ||
+              "Customer",
+            photoURL,
+            updatedAt: serverTimestamp()
+          },
+          { merge: true }
+        );
+      }
+      setUser(freshUser);
       toast.success("Login successful.");
     } catch (error) {
       const message = getSafeErrorMessage(error, "Login failed. Please try again.");
