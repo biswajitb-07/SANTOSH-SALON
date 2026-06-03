@@ -3,6 +3,13 @@ import { createPortal } from "react-dom";
 import { CalendarClock, X } from "lucide-react";
 import { ButtonSpinner, useBodyScrollLock } from "./common.jsx";
 import { formatMoney } from "../lib/formatters.js";
+import {
+  createTimeSlots,
+  getBookingDayStats,
+  getVisibleTimeSlots,
+  ONLINE_BOOKING_START_HOUR,
+  STAFF_COUNT
+} from "../lib/bookingFlow.js";
 
 const cancelReasons = [
   "I cannot visit today",
@@ -10,38 +17,6 @@ const cancelReasons = [
   "Booked wrong service",
   "Payment or booking issue",
   "Other reason"
-];
-
-const rescheduleSlots = [
-  ["07:00", "7:00 AM"],
-  ["07:30", "7:30 AM"],
-  ["08:00", "8:00 AM"],
-  ["08:30", "8:30 AM"],
-  ["09:00", "9:00 AM"],
-  ["09:30", "9:30 AM"],
-  ["10:00", "10:00 AM"],
-  ["10:30", "10:30 AM"],
-  ["11:00", "11:00 AM"],
-  ["11:30", "11:30 AM"],
-  ["12:00", "12:00 PM"],
-  ["12:30", "12:30 PM"],
-  ["14:00", "2:00 PM"],
-  ["14:30", "2:30 PM"],
-  ["15:00", "3:00 PM"],
-  ["15:30", "3:30 PM"],
-  ["16:00", "4:00 PM"],
-  ["16:30", "4:30 PM"],
-  ["17:00", "5:00 PM"],
-  ["17:30", "5:30 PM"],
-  ["18:00", "6:00 PM"],
-  ["18:30", "6:30 PM"],
-  ["19:00", "7:00 PM"],
-  ["19:30", "7:30 PM"],
-  ["20:00", "8:00 PM"],
-  ["20:30", "8:30 PM"],
-  ["21:00", "9:00 PM"],
-  ["21:30", "9:30 PM"],
-  ["22:00", "10:00 PM"]
 ];
 
 const toDateInputValue = (date) => {
@@ -253,27 +228,114 @@ export function CancelReasonDialog({ booking, loading, onClose, onConfirm }) {
   );
 }
 
-export function RescheduleDialog({ booking, loading, onClose, onConfirm }) {
+export function RescheduleDialog({
+  booking,
+  bookingGate = {},
+  loading,
+  onClose,
+  onConfirm
+}) {
   const today = toDateInputValue(new Date());
   const tomorrowDate = new Date();
   tomorrowDate.setDate(tomorrowDate.getDate() + 1);
   const tomorrow = toDateInputValue(tomorrowDate);
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const canUseTomorrow =
+    currentMinutes >= ONLINE_BOOKING_START_HOUR * 60 ||
+    booking?.bookingDate === tomorrow;
+  const currentBookingIsToday = booking?.bookingDate === today;
+  const dateOptions = currentBookingIsToday
+    ? [{ value: today, label: `Today, ${getDisplayDate(today)}` }]
+    : [
+        { value: today, label: `Today, ${getDisplayDate(today)}` },
+        ...(canUseTomorrow
+          ? [{ value: tomorrow, label: `Tomorrow, ${getDisplayDate(tomorrow)}` }]
+          : [])
+      ];
+  const getSafeDraftDate = (dateValue) =>
+    dateOptions.some((option) => option.value === dateValue) ? dateValue : today;
   const [draft, setDraft] = useState({
-    bookingDate: booking?.bookingDate || today,
-    timeSlot: booking?.timeSlot || rescheduleSlots[0][0]
+    bookingDate: getSafeDraftDate(booking?.bookingDate),
+    timeSlot: booking?.timeSlot || ""
+  });
+  const [slotState, setSlotState] = useState({
+    loading: false,
+    slots: [],
+    error: ""
   });
   useBodyScrollLock(Boolean(booking));
 
   useEffect(() => {
     setDraft({
-      bookingDate: booking?.bookingDate || today,
-      timeSlot: booking?.timeSlot || rescheduleSlots[0][0]
+      bookingDate: getSafeDraftDate(booking?.bookingDate),
+      timeSlot: booking?.timeSlot || ""
     });
-  }, [booking, today]);
+  }, [booking, today, tomorrow]);
+
+  useEffect(() => {
+    if (!booking) return undefined;
+
+    let cancelled = false;
+    const allSlots = createTimeSlots(
+      bookingGate.openingTime || "07:00",
+      bookingGate.closingTime || "23:00"
+    );
+    const dayKey = draft.bookingDate === today ? "today" : "tomorrow";
+
+    setSlotState((current) => ({ ...current, loading: true, error: "" }));
+    getBookingDayStats(draft.bookingDate, allSlots)
+      .then((stats) => {
+        if (cancelled) return;
+        const adjustedSlotCounts = { ...stats.slotCounts };
+        if (
+          booking.bookingDate === draft.bookingDate &&
+          booking.timeSlot &&
+          adjustedSlotCounts[booking.timeSlot]
+        ) {
+          adjustedSlotCounts[booking.timeSlot] = Math.max(
+            0,
+            Number(adjustedSlotCounts[booking.timeSlot] || 0) - 1
+          );
+        }
+        const nextSlots = getVisibleTimeSlots(dayKey, allSlots).filter(
+          (slot) => Number(adjustedSlotCounts[slot.value] || 0) < STAFF_COUNT
+        );
+
+        setSlotState({ loading: false, slots: nextSlots, error: "" });
+        setDraft((current) => {
+          if (nextSlots.some((slot) => slot.value === current.timeSlot)) {
+            return current;
+          }
+          return {
+            ...current,
+            timeSlot: nextSlots[0]?.value || ""
+          };
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSlotState({
+          loading: false,
+          slots: [],
+          error: "Slots could not be loaded. Please try again."
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    booking,
+    bookingGate.closingTime,
+    bookingGate.openingTime,
+    draft.bookingDate,
+    today
+  ]);
 
   if (!booking || typeof document === "undefined") return null;
 
-  const selectedSlot = rescheduleSlots.find(([value]) => value === draft.timeSlot);
+  const selectedSlot = slotState.slots.find((slot) => slot.value === draft.timeSlot);
 
   return createPortal(
     <div
@@ -284,7 +346,7 @@ export function RescheduleDialog({ booking, loading, onClose, onConfirm }) {
         className="queue-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-[#f9c66d]/15 bg-[#081311] p-5 text-[#f4fbf8]"
         onSubmit={(event) => {
           event.preventDefault();
-          onConfirm(booking, draft, selectedSlot?.[1] || draft.timeSlot);
+          onConfirm(booking, draft, selectedSlot?.label || draft.timeSlot);
         }}
       >
         <div className="flex items-start justify-between gap-3">
@@ -309,8 +371,11 @@ export function RescheduleDialog({ booking, loading, onClose, onConfirm }) {
             }
             value={draft.bookingDate}
           >
-            <option value={today}>Today, {getDisplayDate(today)}</option>
-            <option value={tomorrow}>Tomorrow, {getDisplayDate(tomorrow)}</option>
+            {dateOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </label>
         <label className="mt-4 block">
@@ -320,22 +385,35 @@ export function RescheduleDialog({ booking, loading, onClose, onConfirm }) {
             onChange={(event) =>
               setDraft((value) => ({ ...value, timeSlot: event.target.value }))
             }
+            disabled={slotState.loading || !slotState.slots.length}
             value={draft.timeSlot}
           >
-            {rescheduleSlots.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
+            {slotState.loading ? (
+              <option value="">Loading slots...</option>
+            ) : slotState.slots.length ? (
+              slotState.slots.map((slot) => (
+                <option key={slot.value} value={slot.value}>
+                  {slot.label}
+                </option>
+              ))
+            ) : (
+              <option value="">No slot available</option>
+            )}
           </select>
         </label>
         <p className="mt-4 rounded-2xl border border-[#f9c66d]/20 bg-[#24170d] px-4 py-3 text-sm font-bold text-[#f9c66d]">
-          Reschedule request updates your booking slot. Admin may adjust it if salon
-          capacity changes.
+          Har time slot me max {STAFF_COUNT} bookings allowed hain. Today ke liye
+          sirf future time slots milenge; tomorrow option booking window ke baad
+          available hota hai.
         </p>
+        {slotState.error ? (
+          <p className="mt-3 rounded-2xl border border-[#f87171]/30 bg-[#2a1111] px-4 py-3 text-sm font-bold text-[#fca5a5]">
+            {slotState.error}
+          </p>
+        ) : null}
         <button
           className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 font-black text-white disabled:opacity-60"
-          disabled={loading}
+          disabled={loading || slotState.loading || !draft.timeSlot}
           type="submit"
         >
           {loading ? <ButtonSpinner /> : <CalendarClock size={18} />}

@@ -103,7 +103,6 @@ export function AdminShell(props) {
     openAdminBookingDialog,
     closeDayAndTransferBookings,
     selectedQueueTab,
-    queueTabDragScroll,
     queueStatusTabs,
     todaysQueueItems,
     queueStatusTab,
@@ -823,10 +822,7 @@ export function AdminShell(props) {
                         Token {currentCustomer?.token || "-"}
                       </span>
                     </div>
-                    <div
-                      className="queue-control-scroll drag-scroll mt-4 flex gap-2 overflow-x-auto pb-1"
-                      {...queueTabDragScroll}
-                    >
+                    <div className="queue-control-scroll mt-4 flex gap-2 overflow-x-auto pb-1">
                       {queueStatusTabs.map((tab) => {
                         const count = todaysQueueItems.filter((item) =>
                           tab.statuses.includes(
@@ -973,10 +969,19 @@ export function AdminShell(props) {
                       </tr>
                     </thead>
                     <tbody>
-                      {paginatedQueue.map((customer) => (
+                      {paginatedQueue.map((customer) => {
+                        const customerStatus = String(customer.status || "").toLowerCase();
+                        const rowActionLoading = actionLoading.startsWith(
+                          `customer-${customer.id}-`
+                        );
+                        const canSkipOrComplete = ["waiting", "in_chair"].includes(
+                          customerStatus
+                        );
+
+                        return (
                         <tr
                           className="border-t border-[#35201f]"
-                          draggable={activePage === "queue" && activeTransferStatuses.has(String(customer.status || "").toLowerCase())}
+                          draggable={activePage === "queue" && activeTransferStatuses.has(customerStatus)}
                           key={customer.id || customer.token}
                           onDragOver={(event) => event.preventDefault()}
                           onDragStart={() => setDraggedQueueId(customer.id)}
@@ -1014,52 +1019,40 @@ export function AdminShell(props) {
                             </span>
                           </td>
                           <td className="px-4 py-4">
-                            <div className="grid grid-cols-[56px_56px_62px_64px_56px_66px] gap-2">
-                              <button
-                                className="action-chip action-compact action-call h-11 rounded-xl text-xs disabled:opacity-60"
-                                disabled={
-                                  !canCallCustomer(customer) ||
-                                  actionLoading === `customer-${customer.id}-in_chair`
-                                }
-                                onClick={() => updateCustomerStatus(customer, "in_chair")}
-                                type="button"
+                            <div className="grid grid-cols-[120px_56px_66px] gap-2">
+                              <select
+                                aria-label={`Actions for ${customer.name}`}
+                                className="action-dropdown h-11 rounded-xl text-xs font-black disabled:opacity-60"
+                                disabled={rowActionLoading}
+                                onChange={(event) => {
+                                  const nextAction = event.target.value;
+                                  event.target.value = "";
+                                  if (nextAction === "call") {
+                                    updateCustomerStatus(customer, "in_chair");
+                                  } else if (nextAction === "skip") {
+                                    updateCustomerStatus(customer, "skipped");
+                                  } else if (nextAction === "done") {
+                                    updateCustomerStatus(customer, "completed");
+                                  } else if (nextAction === "notify") {
+                                    notifyTurnNear(customer);
+                                  }
+                                }}
+                                value=""
                               >
-                                {actionLoading === `customer-${customer.id}-in_chair` ? <ButtonSpinner dark /> : "Call"}
-                              </button>
-                              <button
-                                className="action-chip action-compact action-skip h-11 rounded-xl text-xs disabled:opacity-60"
-                                disabled={
-                                  !["waiting", "in_chair"].includes(
-                                    String(customer.status || "").toLowerCase()
-                                  ) ||
-                                  actionLoading === `customer-${customer.id}-skipped`
-                                }
-                                onClick={() => updateCustomerStatus(customer, "skipped")}
-                                type="button"
-                              >
-                                {actionLoading === `customer-${customer.id}-skipped` ? <ButtonSpinner dark /> : "Skip"}
-                              </button>
-                              <button
-                                className="action-chip action-compact action-done h-11 rounded-xl text-xs disabled:opacity-60"
-                                disabled={
-                                  !["waiting", "in_chair"].includes(
-                                    String(customer.status || "").toLowerCase()
-                                  ) ||
-                                  actionLoading === `customer-${customer.id}-completed`
-                                }
-                                onClick={() => updateCustomerStatus(customer, "completed")}
-                                type="button"
-                              >
-                                {actionLoading === `customer-${customer.id}-completed` ? <ButtonSpinner dark /> : "Done"}
-                              </button>
-                              <button
-                                className="action-chip action-compact action-call h-11 rounded-xl text-xs disabled:opacity-60"
-                                disabled={actionLoading === `customer-${customer.id}-notify`}
-                                onClick={() => notifyTurnNear(customer)}
-                                type="button"
-                              >
-                                {actionLoading === `customer-${customer.id}-notify` ? <ButtonSpinner dark /> : "Notify"}
-                              </button>
+                                <option value="">
+                                  {rowActionLoading ? "Working..." : "Actions"}
+                                </option>
+                                <option disabled={!canCallCustomer(customer)} value="call">
+                                  Call
+                                </option>
+                                <option disabled={!canSkipOrComplete} value="skip">
+                                  Skip
+                                </option>
+                                <option disabled={!canSkipOrComplete} value="done">
+                                  Done
+                                </option>
+                                <option value="notify">Notify</option>
+                              </select>
                               <button
                                 className="action-chip action-compact action-edit h-11 rounded-xl text-xs"
                                 onClick={() => openBookingEditor(customer)}
@@ -1086,7 +1079,8 @@ export function AdminShell(props) {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                   <PaginationControls

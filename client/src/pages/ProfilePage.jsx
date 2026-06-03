@@ -8,6 +8,7 @@ import {
   limit,
   onSnapshot,
   query as firestoreQuery,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -47,6 +48,12 @@ import {
   formatStatus
 } from "../lib/formatters.js";
 import { downloadBookingInvoice } from "../lib/invoice.js";
+import {
+  createTimeSlots,
+  getBookingDayStats,
+  getVisibleTimeSlots,
+  ONLINE_BOOKING_START_HOUR
+} from "../lib/bookingFlow.js";
 
 const BOOKING_PAGE_SIZE = 5;
 const STAFF_COUNT = 3;
@@ -61,6 +68,7 @@ const SERVICE_ESTIMATE_MINUTES = {
 };
 const queueCountStatuses = new Set(["confirmed", "waiting", "in_chair"]);
 const editableBookingStatuses = ["confirmed", "waiting", "waitlist"];
+const liveBookingStatuses = new Set(["confirmed", "waiting", "waitlist", "in_chair"]);
 
 const getBarberStatsId = (barberName = "") =>
   String(barberName || "barber")
@@ -93,7 +101,9 @@ const getServiceEstimateMinutes = (service = "") => {
 
 const getLiveWaitEstimate = (booking) => {
   if (!booking) return "-";
+  if (isPastActiveBooking(booking)) return "Reschedule needed";
   if (booking.status === "waitlist") return "Admin will confirm your slot";
+  if (booking.status === "confirmed") return "Slot confirmed";
   if (!["waiting", "in_chair"].includes(booking.status)) return "-";
   if (booking.status === "in_chair") return "Serving now";
   const estimate =
@@ -101,6 +111,13 @@ const getLiveWaitEstimate = (booking) => {
     getServiceEstimateMinutes(booking.service);
   return estimate <= 0 ? "Your turn is near" : `${estimate} min approx`;
 };
+
+const isPastActiveBooking = (booking) =>
+  Boolean(
+    booking?.bookingDate &&
+      booking.bookingDate < toDateInputValue(new Date()) &&
+      liveBookingStatuses.has(String(booking.status || "").toLowerCase())
+  );
 
 const normalizeUserBooking = (snapshotDoc) => {
   const data = snapshotDoc.data();
@@ -137,6 +154,7 @@ const normalizeUserBooking = (snapshotDoc) => {
     service: data.service || "Salon Service",
     mobile: data.mobile || data.phone || "",
     status: String(data.status || "waiting").toLowerCase(),
+    bookingDate: data.bookingDate || "",
     bookingLabel:
       data.bookingLabel && data.bookingDisplayDate
         ? `${data.bookingLabel}, ${data.bookingDisplayDate}`
@@ -277,6 +295,7 @@ const groupUserBookings = (bookings) =>
   }, []);
 
 export function ProfilePage({
+  bookingGate = {},
   bookingsOnly = false,
   loginLoading,
   logoutLoading,
@@ -501,25 +520,94 @@ export function ProfilePage({
     setRescheduleBookingId(booking.id);
     try {
       const today = toDateInputValue(new Date());
+      const tomorrowDate = new Date();
+      tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+      const tomorrow = toDateInputValue(tomorrowDate);
       const bookingDate = draft.bookingDate || today;
-      await updateDoc(doc(db, "customers", booking.id), {
-        bookingDate,
-        bookingDay: bookingDate === today ? "today" : "scheduled",
-        bookingLabel: bookingDate === today ? "Today" : "Scheduled",
-        bookingDisplayDate: getDisplayDate(bookingDate),
-        timeSlot: draft.timeSlot,
-        timeSlotLabel: slotLabel,
-        rescheduleRequestedBy: "customer",
-        rescheduledAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
+      const selectedTimeSlot = draft.timeSlot || "";
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const allSlots = createTimeSlots(
+        bookingGate.openingTime || "07:00",
+        bookingGate.closingTime || "23:00"
+      );
+      const dayKey = bookingDate === today ? "today" : "tomorrow";
+      const visibleSlots = getVisibleTimeSlots(dayKey, allSlots);
+
+      if (![today, tomorrow].includes(bookingDate)) {
+        toast.error("You can reschedule only for today or tomorrow.");
+        return;
+      }
+      if (booking.bookingDate === today && bookingDate !== today) {
+        toast.error("Today booking can only change time slot, not date.");
+        return;
+      }
+      if (
+        bookingDate === tomorrow &&
+        currentMinutes < ONLINE_BOOKING_START_HOUR * 60
+      ) {
+        toast.error("Tomorrow reschedule opens after 6:00 AM.");
+        return;
+      }
+      if (!visibleSlots.some((slot) => slot.value === selectedTimeSlot)) {
+        toast.error("Selected time slot is not available now.");
+        return;
+      }
 
       const previousStatus = String(booking.status || "").toLowerCase();
-      if (queueCountStatuses.has(previousStatus)) {
-        const counterUpdates = [];
-        if (booking.bookingDate && booking.timeSlot) {
-          counterUpdates.push(
-            setDoc(
+      const countsTowardQueue = queueCountStatuses.has(previousStatus);
+      const dayStats = await getBookingDayStats(bookingDate, allSlots);
+      const adjustedSlotCount =
+        Number(dayStats.slotCounts[selectedTimeSlot] || 0) -
+        (countsTowardQueue &&
+        booking.bookingDate === bookingDate &&
+        booking.timeSlot === selectedTimeSlot
+          ? 1
+          : 0);
+
+      if (adjustedSlotCount >= STAFF_COUNT) {
+        toast.error("This time slot is full. Please choose another slot.");
+        return;
+      }
+
+      const customerRef = doc(db, "customers", booking.id);
+      await runTransaction(db, async (transaction) => {
+        const nextCounterRef = doc(db, "bookingCounters", bookingDate);
+        const nextCounterSnapshot = await transaction.get(nextCounterRef);
+        const nextCounter = nextCounterSnapshot.exists()
+          ? nextCounterSnapshot.data()
+          : {};
+        const sameCountedSlot =
+          countsTowardQueue &&
+          booking.bookingDate === bookingDate &&
+          booking.timeSlot === selectedTimeSlot;
+        const nextCounterSlotCount =
+          Number(nextCounter.slotCounts?.[selectedTimeSlot] || 0) -
+          (sameCountedSlot ? 1 : 0);
+
+        if (nextCounterSlotCount >= STAFF_COUNT) {
+          throw new Error("This time slot is full. Please choose another slot.");
+        }
+
+        transaction.update(customerRef, {
+          bookingDate,
+          bookingDay: bookingDate === today ? "today" : "tomorrow",
+          bookingLabel: bookingDate === today ? "Today" : "Tomorrow",
+          bookingDisplayDate: getDisplayDate(bookingDate),
+          timeSlot: selectedTimeSlot,
+          timeSlotLabel: slotLabel,
+          rescheduleRequestedBy: "customer",
+          rescheduledAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+
+        if (
+          countsTowardQueue &&
+          (booking.bookingDate !== bookingDate ||
+            booking.timeSlot !== selectedTimeSlot)
+        ) {
+          if (booking.bookingDate && booking.timeSlot) {
+            transaction.set(
               doc(db, "bookingCounters", booking.bookingDate),
               {
                 bookingDate: booking.bookingDate,
@@ -528,25 +616,20 @@ export function ProfilePage({
                 updatedAt: serverTimestamp()
               },
               { merge: true }
-            )
+            );
+          }
+          transaction.set(
+            nextCounterRef,
+            {
+              bookingDate,
+              confirmedCount: increment(1),
+              [`slotCounts.${selectedTimeSlot}`]: increment(1),
+              updatedAt: serverTimestamp()
+            },
+            { merge: true }
           );
         }
-        if (bookingDate && draft.timeSlot) {
-          counterUpdates.push(
-            setDoc(
-              doc(db, "bookingCounters", bookingDate),
-              {
-                bookingDate,
-                confirmedCount: increment(1),
-                [`slotCounts.${draft.timeSlot}`]: increment(1),
-                updatedAt: serverTimestamp()
-              },
-              { merge: true }
-            )
-          );
-        }
-        await Promise.all(counterUpdates);
-      }
+      });
 
       setRescheduleBooking(null);
       window.setTimeout(() => toast.success("Booking rescheduled."), 80);
@@ -605,9 +688,8 @@ export function ProfilePage({
   };
 
   const getBookingViewState = (booking) => {
-    const activeBooking = ["confirmed", "waiting", "waitlist", "in_chair"].includes(
-      booking.status
-    );
+    const pastActiveBooking = isPastActiveBooking(booking);
+    const activeBooking = liveBookingStatuses.has(booking.status) && !pastActiveBooking;
     const bookingRefund = refundRequests.find(
       (refund) => refund.bookingId === booking.id
     );
@@ -617,11 +699,15 @@ export function ProfilePage({
     const refundInProgress =
       refundStatus && !["failed", "rejected"].includes(refundStatus);
     const turnLabel =
-      booking.status === "waitlist"
+      pastActiveBooking
+        ? "Reschedule needed"
+        : booking.status === "waitlist"
         ? "Waiting list"
         : `Estimated turn #${booking.token}`;
     const helperText =
-      refundStatus === "completed"
+      pastActiveBooking
+        ? "This booking date has passed. Please reschedule to a fresh slot before visiting the salon."
+        : refundStatus === "completed"
         ? "Refund completed. The amount has been sent back to the original payment method."
         : refundStatus === "processing"
             ? "Refund initiated. Final bank/payment confirmation is pending."
@@ -642,6 +728,7 @@ export function ProfilePage({
     return {
       activeBooking,
       bookingRefund,
+      pastActiveBooking,
       refundInProgress,
       turnLabel,
       helperText
@@ -752,11 +839,14 @@ export function ProfilePage({
           ) : groupedBookings.length ? (
             paginatedBookingGroups.map((group) => {
               const primaryBooking = group.items[0];
+              const groupNeedsReschedule = group.items.some(isPastActiveBooking);
               const turns = group.items
                 .filter((booking) => booking.status !== "waitlist")
                 .map((booking) => Number(booking.token || 0))
                 .filter(Boolean);
-              const turnLabel = turns.length
+              const turnLabel = groupNeedsReschedule
+                ? "Reschedule needed"
+                : turns.length
                 ? `Estimated turns #${Math.min(...turns)}${
                     turns.length > 1 ? `-${Math.max(...turns)}` : ""
                   }`
@@ -768,7 +858,7 @@ export function ProfilePage({
               ];
               const peopleAhead = group.items
                 .map((booking) =>
-                  ["confirmed", "waiting", "waitlist", "in_chair"].includes(booking.status)
+                  liveBookingStatuses.has(booking.status) && !isPastActiveBooking(booking)
                     ? Number(booking.peopleAhead || 0)
                     : null
                 )
@@ -796,8 +886,9 @@ export function ProfilePage({
                           "Waiting list"}
                       </p>
                       <p className="mt-2 text-xs font-bold leading-5 text-[#f9c66d]">
-                        Slot confirmed. Estimated turn may update when earlier
-                        time slots are booked.
+                        {groupNeedsReschedule
+                          ? "This booking date has passed. Please reschedule before visiting."
+                          : "Slot confirmed. Estimated turn may update when earlier time slots are booked."}
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-[#f4fbf8]">
                         <span className="rounded-full bg-[#101a18] px-3 py-2">
@@ -1121,6 +1212,7 @@ export function ProfilePage({
         />
         <RescheduleDialog
           booking={rescheduleBooking}
+          bookingGate={bookingGate}
           loading={Boolean(rescheduleBookingId)}
           onClose={() => setRescheduleBooking(null)}
           onConfirm={rescheduleCustomerBooking}

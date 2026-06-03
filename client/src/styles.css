@@ -302,6 +302,15 @@ h3 {
   box-shadow: 0 24px 90px rgba(0, 0, 0, 0.34);
 }
 
+.service-card {
+  background: rgba(11, 23, 20, 0.94);
+  border: 1px solid rgba(249, 198, 109, 0.14);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.24);
+  contain: layout paint;
+  content-visibility: auto;
+  contain-intrinsic-size: 340px 360px;
+}
+
 .premium-card {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);

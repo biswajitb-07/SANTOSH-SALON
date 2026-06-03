@@ -43,12 +43,12 @@ export const BOOKING_END_HOUR = 23;
 export const LUNCH_START_HOUR = 13;
 export const LUNCH_END_HOUR = 14;
 export const SLOT_MINUTES = 30;
-export const confirmedBookingStatuses = new Set(["waiting", "in_chair"]);
-export const activeTransferStatuses = new Set(["waiting", "in_chair", "waitlist"]);
+export const confirmedBookingStatuses = new Set(["confirmed", "waiting", "in_chair"]);
+export const activeTransferStatuses = new Set(["confirmed", "waiting", "in_chair", "waitlist"]);
 export const ADMIN_PAGE_SIZE = 6;
 export const SERVICE_PAGE_SIZE = 8;
 export const queueStatusTabs = [
-  { key: "booking", label: "Confirmed", statuses: ["waiting"] },
+  { key: "booking", label: "Confirmed", statuses: ["confirmed", "waiting"] },
   { key: "waitlist", label: "Waiting", statuses: ["waitlist"] },
   { key: "in_chair", label: "In Chair", statuses: ["in_chair"] },
   { key: "completed", label: "Complete", statuses: ["completed"] },

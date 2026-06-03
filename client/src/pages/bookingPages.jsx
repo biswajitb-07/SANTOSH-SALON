@@ -143,13 +143,13 @@ export function HomePage({
               Luxury grooming with live queue confidence.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-8 text-white/78 sm:text-lg">
-              Choose your service, pay online or at the salon, and arrive only
+              Choose your service, pay online, and arrive only
               when your turn is near. A dark luxury booking experience built
               for modern local salons.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <button
-                className="shine-button luxury-button flex min-h-[52px] items-center justify-center gap-2 rounded-full px-6 py-4 font-black shadow-lg shadow-[#f9c66d]/20"
+                className="luxury-button flex min-h-[52px] items-center justify-center gap-2 rounded-full px-6 py-4 font-black shadow-lg shadow-[#f9c66d]/20"
                 onClick={() => onNavigate("booking")}
                 type="button"
               >
@@ -369,8 +369,8 @@ function ServicesSection({
     ? "services-slider drag-scroll flex snap-x gap-3 overflow-x-auto pb-4 pl-1 pr-[24vw] sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-4"
     : "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4";
   const cardClassName = mobileSlider
-    ? "queue-shadow luxury-glass min-w-[68vw] max-w-[68vw] shrink-0 snap-start overflow-hidden rounded-3xl sm:min-w-0 sm:max-w-none sm:shrink"
-    : "queue-shadow luxury-glass overflow-hidden rounded-3xl";
+    ? "service-card min-w-[68vw] max-w-[68vw] shrink-0 snap-start overflow-hidden rounded-3xl sm:min-w-0 sm:max-w-none sm:shrink"
+    : "service-card overflow-hidden rounded-3xl";
 
   useEffect(() => {
     if (!mobileSlider || !sliderRef.current) return;
@@ -427,18 +427,18 @@ function ServicesSection({
                 >
                   <img
                     alt={service.title}
-                    className="h-full w-full object-cover object-center transition duration-300 group-hover:brightness-75"
+                    className="h-full w-full object-cover object-center transition duration-200 group-hover:brightness-90"
                     decoding="async"
                     loading="lazy"
                     src={serviceImageUrl}
                   />
                 </button>
-                <span className="absolute left-3 top-3 grid h-10 w-10 place-items-center rounded-2xl border border-[#f9c66d]/20 bg-[#06100e]/78 text-[#f9c66d] shadow-lg backdrop-blur sm:left-4 sm:top-4 sm:h-12 sm:w-12">
+                <span className="absolute left-3 top-3 grid h-10 w-10 place-items-center rounded-2xl border border-[#f9c66d]/20 bg-[#06100e]/90 text-[#f9c66d] sm:left-4 sm:top-4 sm:h-12 sm:w-12">
                   <Scissors size={18} className="sm:h-[21px] sm:w-[21px]" />
                 </span>
                 <button
                   aria-label={`Open ${service.title} photo`}
-                  className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-2xl border border-[#f9c66d]/30 bg-[#06100e]/78 text-[#f9c66d] shadow-lg backdrop-blur transition hover:scale-105 hover:bg-[#991b1b] hover:text-white sm:h-12 sm:w-12"
+                  className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-2xl border border-[#f9c66d]/30 bg-[#06100e]/90 text-[#f9c66d] transition-colors hover:bg-[#991b1b] hover:text-white sm:h-12 sm:w-12"
                   onClick={() => onPhotoPreview?.(previewService)}
                   type="button"
                 >
@@ -457,7 +457,7 @@ function ServicesSection({
                 {service.price}
               </p>
               <button
-                className={`shine-button mt-3 flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-2xl px-3 py-2 text-xs font-black text-white transition disabled:cursor-not-allowed disabled:opacity-70 sm:mt-4 sm:min-h-[48px] sm:gap-2 sm:px-4 sm:py-3 sm:text-base ${
+                className={`mt-3 flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-2xl px-3 py-2 text-xs font-black text-white transition disabled:cursor-not-allowed disabled:opacity-70 sm:mt-4 sm:min-h-[48px] sm:gap-2 sm:px-4 sm:py-3 sm:text-base ${
                   bookingClosed
                     ? "bg-[#7f1d1d] hover:bg-[#991b1b]"
                     : "bg-[#991b1b] hover:bg-[#7f1d1d]"

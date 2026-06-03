@@ -83,7 +83,7 @@ import {
   timeSlots,
   toDateInputValue
 } from "../lib/adminFlow.jsx";
-import { useBodyScrollLock, useDragScroll } from "../components/common.jsx";
+import { useBodyScrollLock } from "../components/common.jsx";
 
 import {
   useCreateSubscriptionOrderMutation,
@@ -144,7 +144,6 @@ export function useAdminController() {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState("");
   const reindexingDatesRef = useRef(new Set());
-  const queueTabDragScroll = useDragScroll({ enabled: true });
   useBodyScrollLock(Boolean(photoPreviewService));
 
   useEffect(() => {
@@ -2358,10 +2357,15 @@ export function useAdminController() {
     const tomorrowDisplayDate = getDisplayDate(tomorrow);
     const movableBookings = queueItems
       .filter(
-        (item) =>
-          item.bookingDate &&
-          item.bookingDate <= today &&
-          activeTransferStatuses.has(String(item.status || "").toLowerCase())
+        (item) => {
+          const status = String(item.status || "").toLowerCase();
+          return (
+            item.bookingDate &&
+            item.bookingDate <= today &&
+            status !== "confirmed" &&
+            activeTransferStatuses.has(status)
+          );
+        }
       )
       .sort((first, second) => sortBookingsForTurns([first, second])[0] === first ? -1 : 1);
 
@@ -2430,7 +2434,7 @@ export function useAdminController() {
       await reindexQueueDate(tomorrow);
 
       toast.success(
-        "Bookings transferred to tomorrow. Non-paid waitlist bookings were cancelled."
+        "Started bookings/waitlist handled. Confirmed missed bookings stay for customer reschedule."
       );
     } catch (error) {
       toast.error(getSafeErrorMessage(error, "Day close transfer failed."));
@@ -2705,7 +2709,6 @@ export function useAdminController() {
     openAdminBookingDialog,
     closeDayAndTransferBookings,
     selectedQueueTab,
-    queueTabDragScroll,
     queueStatusTabs,
     todaysQueueItems,
     queueStatusTab,

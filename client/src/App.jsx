@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Toaster, toast } from "sonner";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
@@ -8,6 +8,8 @@ import {
   limit,
   onSnapshot,
   query as firestoreQuery,
+  serverTimestamp,
+  setDoc,
   where
 } from "firebase/firestore";
 import { X } from "lucide-react";
@@ -167,6 +169,44 @@ export function App() {
       () => setUserAccount(null)
     );
   }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const photoURL =
+      user.photoURL ||
+      user.providerData?.find((provider) => provider?.photoURL)?.photoURL ||
+      "";
+    const patch = {
+      uid: user.uid,
+      email: user.email || "",
+      name: user.displayName || user.email?.split("@")[0] || "Customer",
+      updatedAt: serverTimestamp()
+    };
+    if (photoURL) patch.photoURL = photoURL;
+
+    setDoc(doc(db, "users", user.uid), patch, { merge: true }).catch(() => {});
+  }, [user]);
+
+  const displayUser = useMemo(() => {
+    if (!user) return null;
+    const savedPhotoURL = userAccount?.photoURL || userAccount?.photoUrl || "";
+    return {
+      uid: user.uid,
+      email: user.email || userAccount?.email || "",
+      displayName:
+        user.displayName ||
+        userAccount?.name ||
+        userAccount?.displayName ||
+        user.email?.split("@")[0] ||
+        "Customer",
+      photoURL:
+        user.photoURL ||
+        user.providerData?.find((provider) => provider?.photoURL)?.photoURL ||
+        savedPhotoURL,
+      providerData: user.providerData || []
+    };
+  }, [user, userAccount]);
 
   useEffect(() => {
     writeClientRoute({ page }, true);
@@ -578,7 +618,7 @@ export function App() {
         routeProgress={routeProgress}
         routeProgressActive={routeProgressActive}
         scrollProgress={scrollProgress}
-        user={user}
+        user={displayUser}
       />
       {authError ? (
         <div className="mx-auto mt-4 max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -600,7 +640,7 @@ export function App() {
             queueStats={queueStats}
             queueLoading={queueLoading}
             services={salonServices.slice(0, 4)}
-            user={user}
+            user={displayUser}
           />
         ) : null}
         {page === "booking" ? (
@@ -611,12 +651,12 @@ export function App() {
             onPhotoPreview={setPhotoPreviewService}
             onServiceSelect={requestServiceSelection}
             services={salonServices}
-            user={user}
+            user={displayUser}
           />
         ) : null}
         {page === "barbers" ? <BarbersPage bookingGate={bookingGate} /> : null}
         {page === "about" ? <AboutPage /> : null}
-        {page === "contact" ? <ContactPage user={user} /> : null}
+        {page === "contact" ? <ContactPage user={displayUser} /> : null}
         {page === "pricing" ? <PricingPage /> : null}
         {page === "gallery" ? <GalleryPage /> : null}
         {page === "staff" ? <StaffPage /> : null}
@@ -625,22 +665,24 @@ export function App() {
         {legalPages.includes(page) ? <LegalPage page={page} /> : null}
         {page === "profile" ? (
           <ProfilePage
+            bookingGate={bookingGate}
             loginLoading={loginLoading}
             logoutLoading={logoutLoading}
             onMyBookings={() => navigatePage("my-bookings")}
             onLogin={login}
             onLogout={requestLogout}
-            user={user}
+            user={displayUser}
           />
         ) : null}
         {page === "my-bookings" ? (
           <ProfilePage
             bookingsOnly
+            bookingGate={bookingGate}
             loginLoading={loginLoading}
             logoutLoading={logoutLoading}
             onLogin={login}
             onLogout={requestLogout}
-            user={user}
+            user={displayUser}
           />
         ) : null}
       </Suspense>
@@ -651,7 +693,7 @@ export function App() {
             onBookingSuccess={handleBookingSuccess}
             onClose={() => setSelectedService(null)}
             service={selectedService}
-            user={user}
+            user={displayUser}
             userAccount={userAccount}
           />
         </Suspense>

@@ -736,8 +736,8 @@ export function CheckoutModal({
   };
 
   return (
-    <div className="modal-fade fixed inset-0 z-[9999] flex h-[100dvh] items-center justify-center overflow-hidden bg-black/65 px-3 py-4 backdrop-blur-md sm:px-5 sm:py-6">
-      <section className="queue-shadow relative flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[#f9c66d]/15 bg-[#081311]/95 text-[#f4fbf8] sm:max-h-[min(820px,calc(100dvh-3rem))] sm:max-w-3xl sm:rounded-[2rem] lg:max-w-4xl">
+    <div className="modal-fade fixed inset-0 z-[9999] flex h-[100dvh] items-center justify-center overflow-hidden bg-black/75 px-3 py-4 sm:px-5 sm:py-6">
+      <section className="relative flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[#f9c66d]/15 bg-[#081311]/95 text-[#f4fbf8] shadow-2xl shadow-black/45 sm:max-h-[min(820px,calc(100dvh-3rem))] sm:max-w-3xl sm:rounded-[2rem] lg:max-w-4xl">
         <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#35201f] bg-[#081311]/95 px-5 py-4 backdrop-blur sm:px-6">
           <div>
             <p className="section-kicker">
@@ -1070,7 +1070,7 @@ export function CheckoutModal({
             Cancellation is available before service starts. Refunds are for the eligible service amount only; platform fee and Cashfree charges are non-refundable.
           </p>
           <button
-            className="shine-button flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 py-4 font-black text-white shadow-lg shadow-[#991b1b]/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 py-4 font-black text-white shadow-lg shadow-[#991b1b]/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={loading}
             type="submit"
           >
@@ -1102,8 +1102,8 @@ export function CheckoutModal({
           </p>
         ) : null}
         {loading && showProcessingOverlay ? (
-          <div className="absolute inset-0 z-30 grid place-items-center bg-[#06100e]/82 px-5 text-center backdrop-blur-md">
-            <div className="w-full max-w-sm rounded-3xl border border-[#f9c66d]/20 bg-[#081311] p-6 queue-shadow">
+          <div className="absolute inset-0 z-30 grid place-items-center bg-[#06100e]/90 px-5 text-center">
+            <div className="w-full max-w-sm rounded-3xl border border-[#f9c66d]/20 bg-[#081311] p-6 shadow-2xl shadow-black/40">
               <DottedBookingLoader />
               <h3 className="mt-4 text-xl font-black text-[#f4fbf8]">
                 Processing your booking

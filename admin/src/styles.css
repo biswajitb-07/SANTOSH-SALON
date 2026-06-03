@@ -625,6 +625,34 @@ textarea.ui-input {
   font-weight: 800;
 }
 
+.action-dropdown {
+  appearance: auto;
+  background:
+    linear-gradient(135deg, rgba(36, 23, 13, 0.98), rgba(127, 29, 29, 0.92)),
+    #24170d;
+  border: 1px solid rgba(249, 198, 109, 0.28);
+  color: #fff;
+  cursor: pointer;
+  min-width: 7.5rem;
+  padding: 0.55rem 0.7rem;
+}
+
+.action-dropdown:hover {
+  filter: brightness(1.08);
+}
+
+.action-dropdown:disabled {
+  cursor: not-allowed;
+  filter: none;
+  opacity: 0.62;
+}
+
+.action-dropdown option {
+  background: #0b1714;
+  color: #fff;
+  font-weight: 800;
+}
+
 .action-compact {
   min-width: 0;
   padding-left: 0.5rem;
