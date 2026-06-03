@@ -1,4 +1,4 @@
-import { titleCase } from "./routing.js";
+import { getClientPagePath, titleCase } from "./routing.js";
 
 const pageDescriptions = {
   home: "Santosh Salon Queue helps customers book grooming services, track live queue tokens, and contact the salon team.",
@@ -38,7 +38,7 @@ export function applyClientSeo(page) {
   const description =
     pageDescriptions[page] ||
     "Book salon grooming services, track live queue tokens, and manage haircut booking details with Santosh Salon Queue.";
-  const canonical = `https://santosh-salon.web.app/?page=${page || "home"}`;
+  const canonical = `https://santosh-salon.web.app${getClientPagePath(page || "home")}`;
 
   document.title = title;
   setMeta("meta[name='description']", "content", description);

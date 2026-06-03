@@ -157,13 +157,7 @@ export function useAdminController() {
 
     if (!user) {
       setActivePage("dashboard");
-      if (typeof window !== "undefined" && window.location.search) {
-        window.history.replaceState(
-          {},
-          "",
-          `${window.location.pathname}${window.location.hash}`
-        );
-      }
+      writeAdminRoute("dashboard", true);
       return undefined;
     }
 
@@ -866,7 +860,7 @@ export function useAdminController() {
   )
     ? bookingDraft?.timeSlot
     : adminBookingSlots[0]?.value || "";
-  const publicQueueLink = `${CLIENT_URL}/q/${salonProfile.slug || user?.uid || "salon"}`;
+  const publicQueueLink = `${CLIENT_URL}/services`;
   const premiumActive = isPremiumActive(salonProfile);
   const premiumUntilDate = getPremiumUntilDate(salonProfile);
   const activeNavItem =

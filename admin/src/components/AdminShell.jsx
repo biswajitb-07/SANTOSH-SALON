@@ -386,7 +386,7 @@ export function AdminShell(props) {
                   </p>
                   <div className="mt-3 flex items-center gap-2 rounded-2xl bg-[var(--color-surface)] px-3 py-3 text-[#f4fbf8]">
                     <p className="min-w-0 flex-1 truncate text-sm font-bold">
-                      santosh-salon.web.app/q/santosh
+                      {publicQueueLink}
                     </p>
                     <Copy size={18} />
                   </div>

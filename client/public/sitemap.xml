@@ -1,62 +1,87 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://santosh-salon.web.app/?page=home</loc>
+    <loc>https://santosh-salon.web.app/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://santosh-salon.web.app/?page=booking</loc>
+    <loc>https://santosh-salon.web.app/services</loc>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://santosh-salon.web.app/?page=about</loc>
+    <loc>https://santosh-salon.web.app/barbers</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://santosh-salon.web.app/about</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://santosh-salon.web.app/?page=contact</loc>
+    <loc>https://santosh-salon.web.app/contact</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://santosh-salon.web.app/?page=pricing</loc>
+    <loc>https://santosh-salon.web.app/pricing</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://santosh-salon.web.app/?page=gallery</loc>
+    <loc>https://santosh-salon.web.app/gallery</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://santosh-salon.web.app/?page=staff</loc>
+    <loc>https://santosh-salon.web.app/staff</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://santosh-salon.web.app/?page=faq</loc>
+    <loc>https://santosh-salon.web.app/faq</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://santosh-salon.web.app/?page=privacy-policy</loc>
+    <loc>https://santosh-salon.web.app/services/haircut</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://santosh-salon.web.app/services/beard-styling</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://santosh-salon.web.app/services/facial-grooming</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://santosh-salon.web.app/services/hair-wash</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://santosh-salon.web.app/privacy-policy</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://santosh-salon.web.app/?page=terms-and-conditions</loc>
+    <loc>https://santosh-salon.web.app/terms-and-conditions</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://santosh-salon.web.app/?page=cancellation-refund-policy</loc>
+    <loc>https://santosh-salon.web.app/cancellation-refund-policy</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://santosh-salon.web.app/?page=payment-policy</loc>
+    <loc>https://santosh-salon.web.app/payment-policy</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>

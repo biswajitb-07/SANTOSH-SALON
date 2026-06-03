@@ -25,6 +25,50 @@ export const routedPages = [
   ...legalPages
 ];
 
+const pagePathMap = {
+  home: "/",
+  booking: "/services",
+  barbers: "/barbers",
+  about: "/about",
+  contact: "/contact",
+  pricing: "/pricing",
+  gallery: "/gallery",
+  staff: "/staff",
+  faq: "/faq",
+  profile: "/profile",
+  "my-bookings": "/my-bookings",
+  "privacy-policy": "/privacy-policy",
+  "terms-and-conditions": "/terms-and-conditions",
+  "cancellation-refund-policy": "/cancellation-refund-policy",
+  "payment-policy": "/payment-policy",
+  "haircut-service": "/services/haircut",
+  "beard-styling-service": "/services/beard-styling",
+  "facial-grooming-service": "/services/facial-grooming",
+  "hair-wash-service": "/services/hair-wash"
+};
+
+const pathPageMap = Object.entries(pagePathMap).reduce(
+  (pages, [page, path]) => ({
+    ...pages,
+    [path]: page
+  }),
+  {
+    "/booking": "booking",
+    "/services/classic-haircut": "haircut-service",
+    "/services/beard": "beard-styling-service",
+    "/services/facial": "facial-grooming-service",
+    "/services/hairwash": "hair-wash-service"
+  }
+);
+
+const normalizePath = (pathname = "/") => {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  return path.toLowerCase();
+};
+
+export const getClientPagePath = (page = "home") =>
+  pagePathMap[routedPages.includes(page) ? page : "home"] || "/";
+
 export function titleCase(value = "") {
   const labels = {
     about: "About Us",
@@ -59,7 +103,19 @@ export function getClientRoute() {
   }
 
   const params = new URLSearchParams(window.location.search);
-  const page = params.get("page");
+  const queryPage = params.get("page");
+  if (routedPages.includes(queryPage)) {
+    return { page: queryPage };
+  }
+
+  const pathname = normalizePath(window.location.pathname);
+  if (pathname.startsWith("/q/")) {
+    return { page: "booking" };
+  }
+  if (pathname === "/payment/status") {
+    return { page: "my-bookings" };
+  }
+  const page = pathPageMap[pathname];
 
   return {
     page: routedPages.includes(page) ? page : "home"
@@ -71,7 +127,8 @@ export function writeClientRoute({ page }, replace = false) {
 
   const safePage = routedPages.includes(page) ? page : "home";
   const url = new URL(window.location.href);
-  url.searchParams.set("page", safePage);
+  url.pathname = getClientPagePath(safePage);
+  url.searchParams.delete("page");
   url.searchParams.delete("tab");
 
   const method = replace ? "replaceState" : "pushState";
