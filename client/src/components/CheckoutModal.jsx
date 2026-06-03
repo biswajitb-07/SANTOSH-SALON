@@ -18,8 +18,7 @@ import {
   ButtonSpinner,
   ConfirmDialog,
   getUserPhotoUrl,
-  useBodyScrollLock,
-  useDragScroll
+  useBodyScrollLock
 } from "./common.jsx";
 import { formatMoney } from "../lib/formatters.js";
 import { defaultServices } from "../lib/services.js";
@@ -119,7 +118,6 @@ export function CheckoutModal({
     confirmedCount: 0,
     waitlistCount: 0
   });
-  const slotDragScroll = useDragScroll({ enabled: true });
   const bookingTimeSlots = useMemo(
     () => createTimeSlots(bookingGate.openingTime, bookingGate.closingTime),
     [bookingGate.closingTime, bookingGate.openingTime]
@@ -891,8 +889,7 @@ export function CheckoutModal({
           <div>
             <span className="mb-2 block text-sm font-bold">Time Slot</span>
             <div
-              className="services-slider drag-scroll -mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-3"
-              {...slotDragScroll}
+              className="services-slider -mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-3"
             >
               {slotState.loading ? (
                 Array.from({ length: 3 }).map((_, index) => (
