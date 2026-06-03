@@ -10,6 +10,7 @@ const adminUserWriteLimiter = createRateLimiter({
 });
 
 const cleanValue = (value) => String(value || "").trim();
+const ADMIN_USER_RELATED_DOC_LIMIT = 120;
 
 const addQueryDocs = async (db, docsMap, collectionName, fieldName, fieldValue) => {
   const value = cleanValue(fieldValue);
@@ -18,6 +19,7 @@ const addQueryDocs = async (db, docsMap, collectionName, fieldName, fieldValue) 
   const snapshot = await db
     .collection(collectionName)
     .where(fieldName, "==", value)
+    .limit(ADMIN_USER_RELATED_DOC_LIMIT)
     .get();
 
   snapshot.docs.forEach((snapshotDoc) => {

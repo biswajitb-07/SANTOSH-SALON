@@ -23,6 +23,7 @@ import {
 } from "../middleware/validation.js";
 import { reindexQueueDate } from "../queueReindex.js";
 import { logWebhookEvent } from "../webhookLogs.js";
+import { DAILY_BOOKING_LIMIT, STAFF_COUNT, WAITLIST_LIMIT } from "../bookingLimits.js";
 
 export const customerPaymentsRouter = express.Router();
 const writeLimiter = createRateLimiter({
@@ -31,7 +32,7 @@ const writeLimiter = createRateLimiter({
   windowMs: 60_000
 });
 
-customerPaymentsRouter.post("/cashfree/create-order", writeLimiter, async (req, res, next) => {
+customerPaymentsRouter.post("/cashfree/create-order", requireFirebaseUser, writeLimiter, async (req, res, next) => {
   try {
     const {
       serviceTitle,
@@ -42,6 +43,8 @@ customerPaymentsRouter.post("/cashfree/create-order", writeLimiter, async (req, 
       customerUserId,
       bookingDay,
       bookingDate,
+      peopleCount,
+      timeSlot,
       checkoutRequestId
     } = req.body;
 
@@ -49,7 +52,8 @@ customerPaymentsRouter.post("/cashfree/create-order", writeLimiter, async (req, 
       "serviceTitle",
       "amount",
       "customerName",
-      "customerMobile"
+      "customerMobile",
+      "bookingDate"
     ]);
     const safeAmount = parsePositiveAmount(amount);
     if (missing || !safeAmount) {
@@ -58,15 +62,48 @@ customerPaymentsRouter.post("/cashfree/create-order", writeLimiter, async (req, 
       });
     }
 
+    const safeBookingDate = cleanString(bookingDate, 20);
+    const safePeopleCount = Math.min(
+      2,
+      Math.max(1, Number.parseInt(peopleCount, 10) || 1)
+    );
+    const safeTimeSlot = cleanString(timeSlot, 20);
+    const db = getDb();
+    if (db) {
+      const counterSnapshot = await db
+        .collection("bookingCounters")
+        .doc(safeBookingDate)
+        .get();
+      const counter = counterSnapshot.exists ? counterSnapshot.data() || {} : {};
+      const confirmedCount = Number(counter.confirmedCount || 0);
+      const waitlistCount = Number(counter.waitlistCount || 0);
+      const totalBookingCount = confirmedCount + waitlistCount;
+      if (totalBookingCount + safePeopleCount > DAILY_BOOKING_LIMIT) {
+        return res.status(409).json({
+          error: "Daily booking limit reached. Only 100 bookings are allowed per day."
+        });
+      }
+
+      if (safeTimeSlot) {
+        const slotCount = Number(counter.slotCounts?.[safeTimeSlot] || 0);
+        const slotOverCapacity = slotCount + safePeopleCount > STAFF_COUNT;
+        if (slotOverCapacity && waitlistCount + safePeopleCount > WAITLIST_LIMIT) {
+          return res.status(409).json({
+            error: "This slot is full and the waiting list is also full. Please choose another slot."
+          });
+        }
+      }
+    }
+
     const order = await createCashfreeServiceOrder({
       serviceTitle: cleanString(serviceTitle, 80),
       amount: safeAmount,
       customerName: cleanString(customerName, 80),
       customerMobile: cleanPhone(customerMobile),
       customerEmail: cleanEmail(customerEmail),
-      customerUserId: cleanString(customerUserId, 80),
+      customerUserId: cleanString(customerUserId || req.user.uid, 80),
       bookingDay: cleanString(bookingDay, 20),
-      bookingDate: cleanString(bookingDate, 20),
+      bookingDate: safeBookingDate,
       idempotencyKey: cleanString(checkoutRequestId, 80)
     });
 

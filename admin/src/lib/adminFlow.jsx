@@ -37,7 +37,7 @@ export const getBarberStatsId = (barberName = "") =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") || "barber";
-export const DAILY_CONFIRMED_LIMIT = 35;
+export const DAILY_CONFIRMED_LIMIT = 50;
 export const SLOT_START_HOUR = 7;
 export const BOOKING_END_HOUR = 23;
 export const LUNCH_START_HOUR = 13;

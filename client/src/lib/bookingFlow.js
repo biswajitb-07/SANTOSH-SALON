@@ -2,6 +2,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   limit,
   query as firestoreQuery,
@@ -15,8 +16,9 @@ export const SALON_SLUG = import.meta.env.VITE_SALON_SLUG || "santosh";
 export const BOOKING_CLOSED_MESSAGE =
   "Booking is currently closed by the owner. Please try again later.";
 export const STAFF_COUNT = 3;
-export const DAILY_CONFIRMED_LIMIT = 35;
-export const WAITLIST_LIMIT = 10;
+export const DAILY_CONFIRMED_LIMIT = 50;
+export const WAITLIST_LIMIT = 50;
+export const DAILY_BOOKING_LIMIT = DAILY_CONFIRMED_LIMIT + WAITLIST_LIMIT;
 export const USER_BOOKING_HISTORY_LIMIT = 5;
 export const BOOKING_DAY_STATS_READ_LIMIT = 120;
 export const PLATFORM_FEE_PER_PERSON = 2;
@@ -358,6 +360,21 @@ export const normalizeQueueItem = (snapshotDoc, displayToken) => {
 };
 
 export const getBookingDayStats = async (bookingDate, slots = timeSlots) => {
+  const counterSnapshot = await getDoc(doc(db, "bookingCounters", bookingDate));
+  if (counterSnapshot.exists()) {
+    const counter = counterSnapshot.data();
+    const slotCounts = counter.slotCounts || {};
+    return {
+      bookings: [],
+      confirmedCount: Number(counter.confirmedCount || 0),
+      waitlistCount: Number(counter.waitlistCount || 0),
+      availableSlots: slots.filter(
+        (slot) => (slotCounts[slot.value] || 0) < STAFF_COUNT
+      ),
+      slotCounts
+    };
+  }
+
   const bookingSnapshot = await getDocs(
     firestoreQuery(
       collection(db, "customers"),
@@ -400,7 +417,8 @@ export const getActiveUserBookings = async (userId) => {
     firestoreQuery(
       collection(db, "customers"),
       where("userId", "==", userId),
-      where("status", "in", [...activeBookingStatuses])
+      where("status", "in", [...activeBookingStatuses]),
+      limit(5)
     )
   );
 

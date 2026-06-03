@@ -942,24 +942,48 @@ export function useAdminController() {
       (booking) => String(booking.status || "").toLowerCase() === "waitlist"
     );
 
-    await Promise.all([
-      ...activeBookings.map((booking, index) =>
-        updateDoc(booking.ref, {
-          token: index + 1,
-          peopleAhead: index,
-          queuePosition: index + 1,
-          turnSortMinutes: getBookingSortMinutes(booking)
-        })
-      ),
-      ...waitlistBookings.map((booking) =>
-        updateDoc(booking.ref, {
-          token: 0,
-          peopleAhead: 0,
-          queuePosition: 0,
-          turnSortMinutes: getBookingSortMinutes(booking)
-        })
-      )
-    ]);
+    const batch = writeBatch(db);
+    let changedCount = 0;
+
+    activeBookings.forEach((booking, index) => {
+      const nextTurnSortMinutes = getBookingSortMinutes(booking);
+      if (
+        Number(booking.token || 0) === index + 1 &&
+        Number(booking.peopleAhead || 0) === index &&
+        Number(booking.queuePosition || 0) === index + 1 &&
+        Number(booking.turnSortMinutes || 0) === nextTurnSortMinutes
+      ) {
+        return;
+      }
+
+      batch.update(booking.ref, {
+        token: index + 1,
+        peopleAhead: index,
+        queuePosition: index + 1,
+        turnSortMinutes: nextTurnSortMinutes
+      });
+      changedCount += 1;
+    });
+
+    waitlistBookings.forEach((booking) => {
+      const nextTurnSortMinutes = getBookingSortMinutes(booking);
+      if (
+        Number(booking.token || 0) === 0 &&
+        Number(booking.peopleAhead || 0) === 0 &&
+        Number(booking.queuePosition || 0) === 0 &&
+        Number(booking.turnSortMinutes || 0) === nextTurnSortMinutes
+      ) {
+        return;
+      }
+
+      batch.update(booking.ref, {
+        token: 0,
+        peopleAhead: 0,
+        queuePosition: 0,
+        turnSortMinutes: nextTurnSortMinutes
+      });
+      changedCount += 1;
+    });
 
     const slotCounts = activeBookings.reduce((counts, booking) => {
       const slot = booking.timeSlot || "";
@@ -967,7 +991,7 @@ export function useAdminController() {
       return counts;
     }, {});
 
-    await setDoc(
+    batch.set(
       doc(db, "bookingCounters", bookingDate),
       {
         bookingDate,
@@ -978,6 +1002,11 @@ export function useAdminController() {
       },
       { merge: true }
     );
+    changedCount += 1;
+
+    if (changedCount > 0) {
+      await batch.commit();
+    }
 
     return activeBookings.map((booking, index) => ({
       ...booking,
@@ -1687,6 +1716,12 @@ export function useAdminController() {
             String(selectedStatus).toLowerCase()
           );
 
+          if (countsTowardQueue && confirmedCount + 1 > DAILY_CONFIRMED_LIMIT) {
+            throw new Error(
+              "Confirmed booking limit reached. Only 50 confirmed bookings are allowed per day."
+            );
+          }
+
           if (countsTowardQueue && currentSlotCount >= STAFF_COUNT) {
             throw new Error(
               "This time slot already has 3 bookings. Please choose another slot."
@@ -1776,6 +1811,28 @@ export function useAdminController() {
         setActionLoading("");
         return;
       }
+
+      const previousBooking = queueItems.find((item) => item.id === editingBookingId);
+      const wasCounted = confirmedBookingStatuses.has(
+        String(previousBooking?.status || "").toLowerCase()
+      );
+      const willCount = confirmedBookingStatuses.has(
+        String(bookingDraft.status || "").toLowerCase()
+      );
+      if (
+        willCount &&
+        (!wasCounted || previousBooking?.bookingDate !== draftDate)
+      ) {
+        const confirmedCount = await getConfirmedCountForDate(draftDate);
+        const sameDayCounted =
+          wasCounted && previousBooking?.bookingDate === draftDate ? 1 : 0;
+        if (confirmedCount - sameDayCounted + 1 > DAILY_CONFIRMED_LIMIT) {
+          toast.error("Confirmed booking limit reached. Only 50 confirmed bookings are allowed per day.");
+          setActionLoading("");
+          return;
+        }
+      }
+
       await updateDoc(doc(db, "customers", editingBookingId), {
         name: bookingDraft.name.trim(),
         mobile: bookingDraft.mobile.trim(),

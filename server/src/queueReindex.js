@@ -1,7 +1,8 @@
 import { getDb } from "./firebaseAdmin.js";
+import { DAILY_BOOKING_LIMIT, WAITLIST_LIMIT } from "./bookingLimits.js";
 
 const confirmedBookingStatuses = new Set(["confirmed", "waiting", "in_chair"]);
-const QUEUE_REINDEX_READ_LIMIT = 150;
+const QUEUE_REINDEX_READ_LIMIT = DAILY_BOOKING_LIMIT + WAITLIST_LIMIT + 40;
 
 const getTimestampMillis = (value) => {
   if (!value) return 0;
@@ -70,33 +71,56 @@ export const reindexQueueDate = async (bookingDate) => {
     (booking) => String(booking.status || "").toLowerCase() === "waitlist"
   );
   const batch = db.batch();
+  let writeCount = 0;
 
   confirmedBookings.forEach((booking, index) => {
+    const nextTurnSortMinutes = getBookingSortMinutes(booking);
+    if (
+      Number(booking.token || 0) === index + 1 &&
+      Number(booking.peopleAhead || 0) === index &&
+      Number(booking.queuePosition || 0) === index + 1 &&
+      Number(booking.turnSortMinutes || 0) === nextTurnSortMinutes
+    ) {
+      return;
+    }
+
     batch.set(
       booking.ref,
       {
         token: index + 1,
         peopleAhead: index,
         queuePosition: index + 1,
-        turnSortMinutes: getBookingSortMinutes(booking),
+        turnSortMinutes: nextTurnSortMinutes,
         updatedAt: new Date()
       },
       { merge: true }
     );
+    writeCount += 1;
   });
 
   waitlistBookings.forEach((booking) => {
+    const nextTurnSortMinutes = Number.MAX_SAFE_INTEGER - 1;
+    if (
+      Number(booking.token || 0) === 0 &&
+      Number(booking.peopleAhead || 0) === 0 &&
+      Number(booking.queuePosition || 0) === 0 &&
+      Number(booking.turnSortMinutes || 0) === nextTurnSortMinutes
+    ) {
+      return;
+    }
+
     batch.set(
       booking.ref,
       {
         token: 0,
         peopleAhead: 0,
         queuePosition: 0,
-        turnSortMinutes: Number.MAX_SAFE_INTEGER - 1,
+        turnSortMinutes: nextTurnSortMinutes,
         updatedAt: new Date()
       },
       { merge: true }
     );
+    writeCount += 1;
   });
 
   const slotCounts = confirmedBookings.reduce((counts, booking) => {
@@ -105,19 +129,31 @@ export const reindexQueueDate = async (bookingDate) => {
     return counts;
   }, {});
 
-  batch.set(
-    db.collection("bookingCounters").doc(bookingDate),
-    {
-      bookingDate,
-      confirmedCount: confirmedBookings.length,
-      waitlistCount: waitlistBookings.length,
-      slotCounts,
-      updatedAt: new Date()
-    },
-    { merge: true }
-  );
+  const counterRef = db.collection("bookingCounters").doc(bookingDate);
+  const counterSnapshot = await counterRef.get();
+  const counter = counterSnapshot.exists ? counterSnapshot.data() || {} : {};
+  const counterUnchanged =
+    Number(counter.confirmedCount || 0) === confirmedBookings.length &&
+    Number(counter.waitlistCount || 0) === waitlistBookings.length &&
+    JSON.stringify(counter.slotCounts || {}) === JSON.stringify(slotCounts);
+  if (!counterUnchanged) {
+    batch.set(
+      counterRef,
+      {
+        bookingDate,
+        confirmedCount: confirmedBookings.length,
+        waitlistCount: waitlistBookings.length,
+        slotCounts,
+        updatedAt: new Date()
+      },
+      { merge: true }
+    );
+    writeCount += 1;
+  }
 
-  await batch.commit();
+  if (writeCount > 0) {
+    await batch.commit();
+  }
 
   return {
     bookingDate,
@@ -136,6 +172,7 @@ export const reindexQueueDate = async (bookingDate) => {
       queuePosition: 0
     })),
     confirmedCount: confirmedBookings.length,
-    waitlistCount: waitlistBookings.length
+    waitlistCount: waitlistBookings.length,
+    writeCount
   };
 };

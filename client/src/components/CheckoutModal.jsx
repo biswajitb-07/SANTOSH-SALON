@@ -25,6 +25,7 @@ import { defaultServices } from "../lib/services.js";
 import {
   BARBER_OPTIONS,
   confirmedBookingStatuses,
+  DAILY_BOOKING_LIMIT,
   createTimeSlots,
   DAILY_CONFIRMED_LIMIT,
   DEFAULT_COUPONS,
@@ -115,6 +116,7 @@ export function CheckoutModal({
   const [slotState, setSlotState] = useState({
     loading: true,
     availableSlots: [],
+    displaySlots: [],
     confirmedCount: 0,
     waitlistCount: 0
   });
@@ -163,19 +165,28 @@ export function CheckoutModal({
       .then((stats) => {
         if (cancelled) return;
         const requiredSeats = form.includeGuest ? 2 : 1;
-        const visibleSlots = getVisibleTimeSlots(form.bookingDay, bookingTimeSlots).filter(
-          (slot) =>
-            STAFF_COUNT - Number(stats.slotCounts[slot.value] || 0) >=
-            requiredSeats
+        const visibleSlots = getVisibleTimeSlots(form.bookingDay, bookingTimeSlots).map(
+          (slot) => {
+            const bookedCount = Number(stats.slotCounts[slot.value] || 0);
+            const remainingSeats = Math.max(0, STAFF_COUNT - bookedCount);
+            return {
+              ...slot,
+              bookedCount,
+              remainingSeats,
+              full: remainingSeats < requiredSeats
+            };
+          }
         );
+        const availableSlots = visibleSlots.filter((slot) => !slot.full);
         setSlotState({
           loading: false,
-          availableSlots: visibleSlots,
+          availableSlots,
+          displaySlots: visibleSlots,
           confirmedCount: stats.confirmedCount,
           waitlistCount: stats.waitlistCount
         });
         setForm((current) => {
-          const currentSlotAvailable = visibleSlots.some(
+          const currentSlotAvailable = availableSlots.some(
             (slot) => slot.value === current.timeSlot
           );
 
@@ -183,7 +194,7 @@ export function CheckoutModal({
 
           return {
             ...current,
-            timeSlot: visibleSlots[0]?.value || ""
+            timeSlot: availableSlots[0]?.value || ""
           };
         });
       })
@@ -192,6 +203,7 @@ export function CheckoutModal({
         setSlotState({
           loading: false,
           availableSlots: [],
+          displaySlots: [],
           confirmedCount: 0,
           waitlistCount: 0
         });
@@ -338,9 +350,12 @@ export function CheckoutModal({
       return;
     }
 
-    if (!selectedSlot && slotState.confirmedCount < DAILY_CONFIRMED_LIMIT) {
+    if (
+      !selectedSlot &&
+      slotState.confirmedCount + slotState.waitlistCount < DAILY_BOOKING_LIMIT
+    ) {
       const message =
-        "No future slots are available for today. Please contact the salon.";
+        "Online slots are complete for this time window. Go to salon for walk-in help.";
       setStatus({
         type: "error",
         message
@@ -385,6 +400,19 @@ export function CheckoutModal({
       }
 
       const prePaymentStats = await getBookingDayStats(bookingOption.date, bookingTimeSlots);
+      const prePaymentTotalBookings =
+        prePaymentStats.confirmedCount + prePaymentStats.waitlistCount;
+      if (prePaymentTotalBookings + customers.length > DAILY_BOOKING_LIMIT) {
+        const message =
+          "Daily booking limit reached. Only 100 bookings are allowed per day.";
+        setStatus({
+          type: "error",
+          message
+        });
+        toast.error(message);
+        setLoading(false);
+        return;
+      }
       const prePaymentWaitlist =
         prePaymentStats.confirmedCount + customers.length >
         DAILY_CONFIRMED_LIMIT;
@@ -414,7 +442,7 @@ export function CheckoutModal({
         prePaymentStats.waitlistCount + customers.length > WAITLIST_LIMIT
       ) {
         const message =
-          "The waiting list already has 10 customers. Booking will reopen when the waiting list drops to 9.";
+          "The waiting list already has 50 customers. Booking will reopen when the waiting list drops below 50.";
         setStatus({
           type: "error",
           message
@@ -446,6 +474,8 @@ export function CheckoutModal({
         customerUserId: user.uid,
         bookingDay: bookingOption.day,
         bookingDate: bookingOption.date,
+        peopleCount: customers.length,
+        timeSlot: selectedSlot?.value || "",
         checkoutRequestId
       }).unwrap();
 
@@ -531,6 +561,11 @@ export function CheckoutModal({
           : 0;
         const slotOverCapacity =
           selectedSlotValue && slotCount + customers.length > STAFF_COUNT;
+        if (confirmedCount + waitlistCount + customers.length > DAILY_BOOKING_LIMIT) {
+          throw new Error(
+            "Daily booking limit reached. Only 100 bookings are allowed per day."
+          );
+        }
         const isWaitlist =
           confirmedCount + customers.length > DAILY_CONFIRMED_LIMIT ||
           slotOverCapacity;
@@ -538,7 +573,7 @@ export function CheckoutModal({
 
         if (isWaitlist && waitlistCount + customers.length > WAITLIST_LIMIT) {
           throw new Error(
-            "The waiting list already has 10 customers. Booking will reopen when the waiting list drops to 9."
+            "The waiting list already has 50 customers. Booking will reopen when the waiting list drops below 50."
           );
         }
 
@@ -899,17 +934,27 @@ export function CheckoutModal({
                     key={index}
                   />
                 ))
-              ) : slotState.availableSlots.length ? (
-                slotState.availableSlots.map((slot) => {
+              ) : slotState.displaySlots.length ? (
+                slotState.displaySlots.map((slot) => {
                   const active = form.timeSlot === slot.value;
+                  const disabled = slot.full;
+                  const availabilityText =
+                    slot.remainingSeats > 0
+                      ? `${slot.remainingSeats} slot${
+                          slot.remainingSeats > 1 ? "s" : ""
+                        } available`
+                      : "Slot complete";
 
                   return (
                     <button
-                    className={`min-h-20 min-w-[80px] snap-start rounded-2xl border px-4 py-3 text-center transition sm:min-w-[42%] lg:min-w-[34%] ${
+                    className={`min-h-20 min-w-[80px] snap-start rounded-2xl border px-4 py-3 text-center transition disabled:cursor-not-allowed disabled:opacity-70 sm:min-w-[42%] lg:min-w-[34%] ${
                         active
                           ? "border-[#f87171] bg-[#3a1515] text-[#f4fbf8] ring-4 ring-[#ef4444]/20"
+                          : disabled
+                            ? "border-[#f9c66d]/25 bg-[#24170d] text-[#f9c66d]"
                           : "border-[#4a2525] bg-[#0b1714] text-[#9db2ad] hover:border-[#f87171]"
                       }`}
+                      disabled={disabled}
                       key={slot.value}
                       onClick={() =>
                         setForm((value) => ({ ...value, timeSlot: slot.value }))
@@ -918,18 +963,35 @@ export function CheckoutModal({
                     >
                       <span className="block font-black">{slot.label}</span>
                       <span className="mt-1 block text-xs font-bold">
-                        {STAFF_COUNT} staff capacity
+                        {availabilityText}
                       </span>
+                      {disabled ? (
+                        <span className="mt-1 block text-xs font-black text-[#fca5a5]">
+                          Go to salon
+                        </span>
+                      ) : (
+                        <span className="mt-1 block text-[11px] font-bold text-[#71908a]">
+                          {slot.bookedCount}/{STAFF_COUNT} booked
+                        </span>
+                      )}
                     </button>
                   );
                 })
+              ) : slotState.confirmedCount + slotState.waitlistCount >= DAILY_BOOKING_LIMIT ? (
+                <div className="min-w-full rounded-2xl border border-[#f9c66d]/25 bg-[#24170d] px-4 py-3 text-sm font-black text-[#f9c66d]">
+                  Today&apos;s online booking slots are complete. Go to salon for walk-in help.
+                </div>
               ) : (
                 <div className="min-w-full rounded-2xl border border-[#f9c66d]/25 bg-[#24170d] px-4 py-3 text-sm font-black text-[#f9c66d]">
-                  No future slots are available for today. Please contact the
-                  salon.
+                  No future slots are available for today. Go to salon for walk-in help.
                 </div>
               )}
             </div>
+            {slotState.displaySlots.length && !slotState.availableSlots.length ? (
+              <div className="mt-2 rounded-2xl border border-[#f9c66d]/25 bg-[#24170d] px-4 py-3 text-sm font-black text-[#f9c66d]">
+                Online slots are complete for this time window. Go to salon for walk-in help.
+              </div>
+            ) : null}
             <p className="mt-2 text-xs font-bold text-[#9db2ad]">
               Lunch/rest break is 1 PM to 2 PM, so that slot is hidden.{" "}
               {getBookingWindowMessage(bookingGate)}

@@ -469,7 +469,7 @@ export function ProfilePage({
     const bookingsRef = firestoreQuery(
       collection(db, "customers"),
       where("userId", "==", user.uid),
-      limit(30)
+      limit(12)
     );
 
     return onSnapshot(
@@ -477,7 +477,7 @@ export function ProfilePage({
       (snapshot) => {
         const nextBookings = sortUserBookings(
           snapshot.docs.map(normalizeUserBooking)
-        ).slice(0, 10);
+        ).slice(0, 5);
         setBookings(nextBookings);
         setBookingsLoading(false);
       },
@@ -497,7 +497,7 @@ export function ProfilePage({
     const refundsRef = firestoreQuery(
       collection(db, "refundRequests"),
       where("userId", "==", user.uid),
-      limit(20)
+      limit(5)
     );
 
     return onSnapshot(
@@ -1402,4 +1402,3 @@ export function ProfilePage({
     </section>
   );
 }
-
