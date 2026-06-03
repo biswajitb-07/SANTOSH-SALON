@@ -40,6 +40,12 @@ import { applyClientSeo } from "./lib/seo.js";
 import { useRevealOnScroll } from "./lib/animations.js";
 import { defaultServices } from "./lib/services.js";
 import {
+  cacheUserPhoto,
+  getCloudinaryProfilePhotoUrl,
+  isCloudinaryProfilePhoto,
+  readCachedUserPhoto
+} from "./lib/profilePhotoCache.js";
+import {
   activeBookingStatuses,
   BOOKING_CLOSED_MESSAGE,
   DEFAULT_BARBER_NAMES,
@@ -57,43 +63,6 @@ import { BarbersPage, BookingPage, HomePage } from "./pages/bookingPages.jsx";
 
 const CLIENT_LIVE_QUEUE_LIMIT = 80;
 const CLIENT_SERVICES_LIMIT = 50;
-const USER_PHOTO_CACHE_PREFIX = "ssq:cloudinary-profile-photo:";
-
-const readCachedUserPhoto = (uid) => {
-  if (!uid || typeof window === "undefined") return "";
-  try {
-    return localStorage.getItem(`${USER_PHOTO_CACHE_PREFIX}${uid}`) || "";
-  } catch {
-    return "";
-  }
-};
-
-const readCachedUserPhotoByEmail = (email) => {
-  if (!email || typeof window === "undefined") return "";
-  try {
-    return localStorage.getItem(`${USER_PHOTO_CACHE_PREFIX}email:${email}`) || "";
-  } catch {
-    return "";
-  }
-};
-
-const cacheUserPhoto = (uid, photoURL) => {
-  if (!uid || !photoURL || typeof window === "undefined") return;
-  try {
-    localStorage.setItem(`${USER_PHOTO_CACHE_PREFIX}${uid}`, photoURL);
-  } catch {
-    // Local storage can be unavailable in private browsing; Firestore remains the source.
-  }
-};
-
-const cacheUserPhotoByEmail = (email, photoURL) => {
-  if (!email || !photoURL || typeof window === "undefined") return;
-  try {
-    localStorage.setItem(`${USER_PHOTO_CACHE_PREFIX}email:${email}`, photoURL);
-  } catch {
-    // Local storage can be unavailable in private browsing; Firestore remains the source.
-  }
-};
 
 const lazyPage = (loader, exportName) =>
   React.lazy(() =>
@@ -190,12 +159,16 @@ export function App() {
 
   useEffect(() => {
     return onAuthStateChanged(auth, (currentUser) => {
+      const authCloudinaryPhoto = String(currentUser?.photoURL || "").includes(
+        "res.cloudinary.com"
+      )
+        ? currentUser.photoURL
+        : "";
       const photoURL =
         readCachedUserPhoto(currentUser?.uid) ||
-        readCachedUserPhotoByEmail(currentUser?.email);
+        authCloudinaryPhoto;
       if (currentUser?.uid && photoURL) {
         cacheUserPhoto(currentUser.uid, photoURL);
-        cacheUserPhotoByEmail(currentUser.email, photoURL);
       }
       setCachedPhotoURL(photoURL || "");
       setUser(currentUser);
@@ -217,17 +190,12 @@ export function App() {
       doc(db, "users", user.uid),
       (snapshot) => {
         const account = snapshot.exists() ? snapshot.data() : null;
-        const hasCloudinaryPhoto = account?.profilePhotoSource === "cloudinary";
-        const photoURL = hasCloudinaryPhoto
-          ? account?.photoURL ||
-            account?.photoUrl ||
-            account?.profilePhotoURL ||
-            readCachedUserPhoto(user.uid) ||
-            readCachedUserPhotoByEmail(user.email)
-          : "";
+        const photoURL = getCloudinaryProfilePhotoUrl(
+          account,
+          readCachedUserPhoto(user.uid)
+        );
         if (photoURL) {
           cacheUserPhoto(user.uid, photoURL);
-          cacheUserPhotoByEmail(user.email, photoURL);
           setCachedPhotoURL(photoURL);
         } else {
           setCachedPhotoURL("");
@@ -258,15 +226,12 @@ export function App() {
 
   const displayUser = useMemo(() => {
     if (!user) return null;
-    const hasCloudinaryPhoto = userAccount?.profilePhotoSource === "cloudinary";
-    const savedPhotoURL = hasCloudinaryPhoto
-      ? userAccount?.photoURL || userAccount?.photoUrl || userAccount?.profilePhotoURL || ""
-      : "";
     const storedPhotoURL =
       cachedPhotoURL ||
-      readCachedUserPhoto(user.uid) ||
-      readCachedUserPhotoByEmail(user.email);
-    const fallbackPhotoURL = userAccount ? "" : storedPhotoURL;
+      readCachedUserPhoto(user.uid);
+    const hasCloudinaryPhoto = isCloudinaryProfilePhoto(userAccount);
+    const savedPhotoURL = getCloudinaryProfilePhotoUrl(userAccount, "");
+    const fallbackPhotoURL = hasCloudinaryPhoto || !userAccount ? storedPhotoURL : "";
     return {
       uid: user.uid,
       email: user.email || userAccount?.email || "",
@@ -278,7 +243,7 @@ export function App() {
         "Customer",
       photoURL: savedPhotoURL || fallbackPhotoURL,
       photoUrl: savedPhotoURL || fallbackPhotoURL,
-      profilePhotoSource: hasCloudinaryPhoto ? "cloudinary" : "",
+      profilePhotoSource: savedPhotoURL || fallbackPhotoURL ? "cloudinary" : "",
       profilePhotoUpdatedAt: userAccount?.profilePhotoUpdatedAt || null,
       providerData: []
     };

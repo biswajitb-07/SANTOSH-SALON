@@ -44,6 +44,7 @@ import {
 } from "../components/ProfileDialogs.jsx";
 import { auth, db } from "../lib/firebase.js";
 import { getSafeErrorMessage } from "../lib/errors.js";
+import { cacheProfilePhotoForUser } from "../lib/profilePhotoCache.js";
 import {
   formatBookingStatus,
   formatMoney,
@@ -431,6 +432,11 @@ export function ProfilePage({
 
       if (!response.ok) {
         throw new Error(data?.error || "Profile photo upload failed.");
+      }
+
+      if (data?.imageUrl) {
+        cacheProfilePhotoForUser(user, data.imageUrl);
+        await auth.currentUser?.reload?.();
       }
 
       toast.success("Profile photo updated.");
