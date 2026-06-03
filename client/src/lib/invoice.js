@@ -234,7 +234,7 @@ const buildInvoiceData = (booking, user, refund, referenceDate) => {
   };
 };
 
-export const downloadBookingInvoice = async (booking, user, refund = null) => {
+const createBookingInvoicePdf = async (booking, user, refund = null) => {
   const { jsPDF } = await import("jspdf");
   const referenceDate = new Date();
   const dateStamp = getDateStamp(referenceDate);
@@ -352,5 +352,42 @@ export const downloadBookingInvoice = async (booking, user, refund = null) => {
     dateStamp,
     isRefundInvoice: invoice.isRefundInvoice
   });
-  pdf.save(`${fileName}.pdf`);
+
+  return {
+    fileName: `${fileName}.pdf`,
+    invoice,
+    pdf
+  };
+};
+
+export const downloadBookingInvoice = async (booking, user, refund = null) => {
+  const { fileName, pdf } = await createBookingInvoicePdf(booking, user, refund);
+  pdf.save(fileName);
+};
+
+export const shareBookingInvoice = async (booking, user, refund = null) => {
+  const { fileName, invoice, pdf } = await createBookingInvoicePdf(
+    booking,
+    user,
+    refund
+  );
+  const blob = pdf.output("blob");
+  const file = new File([blob], fileName, { type: "application/pdf" });
+  const shareData = {
+    title: invoice.isRefundInvoice
+      ? "Santosh Salon refund invoice"
+      : "Santosh Salon booking invoice",
+    text: invoice.isRefundInvoice
+      ? "Refund invoice from Santosh Salon Queue."
+      : "Booking invoice from Santosh Salon Queue.",
+    files: [file]
+  };
+
+  if (navigator.share && navigator.canShare?.(shareData)) {
+    await navigator.share(shareData);
+    return { shared: true, downloaded: false };
+  }
+
+  pdf.save(fileName);
+  return { shared: false, downloaded: true };
 };

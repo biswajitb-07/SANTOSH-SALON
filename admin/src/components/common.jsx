@@ -1,4 +1,4 @@
-import { useId, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 
 export function UserAvatar({ user, size = "h-10 w-10" }) {
   const initial =

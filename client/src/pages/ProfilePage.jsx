@@ -50,7 +50,10 @@ import {
   formatMoney,
   formatStatus
 } from "../lib/formatters.js";
-import { downloadBookingInvoice } from "../lib/invoice.js";
+import {
+  downloadBookingInvoice,
+  shareBookingInvoice as shareBookingInvoiceFile
+} from "../lib/invoice.js";
 import {
   createTimeSlots,
   getBookingDayStats,
@@ -855,23 +858,32 @@ export function ProfilePage({
   };
 
   const shareBookingInvoice = async (booking) => {
-    const text = `${booking.service} booking for ${booking.name}. ${getEstimatedTurnLabel(
-      booking
-    )}. ${getLivePositionText(booking)} Amount ${formatMoney(
-      booking.amount
-    )}. Status ${formatBookingStatus(booking.status)}.`;
     try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "Santosh Salon booking receipt",
-          text
-        });
-      } else {
-        await navigator.clipboard?.writeText(text);
-        toast.success("Receipt details copied.");
+      const bookingRefund = refundRequests.find(
+        (refund) => refund.bookingId === booking.id
+      );
+      const refundInProgress = Boolean(
+        bookingRefund || booking.refundStatus || booking.refundRequestId
+      );
+      const result = await shareBookingInvoiceFile(
+        booking,
+        user,
+        refundInProgress ? bookingRefund || booking : null
+      );
+      toast.success(
+        result.downloaded
+          ? "Invoice sharing is not supported here, so PDF downloaded."
+          : refundInProgress
+            ? "Refund invoice ready to share."
+            : "Invoice ready to share."
+      );
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        toast.info("Invoice share cancelled.");
+        return;
       }
-    } catch {
-      toast.info("Receipt share cancelled.");
+      console.error("Invoice share failed", error);
+      toast.error("Invoice share failed. Please try again.");
     }
   };
 
