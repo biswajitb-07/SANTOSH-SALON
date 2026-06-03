@@ -3,7 +3,6 @@ import { useEffect, useId, useRef, useState } from "react";
 export const getUserPhotoUrl = (user) =>
   user?.photoURL ||
   user?.photoUrl ||
-  user?.providerData?.find((provider) => provider?.photoURL)?.photoURL ||
   "";
 
 export function UserAvatar({ user, size = "h-10 w-10" }) {

@@ -1,7 +1,11 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Toaster, toast } from "sonner";
-import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import {
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut
+} from "firebase/auth";
 import {
   collection,
   doc,
@@ -53,6 +57,43 @@ import { BarbersPage, BookingPage, HomePage } from "./pages/bookingPages.jsx";
 
 const CLIENT_LIVE_QUEUE_LIMIT = 80;
 const CLIENT_SERVICES_LIMIT = 50;
+const USER_PHOTO_CACHE_PREFIX = "ssq:cloudinary-profile-photo:";
+
+const readCachedUserPhoto = (uid) => {
+  if (!uid || typeof window === "undefined") return "";
+  try {
+    return localStorage.getItem(`${USER_PHOTO_CACHE_PREFIX}${uid}`) || "";
+  } catch {
+    return "";
+  }
+};
+
+const readCachedUserPhotoByEmail = (email) => {
+  if (!email || typeof window === "undefined") return "";
+  try {
+    return localStorage.getItem(`${USER_PHOTO_CACHE_PREFIX}email:${email}`) || "";
+  } catch {
+    return "";
+  }
+};
+
+const cacheUserPhoto = (uid, photoURL) => {
+  if (!uid || !photoURL || typeof window === "undefined") return;
+  try {
+    localStorage.setItem(`${USER_PHOTO_CACHE_PREFIX}${uid}`, photoURL);
+  } catch {
+    // Local storage can be unavailable in private browsing; Firestore remains the source.
+  }
+};
+
+const cacheUserPhotoByEmail = (email, photoURL) => {
+  if (!email || !photoURL || typeof window === "undefined") return;
+  try {
+    localStorage.setItem(`${USER_PHOTO_CACHE_PREFIX}email:${email}`, photoURL);
+  } catch {
+    // Local storage can be unavailable in private browsing; Firestore remains the source.
+  }
+};
 
 const lazyPage = (loader, exportName) =>
   React.lazy(() =>
@@ -103,6 +144,7 @@ export function App() {
   const [page, setPage] = useState(initialRoute.page);
   const [user, setUser] = useState(null);
   const [userAccount, setUserAccount] = useState(null);
+  const [cachedPhotoURL, setCachedPhotoURL] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
@@ -140,7 +182,7 @@ export function App() {
     manualShopClosed: false,
     premiumActive: false
   });
-  const userPhotoRefreshRef = useRef("");
+  const userProfilePersistRef = useRef("");
 
   useBodyScrollLock(Boolean(photoPreviewService));
 
@@ -148,6 +190,14 @@ export function App() {
 
   useEffect(() => {
     return onAuthStateChanged(auth, (currentUser) => {
+      const photoURL =
+        readCachedUserPhoto(currentUser?.uid) ||
+        readCachedUserPhotoByEmail(currentUser?.email);
+      if (currentUser?.uid && photoURL) {
+        cacheUserPhoto(currentUser.uid, photoURL);
+        cacheUserPhotoByEmail(currentUser.email, photoURL);
+      }
+      setCachedPhotoURL(photoURL || "");
       setUser(currentUser);
       setAuthLoading(false);
       setLoginLoading(false);
@@ -159,80 +209,64 @@ export function App() {
   useEffect(() => {
     if (!user?.uid) {
       setUserAccount(null);
+      setCachedPhotoURL("");
       return undefined;
     }
 
     return onSnapshot(
       doc(db, "users", user.uid),
       (snapshot) => {
-        setUserAccount(snapshot.exists() ? snapshot.data() : null);
+        const account = snapshot.exists() ? snapshot.data() : null;
+        const hasCloudinaryPhoto = account?.profilePhotoSource === "cloudinary";
+        const photoURL = hasCloudinaryPhoto
+          ? account?.photoURL ||
+            account?.photoUrl ||
+            account?.profilePhotoURL ||
+            readCachedUserPhoto(user.uid) ||
+            readCachedUserPhotoByEmail(user.email)
+          : "";
+        if (photoURL) {
+          cacheUserPhoto(user.uid, photoURL);
+          cacheUserPhotoByEmail(user.email, photoURL);
+          setCachedPhotoURL(photoURL);
+        } else {
+          setCachedPhotoURL("");
+        }
+        setUserAccount(account);
       },
       () => setUserAccount(null)
     );
-  }, [user?.uid]);
+  }, [user?.email, user?.uid]);
 
   useEffect(() => {
     if (!user?.uid) return;
 
-    const photoURL =
-      user.photoURL ||
-      user.providerData?.find((provider) => provider?.photoURL)?.photoURL ||
-      "";
+    const name = user.displayName || user.email?.split("@")[0] || "Customer";
+    const persistKey = `${user.uid}|${user.email || ""}|${name}`;
+    if (userProfilePersistRef.current === persistKey) return;
+    userProfilePersistRef.current = persistKey;
+
     const patch = {
       uid: user.uid,
       email: user.email || "",
-      name: user.displayName || user.email?.split("@")[0] || "Customer",
+      name,
       updatedAt: serverTimestamp()
     };
-    if (photoURL) patch.photoURL = photoURL;
 
     setDoc(doc(db, "users", user.uid), patch, { merge: true }).catch(() => {});
   }, [user]);
 
-  useEffect(() => {
-    if (!user?.uid || userPhotoRefreshRef.current === user.uid) return;
-    const hasPhoto =
-      user.photoURL ||
-      user.providerData?.some((provider) => provider?.photoURL) ||
-      userAccount?.photoURL ||
-      userAccount?.photoUrl;
-    if (hasPhoto) {
-      userPhotoRefreshRef.current = user.uid;
-      return;
-    }
-
-    userPhotoRefreshRef.current = user.uid;
-    user
-      .reload()
-      .then(() => {
-        const freshUser = auth.currentUser || user;
-        const photoURL =
-          freshUser.photoURL ||
-          freshUser.providerData?.find((provider) => provider?.photoURL)?.photoURL ||
-          "";
-        if (!photoURL) return;
-        setUser(freshUser);
-        return setDoc(
-          doc(db, "users", freshUser.uid),
-          {
-            uid: freshUser.uid,
-            email: freshUser.email || "",
-            name:
-              freshUser.displayName ||
-              freshUser.email?.split("@")[0] ||
-              "Customer",
-            photoURL,
-            updatedAt: serverTimestamp()
-          },
-          { merge: true }
-        );
-      })
-      .catch(() => {});
-  }, [user, userAccount]);
-
   const displayUser = useMemo(() => {
     if (!user) return null;
-    const savedPhotoURL = userAccount?.photoURL || userAccount?.photoUrl || "";
+    const hasCloudinaryPhoto = userAccount?.profilePhotoSource === "cloudinary";
+    const savedPhotoURL = hasCloudinaryPhoto
+      ? userAccount?.photoURL || userAccount?.photoUrl || userAccount?.profilePhotoURL || ""
+      : "";
+    const storedPhotoURL =
+      cachedPhotoURL ||
+      readCachedUserPhoto(user.uid) ||
+      readCachedUserPhotoByEmail(user.email);
+    const fallbackPhotoURL = userAccount ? "" : storedPhotoURL;
     return {
       uid: user.uid,
       email: user.email || userAccount?.email || "",
@@ -242,13 +276,13 @@ export function App() {
         userAccount?.displayName ||
         user.email?.split("@")[0] ||
         "Customer",
-      photoURL:
-        user.photoURL ||
-        user.providerData?.find((provider) => provider?.photoURL)?.photoURL ||
-        savedPhotoURL,
-      providerData: user.providerData || []
+      photoURL: savedPhotoURL || fallbackPhotoURL,
+      photoUrl: savedPhotoURL || fallbackPhotoURL,
+      profilePhotoSource: hasCloudinaryPhoto ? "cloudinary" : "",
+      profilePhotoUpdatedAt: userAccount?.profilePhotoUpdatedAt || null,
+      providerData: []
     };
-  }, [user, userAccount]);
+  }, [cachedPhotoURL, user, userAccount]);
 
   useEffect(() => {
     writeClientRoute({ page }, true);
@@ -345,12 +379,12 @@ export function App() {
           tokenLabel: currentBooking
             ? "Now Serving"
             : nextWaitingBooking
-              ? "Next Token"
-              : "Next New Token",
+              ? "Next Live Turn"
+              : "First Available Turn",
           tokenHint: currentBooking
             ? "Customer in chair"
             : nextWaitingBooking
-              ? "Next customer to call"
+              ? `${waitingBookings.length} waiting in live queue`
               : "Queue empty now",
           waitingCount: waitingBookings.length,
           servingChairs
@@ -361,7 +395,7 @@ export function App() {
         setQueueItems([]);
         setQueueStats({
           displayToken: 1,
-          tokenLabel: "Next Token",
+          tokenLabel: "Next Live Turn",
           tokenHint: "Queue empty now",
           waitingCount: 0,
           servingChairs: (bookingGate.barbers || normalizeBarberAvailability()).map((barber) => ({
@@ -579,26 +613,19 @@ export function App() {
       const result = await signInWithPopup(auth, googleProvider);
       await result.user.reload();
       const freshUser = auth.currentUser || result.user;
-      const photoURL =
-        freshUser.photoURL ||
-        freshUser.providerData?.find((provider) => provider?.photoURL)?.photoURL ||
-        "";
-      if (photoURL) {
-        await setDoc(
-          doc(db, "users", freshUser.uid),
-          {
-            uid: freshUser.uid,
-            email: freshUser.email || "",
-            name:
-              freshUser.displayName ||
-              freshUser.email?.split("@")[0] ||
-              "Customer",
-            photoURL,
-            updatedAt: serverTimestamp()
-          },
-          { merge: true }
-        );
-      }
+      await setDoc(
+        doc(db, "users", freshUser.uid),
+        {
+          uid: freshUser.uid,
+          email: freshUser.email || "",
+          name:
+            freshUser.displayName ||
+            freshUser.email?.split("@")[0] ||
+            "Customer",
+          updatedAt: serverTimestamp()
+        },
+        { merge: true }
+      );
       setUser(freshUser);
       toast.success("Login successful.");
     } catch (error) {

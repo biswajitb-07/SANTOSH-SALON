@@ -668,7 +668,7 @@ export function CheckoutModal({
       const firstTurn = bookedTurns[0] || "-";
       const lastTurn = bookedTurns[bookedTurns.length - 1] || firstTurn;
       const estimatedTurnText = bookedTurns.length
-        ? `Estimated turn ${firstTurn}${bookedTurns.length > 1 ? `-${lastTurn}` : ""}`
+        ? `Estimated turn #${firstTurn}${bookedTurns.length > 1 ? `-${lastTurn}` : ""}`
         : "Waiting list";
       const userPhotoURL = getUserPhotoUrl(user);
 
@@ -705,7 +705,7 @@ export function CheckoutModal({
         type: "success",
         message: `Cashfree payment verified. ${estimatedTurnText} ${
           bookingCreatedAsWaitlist ? "added to the waiting list" : "confirmed"
-        } for ${bookingOption.label}, ${bookingOption.displayDate}. Your slot is confirmed; turn can update if earlier slots are booked.`
+        } for ${bookingOption.label}, ${bookingOption.displayDate}. Track My Bookings for live position and people ahead. Turn can update when earlier slots, skips, or cancellations happen.`
       });
       const successToastMessage = `Booking ${
         bookingCreatedAsWaitlist ? "added to waiting list" : "confirmed"

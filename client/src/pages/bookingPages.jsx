@@ -60,6 +60,9 @@ function QueueSummaryCard({ loading, onNavigate, stats }) {
             <p className="mt-1 text-xs font-black text-[#637371]">
               {loading ? "Syncing..." : stats.tokenHint}
             </p>
+            <p className="mt-2 max-w-[220px] text-[11px] font-bold leading-4 text-[#9db2ad]">
+              Turns update live when earlier slots, skips, or cancellations happen.
+            </p>
           </div>
           <span className="grid h-16 w-16 place-items-center rounded-3xl bg-[#991b1b] text-white">
             <BellRing size={28} />

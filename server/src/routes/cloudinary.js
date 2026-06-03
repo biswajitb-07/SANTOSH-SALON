@@ -1,17 +1,132 @@
 import express from "express";
 import {
   deleteServiceImage,
+  uploadProfilePhoto,
   uploadServiceImage
 } from "../cloudinary.js";
-import { createRateLimiter, requireAdminUser } from "../middleware/security.js";
+import { config } from "../config.js";
+import { getAuth, getDb } from "../firebaseAdmin.js";
+import {
+  createRateLimiter,
+  requireAdminUser,
+  requireFirebaseUser
+} from "../middleware/security.js";
 import { isDataUrlImage } from "../middleware/validation.js";
 
 export const cloudinaryRouter = express.Router();
+const PROFILE_PHOTO_CHANGE_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
+const PROFILE_PHOTO_MAX_BYTES = 300 * 1024;
 const imageWriteLimiter = createRateLimiter({
   keyPrefix: "cloudinary-image-write",
   max: 12,
   windowMs: 60_000
 });
+const profilePhotoWriteLimiter = createRateLimiter({
+  keyPrefix: "cloudinary-profile-photo-write",
+  max: 4,
+  windowMs: 60_000
+});
+
+const getDataUrlByteSize = (dataUrl = "") => {
+  const base64 = String(dataUrl).split(",")[1] || "";
+  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+  return Math.floor((base64.length * 3) / 4) - padding;
+};
+
+cloudinaryRouter.post(
+  "/profile-photo/upload",
+  requireFirebaseUser,
+  profilePhotoWriteLimiter,
+  async (req, res, next) => {
+    try {
+      const { imageDataUrl } = req.body;
+      const uid = req.user?.uid;
+      const email = String(req.user?.email || "").toLowerCase();
+      const isAdmin = config.security.adminAllowedEmails.includes(email);
+
+      if (!uid) {
+        return res.status(401).json({ error: "Authenticated user is required." });
+      }
+
+      if (!imageDataUrl || !isDataUrlImage(imageDataUrl)) {
+        return res.status(400).json({
+          error: "A valid PNG, JPG, JPEG, or WEBP image data URL is required"
+        });
+      }
+
+      if (getDataUrlByteSize(imageDataUrl) > PROFILE_PHOTO_MAX_BYTES) {
+        return res.status(413).json({
+          error: "Profile photo should be 300 KB or smaller."
+        });
+      }
+
+      const db = getDb();
+      if (!db) {
+        return res.status(503).json({ error: "Firebase Admin is not configured." });
+      }
+
+      const userDocRef = db.collection("users").doc(uid);
+      const userDoc = await userDocRef.get();
+      const userData = userDoc.exists ? userDoc.data() || {} : {};
+      const lastChangedAt =
+        userData.profilePhotoUpdatedAt?.toDate?.() ||
+        (userData.profilePhotoUpdatedAt
+          ? new Date(userData.profilePhotoUpdatedAt)
+          : null);
+
+      if (
+        !isAdmin &&
+        lastChangedAt instanceof Date &&
+        !Number.isNaN(lastChangedAt.getTime())
+      ) {
+        const nextAllowedAt = new Date(
+          lastChangedAt.getTime() + PROFILE_PHOTO_CHANGE_WINDOW_MS
+        );
+        if (Date.now() < nextAllowedAt.getTime()) {
+          return res.status(429).json({
+            error: "Profile photo can be changed once every 2 days.",
+            nextAllowedAt: nextAllowedAt.toISOString()
+          });
+        }
+      }
+
+      const uploadedImage = await uploadProfilePhoto({ imageDataUrl, uid });
+      const now = new Date();
+      const payload = {
+        uid,
+        email: req.user.email || userData.email || "",
+        name: req.user.name || userData.name || userData.displayName || "Customer",
+        photoURL: uploadedImage.imageUrl,
+        photoUrl: uploadedImage.imageUrl,
+        profilePhotoURL: uploadedImage.imageUrl,
+        profilePhotoPublicId: uploadedImage.imagePublicId,
+        profilePhotoSource: "cloudinary",
+        profilePhotoUpdatedAt: now,
+        updatedAt: now
+      };
+
+      await userDocRef.set(payload, { merge: true });
+
+      const firebaseAuth = getAuth();
+      if (firebaseAuth) {
+        await firebaseAuth.updateUser(uid, {
+          photoURL: uploadedImage.imageUrl
+        });
+      }
+
+      res.status(201).json({
+        imageUrl: uploadedImage.imageUrl,
+        imagePublicId: uploadedImage.imagePublicId,
+        profilePhotoUpdatedAt: now.toISOString(),
+        nextAllowedAt: isAdmin
+          ? null
+          : new Date(now.getTime() + PROFILE_PHOTO_CHANGE_WINDOW_MS).toISOString()
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 cloudinaryRouter.use(requireAdminUser);
 

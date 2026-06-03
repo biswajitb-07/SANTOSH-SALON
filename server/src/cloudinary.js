@@ -77,6 +77,34 @@ export const uploadServiceImage = async ({ imageDataUrl }) => {
   };
 };
 
+export const uploadProfilePhoto = async ({ imageDataUrl, uid }) => {
+  const timestamp = Math.round(Date.now() / 1000);
+  const folder = `${config.cloudinary.folder}/profile-photos`;
+  const publicId = uid ? `user-${String(uid).replace(/[^a-zA-Z0-9_-]/g, "")}` : undefined;
+  const paramsToSign = {
+    folder,
+    overwrite: true,
+    timestamp,
+    ...(publicId ? { public_id: publicId } : {})
+  };
+  const signature = signParams(paramsToSign);
+
+  const data = await postCloudinaryForm("image/upload", {
+    file: imageDataUrl,
+    folder,
+    overwrite: true,
+    ...(publicId ? { public_id: publicId } : {}),
+    timestamp,
+    api_key: config.cloudinary.apiKey,
+    signature
+  });
+
+  return {
+    imageUrl: data.secure_url,
+    imagePublicId: data.public_id
+  };
+};
+
 export const deleteServiceImage = async ({ publicId }) => {
   if (!publicId) return { deleted: false, reason: "publicId missing" };
 

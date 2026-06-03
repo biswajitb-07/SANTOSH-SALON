@@ -82,15 +82,22 @@ app.use("/api/admin/users", adminUsersRouter);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
-  const statusCode = err.statusCode || 500;
+  const quotaExceeded =
+    err.code === 8 ||
+    /quota exceeded|resource_exhausted/i.test(
+      `${err.message || ""} ${err.details || ""}`
+    );
+  const statusCode = quotaExceeded ? 429 : err.statusCode || 500;
   const exposeDetails = process.env.NODE_ENV !== "production";
 
   res.status(statusCode).json({
     error:
-      err.message ||
-      err.error?.description ||
-      err.details?.error?.description ||
-      "Internal server error",
+      quotaExceeded
+        ? "Firestore quota exceeded. Please try again after quota reset or upgrade Firebase billing."
+        : err.message ||
+          err.error?.description ||
+          err.details?.error?.description ||
+          "Internal server error",
     details: exposeDetails ? err.details || undefined : undefined,
     statusCode: exposeDetails ? statusCode : undefined
   });

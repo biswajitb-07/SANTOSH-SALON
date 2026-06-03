@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import {
@@ -18,6 +18,7 @@ import {
 import {
   CalendarClock,
   CalendarCheck2,
+  Camera,
   Clock3,
   Download,
   Eye,
@@ -26,6 +27,7 @@ import {
   LogOut,
   Share2,
   Star,
+  Upload,
   UserRound,
   X
 } from "lucide-react";
@@ -40,7 +42,7 @@ import {
   RefundStatusTracker,
   RescheduleDialog
 } from "../components/ProfileDialogs.jsx";
-import { db } from "../lib/firebase.js";
+import { auth, db } from "../lib/firebase.js";
 import { getSafeErrorMessage } from "../lib/errors.js";
 import {
   formatBookingStatus,
@@ -56,7 +58,10 @@ import {
 } from "../lib/bookingFlow.js";
 
 const BOOKING_PAGE_SIZE = 5;
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const STAFF_COUNT = 3;
+const PROFILE_PHOTO_MAX_BYTES = 300 * 1024;
+const PROFILE_PHOTO_CHANGE_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
 const PLATFORM_FEE_PER_PERSON = 2;
 const SERVICE_ESTIMATE_MINUTES = {
   haircut: 25,
@@ -110,6 +115,27 @@ const getLiveWaitEstimate = (booking) => {
     Math.ceil(Number(booking.peopleAhead || 0) / STAFF_COUNT) *
     getServiceEstimateMinutes(booking.service);
   return estimate <= 0 ? "Your turn is near" : `${estimate} min approx`;
+};
+
+const getLivePositionText = (booking) => {
+  if (!booking) return "-";
+  if (isPastActiveBooking(booking)) return "Reschedule needed";
+  if (booking.status === "waitlist") return "Waiting list";
+  if (booking.status === "in_chair") return "You are in chair now";
+  if (!liveBookingStatuses.has(booking.status)) return "-";
+
+  const peopleAhead = Math.max(0, Number(booking.peopleAhead || 0));
+  return peopleAhead === 0
+    ? "Aapke aage 0 log hain. Your turn is near."
+    : `Aapke aage ${peopleAhead} log hain.`;
+};
+
+const getEstimatedTurnLabel = (booking) => {
+  if (!booking) return "Estimated turn";
+  if (isPastActiveBooking(booking)) return "Reschedule needed";
+  if (booking.status === "waitlist") return "Waiting list";
+  const token = booking.token && booking.token !== "-" ? `#${booking.token}` : "";
+  return `Estimated turn ${token}`.trim();
 };
 
 const isPastActiveBooking = (booking) =>
@@ -250,6 +276,31 @@ const getSnapshotMillis = (value) => {
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 };
 
+const fileToDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Image could not be read."));
+    reader.readAsDataURL(file);
+  });
+
+const getProfilePhotoChangedAt = (user) =>
+  getSnapshotMillis(user?.profilePhotoUpdatedAt);
+
+const formatProfilePhotoLock = (millis) => {
+  if (!millis) return "Upload your own photo. Google photo is not used.";
+  const nextAllowedAt = new Date(millis + PROFILE_PHOTO_CHANGE_WINDOW_MS);
+  return `Users can change photo once every 2 days. Next safe change: ${nextAllowedAt.toLocaleString(
+    "en-IN",
+    {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit"
+    }
+  )}.`;
+};
+
 const sortRefundRequests = (refunds) =>
   [...refunds].sort(
     (first, second) =>
@@ -313,7 +364,12 @@ export function ProfilePage({
   const [rescheduleBookingId, setRescheduleBookingId] = useState("");
   const [bookingPage, setBookingPage] = useState(1);
   const [selectedBookingGroupKey, setSelectedBookingGroupKey] = useState("");
+  const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
+  const [selectedProfilePhotoFile, setSelectedProfilePhotoFile] = useState(null);
+  const [profilePhotoPreviewUrl, setProfilePhotoPreviewUrl] = useState("");
+  const profilePhotoInputRef = useRef(null);
   const groupedBookings = groupUserBookings(bookings).slice(0, 5);
+  const profilePhotoChangedAt = getProfilePhotoChangedAt(user);
 
   const totalBookingPages = Math.max(
     1,
@@ -329,6 +385,68 @@ export function ProfilePage({
     null;
 
   useBodyScrollLock(Boolean(bookingsOnly && selectedBookingGroup));
+
+  const clearProfilePhotoPreview = () => {
+    setSelectedProfilePhotoFile(null);
+    setProfilePhotoPreviewUrl("");
+    if (profilePhotoInputRef.current) profilePhotoInputRef.current.value = "";
+  };
+
+  const handleProfilePhotoSelect = (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose a valid image file.");
+      return;
+    }
+    if (file.size > PROFILE_PHOTO_MAX_BYTES) {
+      toast.error("Profile photo should be 300 KB or smaller.");
+      return;
+    }
+
+    setSelectedProfilePhotoFile(file);
+    setProfilePhotoPreviewUrl((currentUrl) => {
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+      return URL.createObjectURL(file);
+    });
+  };
+
+  const uploadProfilePhoto = async () => {
+    if (!selectedProfilePhotoFile || !user?.uid) return;
+
+    setProfilePhotoUploading(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Please login again before uploading photo.");
+
+      const imageDataUrl = await fileToDataUrl(selectedProfilePhotoFile);
+      const response = await fetch(`${API_URL}/api/cloudinary/profile-photo/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ imageDataUrl })
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Profile photo upload failed.");
+      }
+
+      toast.success("Profile photo updated.");
+      clearProfilePhotoPreview();
+    } catch (error) {
+      toast.error(getSafeErrorMessage(error, "Profile photo upload failed."));
+    } finally {
+      setProfilePhotoUploading(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (profilePhotoPreviewUrl) URL.revokeObjectURL(profilePhotoPreviewUrl);
+    };
+  }, [profilePhotoPreviewUrl]);
 
   useEffect(() => {
     setBookingPage(1);
@@ -641,7 +759,11 @@ export function ProfilePage({
   };
 
   const shareBookingInvoice = async (booking) => {
-    const text = `${booking.service} booking for ${booking.name}. Estimated token ${booking.token}. Amount ${formatMoney(booking.amount)}. Status ${formatBookingStatus(booking.status)}.`;
+    const text = `${booking.service} booking for ${booking.name}. ${getEstimatedTurnLabel(
+      booking
+    )}. ${getLivePositionText(booking)} Amount ${formatMoney(
+      booking.amount
+    )}. Status ${formatBookingStatus(booking.status)}.`;
     try {
       if (navigator.share) {
         await navigator.share({
@@ -698,12 +820,7 @@ export function ProfilePage({
     ).toLowerCase();
     const refundInProgress =
       refundStatus && !["failed", "rejected"].includes(refundStatus);
-    const turnLabel =
-      pastActiveBooking
-        ? "Reschedule needed"
-        : booking.status === "waitlist"
-        ? "Waiting list"
-        : `Estimated turn #${booking.token}`;
+    const turnLabel = getEstimatedTurnLabel(booking);
     const helperText =
       pastActiveBooking
         ? "This booking date has passed. Please reschedule to a fresh slot before visiting the salon."
@@ -722,7 +839,7 @@ export function ProfilePage({
                 : booking.status === "cancelled"
                   ? "Booking cancelled."
                   : editableBookingStatuses.includes(booking.status)
-                    ? "Your selected time slot is confirmed. Estimated turn can update if earlier slots are booked."
+                    ? "Your live position is shown below. Estimated turn can update if earlier slots are booked, or if customers cancel/skip."
                     : "Queue status is updating live.";
 
     return {
@@ -766,7 +883,59 @@ export function ProfilePage({
       <div className="luxury-glass rounded-[2rem] p-6 queue-shadow sm:p-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <UserAvatar size="h-20 w-20" user={user} />
+            <div className="flex flex-col items-start gap-3">
+              <div className="relative">
+                {profilePhotoPreviewUrl ? (
+                  <span className="relative block h-20 w-20 overflow-hidden rounded-full">
+                    <img
+                      alt="Profile preview"
+                      className="h-20 w-20 rounded-full object-cover"
+                      src={profilePhotoPreviewUrl}
+                    />
+                  </span>
+                ) : (
+                  <UserAvatar size="h-20 w-20" user={user} />
+                )}
+                <button
+                  aria-label="Choose profile photo"
+                  className="absolute -bottom-1 -right-1 grid h-9 w-9 place-items-center rounded-full border border-[#f9c66d]/40 bg-[#1f160f] text-[#f9c66d] shadow-lg shadow-black/30 transition hover:bg-[#33200f] disabled:opacity-60"
+                  disabled={profilePhotoUploading}
+                  onClick={() => profilePhotoInputRef.current?.click()}
+                  type="button"
+                >
+                  {profilePhotoUploading ? <ButtonSpinner dark /> : <Camera size={17} />}
+                </button>
+              </div>
+              <input
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                className="hidden"
+                onChange={(event) => handleProfilePhotoSelect(event.target.files?.[0])}
+                ref={profilePhotoInputRef}
+                type="file"
+              />
+              {selectedProfilePhotoFile ? (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="inline-flex min-h-[42px] items-center gap-2 rounded-full border border-[#f9c66d]/30 bg-[#24170d] px-4 py-2 text-sm font-black text-[#f9c66d] transition hover:bg-[#33200f] disabled:opacity-60"
+                    disabled={profilePhotoUploading}
+                    onClick={uploadProfilePhoto}
+                    type="button"
+                  >
+                    {profilePhotoUploading ? <ButtonSpinner dark /> : <Upload size={16} />}
+                    Upload
+                  </button>
+                  <button
+                    className="inline-flex min-h-[42px] items-center gap-2 rounded-full border border-[#35201f] bg-[#101a18] px-4 py-2 text-sm font-black text-[#9db2ad] transition hover:border-[#f87171]/40 hover:text-white disabled:opacity-60"
+                    disabled={profilePhotoUploading}
+                    onClick={clearProfilePhotoPreview}
+                    type="button"
+                  >
+                    <X size={16} />
+                    Cancel
+                  </button>
+                </div>
+              ) : null}
+            </div>
             <div>
               <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
                 Profile
@@ -776,6 +945,9 @@ export function ProfilePage({
               </h1>
               <p className="mt-2 break-words text-sm font-bold text-[#637371]">
                 {user.email || "Google account connected"}
+              </p>
+              <p className="mt-2 max-w-xl text-xs font-bold leading-5 text-[#9db2ad]">
+                {formatProfilePhotoLock(profilePhotoChangedAt)}
               </p>
             </div>
           </div>
@@ -888,12 +1060,16 @@ export function ProfilePage({
                       <p className="mt-2 text-xs font-bold leading-5 text-[#f9c66d]">
                         {groupNeedsReschedule
                           ? "This booking date has passed. Please reschedule before visiting."
-                          : "Slot confirmed. Estimated turn may update when earlier time slots are booked."}
+                          : "Live turn updates with the queue. Earlier slots, skips, or cancellations can change your number."}
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-[#f4fbf8]">
-                        <span className="rounded-full bg-[#101a18] px-3 py-2">
-                          Ahead:{" "}
-                          {peopleAhead.length ? Math.min(...peopleAhead) : "-"}
+                        <span className="rounded-full bg-[#101a18] px-3 py-2 text-[#9db2ad]">
+                          Live position:{" "}
+                          {peopleAhead.length
+                            ? Math.min(...peopleAhead) === 0
+                              ? "Your turn is near"
+                              : `Aapke aage ${Math.min(...peopleAhead)} log`
+                            : "-"}
                         </span>
                         <span className="rounded-full bg-[#101a18] px-3 py-2">
                           {formatMoney(group.totalAmount)}
@@ -1091,8 +1267,12 @@ export function ProfilePage({
                     <div className="mt-4 grid gap-2 sm:grid-cols-2">
                       {[
                         [
-                          "People Ahead (Live)",
-                          activeBooking ? booking.peopleAhead : "-"
+                          "Estimated Turn",
+                          getEstimatedTurnLabel(booking)
+                        ],
+                        [
+                          "Live Position",
+                          activeBooking ? getLivePositionText(booking) : "-"
                         ],
                         ["ETA", getLiveWaitEstimate(booking)],
                         ["Service Duration", `${getServiceEstimateMinutes(booking.service)} min approx`],
@@ -1169,7 +1349,7 @@ export function ProfilePage({
                       <div className="mt-3 grid gap-2 sm:grid-cols-3">
                         {[
                           [Clock3, "ETA", getLiveWaitEstimate(booking)],
-                          [CalendarCheck2, "Arrive note", booking.arrivalNote],
+                          [CalendarCheck2, "Live position", getLivePositionText(booking)],
                           [Gift, "Loyalty", "+10 pts after completion"]
                         ].map(([Icon, title, text]) => (
                           <div className="rounded-2xl bg-[#2a1111] px-3 py-2 text-xs font-black text-[#991b1b]" key={title}>
