@@ -26,12 +26,74 @@ const profilePhotoWriteLimiter = createRateLimiter({
   max: 4,
   windowMs: 60_000
 });
+const profilePhotoReadLimiter = createRateLimiter({
+  keyPrefix: "cloudinary-profile-photo-read",
+  max: 30,
+  windowMs: 60_000
+});
+
+const isCloudinaryUrl = (value = "") =>
+  String(value || "").includes("res.cloudinary.com");
+
+const getStoredProfilePhotoUrl = (userData = {}) => {
+  const imageUrl = userData.photoURL || userData.photoUrl || userData.profilePhotoURL || "";
+  if (!imageUrl) return "";
+  if (userData.profilePhotoSource === "cloudinary") return imageUrl;
+  if (userData.profilePhotoPublicId) return imageUrl;
+  return isCloudinaryUrl(imageUrl) ? imageUrl : "";
+};
 
 const getDataUrlByteSize = (dataUrl = "") => {
   const base64 = String(dataUrl).split(",")[1] || "";
   const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
   return Math.floor((base64.length * 3) / 4) - padding;
 };
+
+cloudinaryRouter.get(
+  "/profile-photo/me",
+  requireFirebaseUser,
+  profilePhotoReadLimiter,
+  async (req, res, next) => {
+    try {
+      const uid = req.user?.uid;
+      if (!uid) {
+        return res.status(401).json({ error: "Authenticated user is required." });
+      }
+
+      let userData = {};
+      const db = getDb();
+      if (db) {
+        try {
+          const userDoc = await db.collection("users").doc(uid).get();
+          userData = userDoc.exists ? userDoc.data() || {} : {};
+        } catch {
+          userData = {};
+        }
+      }
+
+      let authPhotoURL = "";
+      const firebaseAuth = getAuth();
+      if (firebaseAuth) {
+        try {
+          const authUser = await firebaseAuth.getUser(uid);
+          authPhotoURL = isCloudinaryUrl(authUser.photoURL) ? authUser.photoURL : "";
+        } catch {
+          authPhotoURL = "";
+        }
+      }
+
+      const imageUrl = getStoredProfilePhotoUrl(userData) || authPhotoURL;
+      return res.json({
+        imageUrl,
+        imagePublicId: userData.profilePhotoPublicId || "",
+        profilePhotoSource: imageUrl ? "cloudinary" : "",
+        profilePhotoUpdatedAt: userData.profilePhotoUpdatedAt || null
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
 
 cloudinaryRouter.post(
   "/profile-photo/upload",
@@ -66,8 +128,13 @@ cloudinaryRouter.post(
       }
 
       const userDocRef = db.collection("users").doc(uid);
-      const userDoc = await userDocRef.get();
-      const userData = userDoc.exists ? userDoc.data() || {} : {};
+      let userData = {};
+      try {
+        const userDoc = await userDocRef.get();
+        userData = userDoc.exists ? userDoc.data() || {} : {};
+      } catch {
+        userData = {};
+      }
       const lastChangedAt =
         userData.profilePhotoUpdatedAt?.toDate?.() ||
         (userData.profilePhotoUpdatedAt
@@ -105,8 +172,6 @@ cloudinaryRouter.post(
         updatedAt: now
       };
 
-      await userDocRef.set(payload, { merge: true });
-
       const firebaseAuth = getAuth();
       if (firebaseAuth) {
         await firebaseAuth.updateUser(uid, {
@@ -114,9 +179,18 @@ cloudinaryRouter.post(
         });
       }
 
+      let firestoreSaved = false;
+      try {
+        await userDocRef.set(payload, { merge: true });
+        firestoreSaved = true;
+      } catch {
+        firestoreSaved = false;
+      }
+
       res.status(201).json({
         imageUrl: uploadedImage.imageUrl,
         imagePublicId: uploadedImage.imagePublicId,
+        firestoreSaved,
         profilePhotoUpdatedAt: now.toISOString(),
         nextAllowedAt: isAdmin
           ? null

@@ -7,7 +7,6 @@ export const getUserPhotoUrl = (user) =>
 
 export function UserAvatar({ user, size = "h-10 w-10" }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const [imageReady, setImageReady] = useState(false);
   const photoUrl = getUserPhotoUrl(user);
   const initial =
     user?.displayName?.trim()?.charAt(0) ||
@@ -16,28 +15,22 @@ export function UserAvatar({ user, size = "h-10 w-10" }) {
 
   useEffect(() => {
     setImageFailed(false);
-    setImageReady(false);
   }, [photoUrl]);
 
   if (photoUrl && !imageFailed) {
     return (
       <span className={`${size} relative block overflow-hidden rounded-full`}>
         <span
-          className={`absolute inset-0 grid place-items-center rounded-full bg-[#991b1b] text-base font-black uppercase text-white ${
-            imageReady ? "opacity-0" : "opacity-100"
-          }`}
+          className="absolute inset-0 grid place-items-center rounded-full bg-[#991b1b] text-base font-black uppercase text-white"
         >
           {initial}
         </span>
         <img
           alt="Profile"
-          className={`${size} rounded-full object-cover transition-opacity ${
-            imageReady ? "opacity-100" : "opacity-0"
-          }`}
+          className={`${size} relative rounded-full object-cover`}
           decoding="async"
-          loading="lazy"
+          loading="eager"
           onError={() => setImageFailed(true)}
-          onLoad={() => setImageReady(true)}
           referrerPolicy="no-referrer"
           src={photoUrl}
         />

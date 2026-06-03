@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { updateProfile } from "firebase/auth";
 import {
   collection,
   doc,
@@ -44,7 +45,6 @@ import {
 } from "../components/ProfileDialogs.jsx";
 import { auth, db } from "../lib/firebase.js";
 import { getSafeErrorMessage } from "../lib/errors.js";
-import { cacheProfilePhotoForUser } from "../lib/profilePhotoCache.js";
 import {
   formatBookingStatus,
   formatMoney,
@@ -82,6 +82,17 @@ const getBarberStatsId = (barberName = "") =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") || "barber";
+
+const isCloudinaryUrl = (value = "") =>
+  String(value || "").includes("res.cloudinary.com");
+
+const getCloudinaryProfilePhotoUrl = (account = {}) => {
+  const imageUrl = account?.photoURL || account?.photoUrl || account?.profilePhotoURL || "";
+  if (!imageUrl) return "";
+  if (account?.profilePhotoSource === "cloudinary") return imageUrl;
+  if (account?.profilePhotoPublicId) return imageUrl;
+  return isCloudinaryUrl(imageUrl) ? imageUrl : "";
+};
 
 const toDateInputValue = (date) => {
   const year = date.getFullYear();
@@ -354,6 +365,7 @@ export function ProfilePage({
   onMyBookings,
   onLogin,
   onLogout,
+  onProfilePhotoUpdated,
   user
 }) {
   const [bookings, setBookings] = useState([]);
@@ -368,9 +380,36 @@ export function ProfilePage({
   const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
   const [selectedProfilePhotoFile, setSelectedProfilePhotoFile] = useState(null);
   const [profilePhotoPreviewUrl, setProfilePhotoPreviewUrl] = useState("");
+  const [profileAccount, setProfileAccount] = useState(null);
   const profilePhotoInputRef = useRef(null);
+  const onProfilePhotoUpdatedRef = useRef(onProfilePhotoUpdated);
   const groupedBookings = groupUserBookings(bookings).slice(0, 5);
-  const profilePhotoChangedAt = getProfilePhotoChangedAt(user);
+  const displayUser = useMemo(() => {
+    if (!user) return null;
+    const accountPhotoUrl = getCloudinaryProfilePhotoUrl(profileAccount);
+    const userPhotoUrl = getCloudinaryProfilePhotoUrl(user);
+    const photoUrl = accountPhotoUrl || userPhotoUrl;
+    return {
+      ...user,
+      ...(profileAccount || {}),
+      uid: user.uid,
+      email: user.email || profileAccount?.email || "",
+      displayName:
+        user.displayName ||
+        profileAccount?.name ||
+        profileAccount?.displayName ||
+        user.email?.split("@")[0] ||
+        "Customer",
+      photoURL: photoUrl,
+      photoUrl,
+      profilePhotoSource: photoUrl ? "cloudinary" : "",
+      profilePhotoUpdatedAt:
+        profileAccount?.profilePhotoUpdatedAt ||
+        user.profilePhotoUpdatedAt ||
+        null
+    };
+  }, [profileAccount, user]);
+  const profilePhotoChangedAt = getProfilePhotoChangedAt(displayUser);
 
   const totalBookingPages = Math.max(
     1,
@@ -386,6 +425,30 @@ export function ProfilePage({
     null;
 
   useBodyScrollLock(Boolean(bookingsOnly && selectedBookingGroup));
+
+  useEffect(() => {
+    onProfilePhotoUpdatedRef.current = onProfilePhotoUpdated;
+  }, [onProfilePhotoUpdated]);
+
+  useEffect(() => {
+    if (!user?.uid || bookingsOnly) {
+      setProfileAccount(null);
+      return undefined;
+    }
+
+    return onSnapshot(
+      doc(db, "users", user.uid),
+      (snapshot) => {
+        const account = snapshot.exists() ? snapshot.data() : null;
+        setProfileAccount(account);
+        const imageUrl = getCloudinaryProfilePhotoUrl(account);
+        if (imageUrl) onProfilePhotoUpdatedRef.current?.(imageUrl);
+      },
+      (error) => {
+        console.error("Profile account listener failed", error);
+      }
+    );
+  }, [bookingsOnly, user?.uid]);
 
   const clearProfilePhotoPreview = () => {
     setSelectedProfilePhotoFile(null);
@@ -435,7 +498,34 @@ export function ProfilePage({
       }
 
       if (data?.imageUrl) {
-        cacheProfilePhotoForUser(user, data.imageUrl);
+        const photoPayload = {
+          uid: user.uid,
+          email: user.email || "",
+          name:
+            user.displayName ||
+            user.email?.split("@")[0] ||
+            "Customer",
+          photoURL: data.imageUrl,
+          photoUrl: data.imageUrl,
+          profilePhotoURL: data.imageUrl,
+          profilePhotoPublicId: data.imagePublicId || "",
+          profilePhotoSource: "cloudinary",
+          profilePhotoUpdatedAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        };
+        if (auth.currentUser) {
+          await updateProfile(auth.currentUser, { photoURL: data.imageUrl });
+        }
+        onProfilePhotoUpdated?.(data.imageUrl);
+        setProfileAccount((current) => ({
+          ...(current || {}),
+          ...photoPayload,
+          profilePhotoUpdatedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }));
+        setDoc(doc(db, "users", user.uid), photoPayload, { merge: true }).catch(
+          () => {}
+        );
         await auth.currentUser?.reload?.();
       }
 
@@ -900,7 +990,7 @@ export function ProfilePage({
                     />
                   </span>
                 ) : (
-                  <UserAvatar size="h-20 w-20" user={user} />
+                  <UserAvatar size="h-20 w-20" user={displayUser} />
                 )}
                 <button
                   aria-label="Choose profile photo"
@@ -947,10 +1037,10 @@ export function ProfilePage({
                 Profile
               </p>
               <h1 className="mt-1 text-3xl font-black leading-tight text-[#f4fbf8] sm:text-4xl">
-                {user.displayName || "Customer Profile"}
+                {displayUser.displayName || "Customer Profile"}
               </h1>
               <p className="mt-2 break-words text-sm font-bold text-[#637371]">
-                {user.email || "Google account connected"}
+                {displayUser.email || "Google account connected"}
               </p>
               <p className="mt-2 max-w-xl text-xs font-bold leading-5 text-[#9db2ad]">
                 {formatProfilePhotoLock(profilePhotoChangedAt)}

@@ -9,6 +9,7 @@ import {
 import {
   collection,
   doc,
+  getDoc,
   limit,
   onSnapshot,
   query as firestoreQuery,
@@ -40,12 +41,6 @@ import { applyClientSeo } from "./lib/seo.js";
 import { useRevealOnScroll } from "./lib/animations.js";
 import { defaultServices } from "./lib/services.js";
 import {
-  cacheUserPhoto,
-  getCloudinaryProfilePhotoUrl,
-  isCloudinaryProfilePhoto,
-  readCachedUserPhoto
-} from "./lib/profilePhotoCache.js";
-import {
   activeBookingStatuses,
   BOOKING_CLOSED_MESSAGE,
   DEFAULT_BARBER_NAMES,
@@ -63,6 +58,18 @@ import { BarbersPage, BookingPage, HomePage } from "./pages/bookingPages.jsx";
 
 const CLIENT_LIVE_QUEUE_LIMIT = 80;
 const CLIENT_SERVICES_LIMIT = 50;
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+const isCloudinaryUrl = (value = "") =>
+  String(value || "").includes("res.cloudinary.com");
+
+const getProfilePhotoUrl = (account = {}) => {
+  const photoURL = account?.photoURL || account?.photoUrl || account?.profilePhotoURL || "";
+  if (!photoURL) return "";
+  if (account?.profilePhotoSource === "cloudinary") return photoURL;
+  if (account?.profilePhotoPublicId) return photoURL;
+  return isCloudinaryUrl(photoURL) ? photoURL : "";
+};
 
 const lazyPage = (loader, exportName) =>
   React.lazy(() =>
@@ -113,7 +120,8 @@ export function App() {
   const [page, setPage] = useState(initialRoute.page);
   const [user, setUser] = useState(null);
   const [userAccount, setUserAccount] = useState(null);
-  const [cachedPhotoURL, setCachedPhotoURL] = useState("");
+  const [authProfilePhotoURL, setAuthProfilePhotoURL] = useState("");
+  const [profilePhotoURL, setProfilePhotoURL] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
@@ -152,6 +160,11 @@ export function App() {
     premiumActive: false
   });
   const userProfilePersistRef = useRef("");
+  const profilePhotoURLRef = useRef("");
+  const rememberProfilePhotoURL = (nextPhotoURL = "") => {
+    profilePhotoURLRef.current = nextPhotoURL;
+    setProfilePhotoURL(nextPhotoURL);
+  };
 
   useBodyScrollLock(Boolean(photoPreviewService));
 
@@ -159,18 +172,15 @@ export function App() {
 
   useEffect(() => {
     return onAuthStateChanged(auth, (currentUser) => {
-      const authCloudinaryPhoto = String(currentUser?.photoURL || "").includes(
-        "res.cloudinary.com"
-      )
+      const cloudinaryAuthPhoto = isCloudinaryUrl(currentUser?.photoURL)
         ? currentUser.photoURL
         : "";
-      const photoURL =
-        readCachedUserPhoto(currentUser?.uid) ||
-        authCloudinaryPhoto;
-      if (currentUser?.uid && photoURL) {
-        cacheUserPhoto(currentUser.uid, photoURL);
+      setAuthProfilePhotoURL(cloudinaryAuthPhoto);
+      if (!currentUser) {
+        rememberProfilePhotoURL("");
+      } else if (cloudinaryAuthPhoto) {
+        rememberProfilePhotoURL(cloudinaryAuthPhoto);
       }
-      setCachedPhotoURL(photoURL || "");
       setUser(currentUser);
       setAuthLoading(false);
       setLoginLoading(false);
@@ -182,28 +192,133 @@ export function App() {
   useEffect(() => {
     if (!user?.uid) {
       setUserAccount(null);
-      setCachedPhotoURL("");
+      setAuthProfilePhotoURL("");
+      rememberProfilePhotoURL("");
       return undefined;
     }
 
-    return onSnapshot(
-      doc(db, "users", user.uid),
+    let cancelled = false;
+    const userRef = doc(db, "users", user.uid);
+    const authPhotoURL = isCloudinaryUrl(auth.currentUser?.photoURL)
+      ? auth.currentUser.photoURL
+      : "";
+    rememberProfilePhotoURL(authPhotoURL);
+
+    const applyProfilePhoto = (imageUrl, metadata = {}) => {
+      if (!imageUrl || cancelled) return;
+      rememberProfilePhotoURL(imageUrl);
+      setAuthProfilePhotoURL(imageUrl);
+      setUserAccount((current) => ({
+        ...(current || {}),
+        uid: user.uid,
+        email: current?.email || user.email || "",
+        photoURL: imageUrl,
+        photoUrl: imageUrl,
+        profilePhotoURL: imageUrl,
+        profilePhotoPublicId:
+          metadata.imagePublicId ||
+          metadata.profilePhotoPublicId ||
+          current?.profilePhotoPublicId ||
+          "",
+        profilePhotoSource: "cloudinary",
+        profilePhotoUpdatedAt:
+          metadata.profilePhotoUpdatedAt ||
+          current?.profilePhotoUpdatedAt ||
+          null
+      }));
+    };
+
+    const loadProfilePhoto = async () => {
+      let foundPhoto = Boolean(authPhotoURL);
+
+      try {
+        const profileSnapshot = await getDoc(userRef);
+        if (cancelled) return;
+        if (profileSnapshot.exists()) {
+          const account = profileSnapshot.data();
+          const accountPhotoURL = getProfilePhotoUrl(account);
+          setUserAccount((current) => ({
+            ...(current || {}),
+            ...account,
+            ...(accountPhotoURL
+              ? {}
+              : foundPhoto
+                ? {
+                    photoURL: authPhotoURL,
+                    photoUrl: authPhotoURL,
+                    profilePhotoURL: authPhotoURL,
+                    profilePhotoSource: "cloudinary"
+                  }
+                : {})
+          }));
+          if (accountPhotoURL) {
+            foundPhoto = true;
+            applyProfilePhoto(accountPhotoURL, account);
+          }
+        }
+      } catch (error) {
+        console.error("Profile photo doc read failed", error);
+      }
+
+      if (cancelled || foundPhoto) return;
+
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token || cancelled) return;
+        const response = await fetch(`${API_URL}/api/cloudinary/profile-photo/me`, {
+          headers: {
+            authorization: `Bearer ${token}`
+          }
+        });
+        const profilePhoto = response?.ok ? await response.json() : null;
+        if (profilePhoto?.imageUrl) {
+          applyProfilePhoto(profilePhoto.imageUrl, profilePhoto);
+        }
+      } catch (error) {
+        console.error("Profile photo fetch failed", error);
+      }
+    };
+
+    loadProfilePhoto();
+
+    const unsubscribeProfile = onSnapshot(
+      userRef,
       (snapshot) => {
         const account = snapshot.exists() ? snapshot.data() : null;
-        const photoURL = getCloudinaryProfilePhotoUrl(
-          account,
-          readCachedUserPhoto(user.uid)
-        );
-        if (photoURL) {
-          cacheUserPhoto(user.uid, photoURL);
-          setCachedPhotoURL(photoURL);
-        } else {
-          setCachedPhotoURL("");
-        }
-        setUserAccount(account);
+        setUserAccount((current) => ({
+          ...(current || {}),
+          ...(account || {}),
+          ...(() => {
+            const accountPhotoURL = getProfilePhotoUrl(account);
+            const currentPhotoURL =
+              accountPhotoURL ||
+              getProfilePhotoUrl(current) ||
+              profilePhotoURLRef.current ||
+              authPhotoURL;
+            if (accountPhotoURL) {
+              rememberProfilePhotoURL(accountPhotoURL);
+              setAuthProfilePhotoURL(accountPhotoURL);
+            }
+            return currentPhotoURL
+              ? {
+                  photoURL: currentPhotoURL,
+                  photoUrl: currentPhotoURL,
+                  profilePhotoURL: currentPhotoURL,
+                  profilePhotoSource: "cloudinary"
+                }
+              : {};
+          })()
+        }));
       },
-      () => setUserAccount(null)
+      (error) => {
+        console.error("User profile listener failed", error);
+      }
     );
+
+    return () => {
+      cancelled = true;
+      unsubscribeProfile();
+    };
   }, [user?.email, user?.uid]);
 
   useEffect(() => {
@@ -226,12 +341,8 @@ export function App() {
 
   const displayUser = useMemo(() => {
     if (!user) return null;
-    const storedPhotoURL =
-      cachedPhotoURL ||
-      readCachedUserPhoto(user.uid);
-    const hasCloudinaryPhoto = isCloudinaryProfilePhoto(userAccount);
-    const savedPhotoURL = getCloudinaryProfilePhotoUrl(userAccount, "");
-    const fallbackPhotoURL = hasCloudinaryPhoto || !userAccount ? storedPhotoURL : "";
+    const resolvedProfilePhotoURL =
+      profilePhotoURL || getProfilePhotoUrl(userAccount) || authProfilePhotoURL;
     return {
       uid: user.uid,
       email: user.email || userAccount?.email || "",
@@ -241,13 +352,29 @@ export function App() {
         userAccount?.displayName ||
         user.email?.split("@")[0] ||
         "Customer",
-      photoURL: savedPhotoURL || fallbackPhotoURL,
-      photoUrl: savedPhotoURL || fallbackPhotoURL,
-      profilePhotoSource: savedPhotoURL || fallbackPhotoURL ? "cloudinary" : "",
+      photoURL: resolvedProfilePhotoURL,
+      photoUrl: resolvedProfilePhotoURL,
+      profilePhotoSource: resolvedProfilePhotoURL ? "cloudinary" : "",
       profilePhotoUpdatedAt: userAccount?.profilePhotoUpdatedAt || null,
       providerData: []
     };
-  }, [cachedPhotoURL, user, userAccount]);
+  }, [authProfilePhotoURL, profilePhotoURL, user, userAccount]);
+
+  const updateProfilePhoto = (photoURL) => {
+    if (!user?.uid || !photoURL) return;
+    rememberProfilePhotoURL(photoURL);
+    setAuthProfilePhotoURL(photoURL);
+    setUserAccount((current) => ({
+      ...(current || {}),
+      uid: user.uid,
+      email: current?.email || user.email || "",
+      photoURL,
+      photoUrl: photoURL,
+      profilePhotoURL: photoURL,
+      profilePhotoSource: "cloudinary",
+      profilePhotoUpdatedAt: new Date().toISOString()
+    }));
+  };
 
   useEffect(() => {
     writeClientRoute({ page }, true);
@@ -728,6 +855,7 @@ export function App() {
             onMyBookings={() => navigatePage("my-bookings")}
             onLogin={login}
             onLogout={requestLogout}
+            onProfilePhotoUpdated={updateProfilePhoto}
             user={displayUser}
           />
         ) : null}
@@ -739,6 +867,7 @@ export function App() {
             logoutLoading={logoutLoading}
             onLogin={login}
             onLogout={requestLogout}
+            onProfilePhotoUpdated={updateProfilePhoto}
             user={displayUser}
           />
         ) : null}

@@ -117,7 +117,7 @@ export function Header({
   scrollProgress
 }) {
   const { canInstall, install } = usePwaInstallPrompt();
-  const navPages = user ? [...primaryPages, "profile"] : primaryPages;
+  const navPages = primaryPages;
 
   const go = (nextPage) => {
     onNavigate(nextPage);

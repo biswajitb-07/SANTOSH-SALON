@@ -491,7 +491,7 @@ export function CheckoutModal({
       });
       setProcessingLabel("Opening Cashfree checkout...");
       toast.info(
-        `Payment pending. Complete Cashfree checkout for ${formatMoney(
+        `Opening secure Cashfree checkout for ${formatMoney(
           order.charge?.payableAmount
         )}.`,
         { id: paymentToastId, duration: 2400 }
@@ -507,6 +507,10 @@ export function CheckoutModal({
       });
 
       if (result?.error) {
+        toast.info("Payment pending/cancelled. Complete checkout only when you are ready.", {
+          id: paymentToastId,
+          duration: 3200
+        });
         throw new Error(
           result.error?.message ||
             result.error?.paymentMessage ||

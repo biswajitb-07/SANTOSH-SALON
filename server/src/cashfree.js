@@ -50,14 +50,12 @@ export const createCashfreeServiceOrder = async ({
   const orderId = safeIdempotencyKey
     ? `svc_${safeIdempotencyKey}`.slice(0, 48)
     : `svc_${Date.now()}_${safeCustomerId.slice(0, 12)}`;
-  const businessName = config.cashfree.businessName || "Santosh Salon Queue";
-  const businessLogoUrl = config.cashfree.businessLogoUrl || "";
 
   const payload = {
     order_id: orderId,
     order_amount: charge.payableAmount,
     order_currency: "INR",
-    order_note: `${businessName} | ${serviceTitle} | Online salon booking`.slice(
+    order_note: `${serviceTitle} | Online salon booking`.slice(
       0,
       200
     ),
@@ -72,8 +70,6 @@ export const createCashfreeServiceOrder = async ({
       notify_url: `${config.serverUrl}/api/customer-payments/cashfree/webhook`
     },
     order_tags: {
-      businessName,
-      businessLogoUrl,
       paymentFor: "service-booking",
       serviceTitle,
       customerUserId: customerUserId || "",
@@ -102,8 +98,6 @@ export const createCashfreeServiceOrder = async ({
   return {
     ...data,
     checkoutMode: cashfreeMode(),
-    businessName,
-    businessLogoUrl,
     charge
   };
 };

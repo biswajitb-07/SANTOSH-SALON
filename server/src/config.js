@@ -46,11 +46,7 @@ export const config = {
         : "https://sandbox.cashfree.com/pg"),
     apiVersion: process.env.CASHFREE_API_VERSION || "2025-01-01",
     appId: required("CASHFREE_APP_ID"),
-    secretKey: required("CASHFREE_SECRET_KEY"),
-    businessName: optional("CASHFREE_BUSINESS_NAME") || "Santosh Salon Queue",
-    businessLogoUrl:
-      optional("CASHFREE_BUSINESS_LOGO_URL") ||
-      `${clientUrl.replace(/\/$/, "")}/assets/owner-santosh-avatar.png`
+    secretKey: required("CASHFREE_SECRET_KEY")
   },
   firebase: {
     serviceAccountFile: process.env.FIREBASE_SERVICE_ACCOUNT_FILE,

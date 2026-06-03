@@ -47,7 +47,6 @@ import {
   fileToDataUrl,
   formatDateTime,
   getBarberAvailabilityForDate,
-  getBarberStatsId,
   getBookingSortMinutes,
   getDisplayDate,
   getPremiumUntilDate,
@@ -578,34 +577,6 @@ export function useAdminController() {
     }
     return idleAvailableBarberNames.includes(customer.barberName);
   };
-
-  useEffect(() => {
-    if (!user || !profileBarberNames.length) return;
-    profileBarberNames.forEach((barberName) => {
-      const activeCount = activeDisplayQueue.filter((item) => {
-        const status = String(item.status || "").toLowerCase();
-        return (
-          item.barberName === barberName &&
-          ["waiting", "waitlist", "in_chair"].includes(status)
-        );
-      }).length;
-      setDoc(
-        doc(db, "barberStats", getBarberStatsId(barberName)),
-        {
-          name: barberName,
-          activeCount,
-          updatedAt: serverTimestamp()
-        },
-        { merge: true }
-      ).catch(() => {});
-    });
-  }, [
-    user?.uid,
-    profileBarberNames.join("|"),
-    activeDisplayQueue
-      .map((item) => `${item.id}:${item.status}:${item.barberName}`)
-      .join("|")
-  ]);
 
   const selectedQueueTab =
     queueStatusTabs.find((tab) => tab.key === queueStatusTab) ||

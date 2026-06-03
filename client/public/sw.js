@@ -1,4 +1,4 @@
-const CACHE_NAME = "santosh-salon-v2";
+const CACHE_NAME = "santosh-salon-v3";
 const APP_SHELL = [
   "/",
   "/index.html",
