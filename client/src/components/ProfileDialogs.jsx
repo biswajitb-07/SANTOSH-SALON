@@ -46,12 +46,13 @@ export function RefundStatusTracker({ refund }) {
   if (!refund) return null;
   const stepIndex = getRefundStepIndex(refund.status);
   const refundStatus = String(refund.status || "").toLowerCase();
+  const rejected = ["rejected", "failed"].includes(refundStatus);
   const statusNote =
     ["processing", "reviewing"].includes(refundStatus)
       ? "Refund has been initiated and is waiting for payment provider confirmation."
       : "";
   const visibleAdminNote =
-    refundStatus === "completed" ? "" : statusNote || refund.adminRefundNote || "";
+    refundStatus === "completed" ? "" : refund.adminRefundNote || statusNote || "";
   const steps = [
     {
       label: "Requested",
@@ -75,6 +76,31 @@ export function RefundStatusTracker({ refund }) {
       text: "text-[#86efac]"
     }
   ];
+
+  if (rejected) {
+    return (
+      <div className="mt-3 rounded-2xl border border-[#ef4444]/30 bg-[#2a1111] px-4 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.12em] text-[#fca5a5]">
+              Refund {refundStatus === "failed" ? "Failed" : "Rejected"}
+            </p>
+            <p className="mt-1 text-sm font-bold leading-6 text-[#fca5a5]/85">
+              Refund is not being processed. Please contact the salon if you need help.
+            </p>
+          </div>
+          <span className="rounded-full bg-[#991b1b] px-3 py-1 text-xs font-black text-white">
+            {refundStatus === "failed" ? "Failed" : "Rejected"}
+          </span>
+        </div>
+        {visibleAdminNote ? (
+          <p className="mt-3 rounded-xl bg-[#140909] px-3 py-2 text-xs font-bold text-[#fecaca]">
+            Admin note: {visibleAdminNote}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="mt-3 rounded-2xl border border-[#35201f] bg-[#101a18] px-4 py-5">

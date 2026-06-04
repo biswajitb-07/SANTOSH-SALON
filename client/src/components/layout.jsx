@@ -65,7 +65,7 @@ export function ScrollPercentBadge({ visible, value }) {
   );
 }
 
-function usePwaInstallPrompt() {
+export function usePwaInstallPrompt() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [installed, setInstalled] = useState(false);
 
@@ -114,9 +114,10 @@ export function Header({
   loginLoading,
   routeProgress,
   routeProgressActive,
-  scrollProgress
+  scrollProgress,
+  canInstall = false,
+  install = () => {}
 }) {
-  const { canInstall, install } = usePwaInstallPrompt();
   const navPages = primaryPages;
 
   const go = (nextPage) => {
@@ -163,7 +164,7 @@ export function Header({
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
-          {canInstall ? (
+          {!user && canInstall ? (
             <button
               className="flex h-10 items-center gap-2 rounded-full border border-[#f9c66d]/35 bg-[#24170d] px-4 text-sm font-black text-[#f9c66d] transition hover:bg-[#33200f]"
               onClick={install}
@@ -229,7 +230,7 @@ export function Header({
       </header>
 
       <ClientMobileNavigation
-        canInstall={canInstall}
+        canInstall={!user && canInstall}
         install={install}
         loginLoading={loginLoading}
         onLogin={onLogin}

@@ -365,7 +365,9 @@ const groupUserBookings = (bookings) =>
 export function ProfilePage({
   bookingGate = {},
   bookingsOnly = false,
+  canInstall = false,
   initialOpenBookingId = "",
+  install = () => {},
   loginLoading,
   logoutLoading,
   onMyBookings,
@@ -955,12 +957,15 @@ export function ProfilePage({
     const refundStatus = String(
       bookingRefund?.status || booking.refundStatus || ""
     ).toLowerCase();
+    const refundRejected = ["failed", "rejected"].includes(refundStatus);
     const refundInProgress =
-      refundStatus && !["failed", "rejected"].includes(refundStatus);
+      refundStatus && !refundRejected;
     const turnLabel = getEstimatedTurnLabel(booking);
     const helperText =
       pastActiveBooking
         ? "This booking date has passed. Please reschedule to a fresh slot before visiting the salon."
+        : refundRejected
+        ? `Refund ${formatStatus(refundStatus)}. Please check the admin note below.`
         : refundStatus === "completed"
         ? "Refund completed. The amount has been sent back to the original payment method."
         : refundStatus === "processing"
@@ -983,6 +988,7 @@ export function ProfilePage({
       activeBooking,
       bookingRefund,
       pastActiveBooking,
+      refundRejected,
       refundInProgress,
       turnLabel,
       helperText
@@ -1088,7 +1094,17 @@ export function ProfilePage({
               </p>
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className={`grid gap-3 ${canInstall ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+            {canInstall ? (
+              <button
+                className="flex min-h-[52px] items-center justify-center gap-2 rounded-2xl border border-[#f9c66d]/35 bg-[#24170d] px-6 py-4 font-black text-[#f9c66d] transition hover:bg-[#33200f]"
+                onClick={install}
+                type="button"
+              >
+                <Download size={19} />
+                Install App
+              </button>
+            ) : null}
             <button
               className="flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-6 py-4 font-black text-white"
               onClick={onMyBookings}
@@ -1357,6 +1373,7 @@ export function ProfilePage({
                   activeBooking,
                   bookingRefund,
                   refundInProgress,
+                  refundRejected,
                   turnLabel,
                   helperText
                 } = getBookingViewState(booking);
@@ -1523,13 +1540,13 @@ export function ProfilePage({
                       </div>
                     ) : null}
                     <RefundStatusTracker refund={bookingRefund} />
-                    {booking.cashfreeFee > 0 ? (
+                    {!refundRejected && booking.cashfreeFee > 0 ? (
                       <p className="mt-3 rounded-2xl bg-[#24170d] px-3 py-2 text-xs font-black text-[#f9c66d]">
                         Refund eligible amount is {formatMoney(booking.refundableAmount)}.
                         Platform fee {formatMoney(booking.platformFee || 0)}
                         and Cashfree charge {formatMoney(booking.cashfreeFee)} are non-refundable.
                       </p>
-                    ) : booking.platformFee > 0 ? (
+                    ) : !refundRejected && booking.platformFee > 0 ? (
                       <p className="mt-3 rounded-2xl bg-[#24170d] px-3 py-2 text-xs font-black text-[#f9c66d]">
                         Refund eligible amount is {formatMoney(booking.refundableAmount)}.
                         Platform fee {formatMoney(booking.platformFee)} is non-refundable.

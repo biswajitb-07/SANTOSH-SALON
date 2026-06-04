@@ -29,7 +29,8 @@ import { BookingConfirmedCard } from "./components/MobileFlowStates.jsx";
 import {
   Header,
   PageSkeleton,
-  ScrollPercentBadge
+  ScrollPercentBadge,
+  usePwaInstallPrompt
 } from "./components/layout.jsx";
 import {
   businessPages,
@@ -142,6 +143,7 @@ export function App() {
   );
   const [offlineMode, setOfflineMode] = useState(false);
   const [salonServices, setSalonServices] = useState(defaultServices);
+  const { canInstall, install } = usePwaInstallPrompt();
   const [queueItems, setQueueItems] = useState([]);
   const [queueStats, setQueueStats] = useState({
     displayToken: 1,
@@ -843,6 +845,8 @@ export function App() {
         routeProgress={routeProgress}
         routeProgressActive={routeProgressActive}
         scrollProgress={scrollProgress}
+        canInstall={canInstall}
+        install={install}
         user={displayUser}
       />
       {authError ? (
@@ -893,6 +897,8 @@ export function App() {
             bookingGate={bookingGate}
             loginLoading={loginLoading}
             logoutLoading={logoutLoading}
+            canInstall={canInstall}
+            install={install}
             onMyBookings={() => navigatePage("my-bookings")}
             onLogin={login}
             onLogout={requestLogout}

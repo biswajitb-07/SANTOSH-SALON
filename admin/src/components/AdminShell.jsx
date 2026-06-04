@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Toaster } from "sonner";
 import {
   Area,
@@ -51,6 +51,82 @@ import {
   SettingsPage
 } from "../pages/profilePages.jsx";
 import { ChartEmpty } from "../lib/adminFlow.jsx";
+
+function RefundRejectDialog({ actionLoading, dialog, onClose, onConfirm }) {
+  const [note, setNote] = useState("");
+  const refund = dialog?.refund;
+  const loading = Boolean(refund?.id && actionLoading === `refund-${refund.id}-rejected`);
+
+  useEffect(() => {
+    setNote(dialog?.note || "");
+  }, [dialog]);
+
+  if (!dialog || !refund) return null;
+
+  return (
+    <div
+      aria-modal="true"
+      className="fixed inset-0 z-[130] grid place-items-center bg-black/70 p-4 backdrop-blur-md"
+      role="dialog"
+    >
+      <section className="queue-shadow w-full max-w-lg rounded-[1.5rem] border border-[#f9c66d]/20 bg-[#081311] p-5 text-[#f4fbf8] sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="section-kicker">Reject Refund</p>
+            <h2 className="mt-1 text-2xl font-black">
+              Reason visible to customer
+            </h2>
+            <p className="mt-2 text-sm font-bold leading-6 text-[#9db2ad]">
+              {refund.customerName} ko yeh admin note refund status ke saath dikhega.
+            </p>
+          </div>
+          <button
+            aria-label="Close"
+            className="grid h-10 w-10 place-items-center rounded-xl bg-[#101a18] text-[#f4fbf8] transition hover:bg-[#2a1111]"
+            disabled={loading}
+            onClick={onClose}
+            type="button"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <label className="mt-5 block">
+          <span className="mb-2 block text-sm font-black text-[#9db2ad]">
+            Admin note
+          </span>
+          <textarea
+            className="min-h-28 w-full resize-none rounded-2xl border border-[#4a2525] bg-[#0b1714] p-4 text-[#f4fbf8] outline-none transition focus:border-[#f9c66d] focus:ring-4 focus:ring-[#f9c66d]/10"
+            disabled={loading}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Example: Payment/refund verification issue"
+            value={note}
+          />
+        </label>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <button
+            className="min-h-12 rounded-2xl bg-[#101a18] px-5 font-black text-[#f4fbf8] transition hover:bg-[#17231f] disabled:opacity-60"
+            disabled={loading}
+            onClick={onClose}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 font-black text-white transition hover:bg-[#7f1d1d] disabled:opacity-60"
+            disabled={loading}
+            onClick={() => onConfirm(note)}
+            type="button"
+          >
+            {loading ? <ButtonSpinner /> : <XCircle size={18} />}
+            Reject Refund
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
 
 export function AdminShell(props) {
   const {
@@ -226,7 +302,10 @@ export function AdminShell(props) {
     adminBookingSlots,
     todayDateValue,
     photoPreviewService,
-    confirmDialog
+    confirmDialog,
+    refundRejectDialog,
+    setRefundRejectDialog,
+    confirmRefundRejection
   } = props;
 
   return (<main className="h-screen overflow-hidden bg-[#06100e] text-[#f4fbf8]">
@@ -2139,5 +2218,11 @@ export function AdminShell(props) {
           tone="danger"
         />
       ) : null}
+      <RefundRejectDialog
+        actionLoading={actionLoading}
+        dialog={refundRejectDialog}
+        onClose={() => setRefundRejectDialog(null)}
+        onConfirm={confirmRefundRejection}
+      />
     </main>);
 }

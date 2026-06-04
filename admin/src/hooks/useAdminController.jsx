@@ -126,6 +126,7 @@ export function useAdminController() {
   const [bookingDraft, setBookingDraft] = useState(null);
   const [adminBookingMode, setAdminBookingMode] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [refundRejectDialog, setRefundRejectDialog] = useState(null);
   const [selectedBookingIds, setSelectedBookingIds] = useState([]);
   const [selectedServiceIds, setSelectedServiceIds] = useState([]);
   const [selectedRefundIds, setSelectedRefundIds] = useState([]);
@@ -2172,13 +2173,13 @@ export function useAdminController() {
     }
   };
 
-  const updateRefundStatus = async (refund, status) => {
+  const updateRefundStatus = async (refund, status, noteOverride = null) => {
     const loadingKey = `refund-${refund.id}-${status}`;
     setActionLoading(loadingKey);
     try {
       const adminRefundNote =
         status === "rejected"
-          ? window.prompt("Reason visible to customer:", refund.adminRefundNote || "")
+          ? String(noteOverride ?? refund.adminRefundNote ?? "").trim()
           : status === "reviewing"
             ? "Admin is reviewing your refund request."
             : status === "processing"
@@ -2186,11 +2187,6 @@ export function useAdminController() {
               : status === "completed"
                 ? "Refund completed to the original payment method."
                 : refund.adminRefundNote || "";
-
-      if (status === "rejected" && adminRefundNote === null) {
-        setActionLoading("");
-        return;
-      }
 
       if (status === "completed") {
         if (!refund.orderId || refund.orderId === "-") {
@@ -2285,7 +2281,13 @@ export function useAdminController() {
       toast.error(getSafeErrorMessage(error, "Unable to update refund request."));
     } finally {
       setActionLoading("");
+      if (status === "rejected") setRefundRejectDialog(null);
     }
+  };
+
+  const confirmRefundRejection = (note) => {
+    if (!refundRejectDialog?.refund) return;
+    updateRefundStatus(refundRejectDialog.refund, "rejected", note);
   };
 
   const syncCashfreeRefundStatus = async (refund) => {
@@ -2341,6 +2343,14 @@ export function useAdminController() {
         confirmLabel: "Delete",
         loadingKey: `refund-${refund.id}-delete`,
         onConfirm: () => deleteRefundRequest(refund)
+      });
+      return;
+    }
+
+    if (action === "rejected") {
+      setRefundRejectDialog({
+        refund,
+        note: refund.adminRefundNote || ""
       });
       return;
     }
@@ -2854,7 +2864,10 @@ export function useAdminController() {
     adminBookingSlots,
     todayDateValue,
     photoPreviewService,
-    confirmDialog
+    confirmDialog,
+    refundRejectDialog,
+    setRefundRejectDialog,
+    confirmRefundRejection
   };
 
 
