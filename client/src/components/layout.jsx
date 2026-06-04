@@ -11,8 +11,8 @@ import { primaryPages, titleCase } from "../lib/routing.js";
 
 export function PageSkeleton() {
   return (
-    <main className="min-h-screen bg-[#06100e] text-[#f4fbf8]">
-      <header className="border-b border-[#35201f] bg-[#06100e]/88">
+    <main className="min-h-screen" style={{ background: "var(--color-base)", color: "var(--color-text)" }}>
+      <header style={{ borderBottom: "1px solid var(--color-border)", background: "rgba(3, 8, 6, 0.9)" }}>
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="skeleton h-11 w-11 rounded-2xl" />
@@ -42,12 +42,16 @@ export function PageSkeleton() {
 
 function TopProgress({ routeProgress, routeProgressActive, scrollProgress }) {
   const progress = routeProgressActive ? routeProgress : scrollProgress;
-
   return (
-    <div className="h-1.5 w-full bg-[#101a18]">
+    <div style={{ height: "2px", width: "100%", background: "rgba(255,255,255,0.05)" }}>
       <div
-        className="h-full rounded-r-full bg-[#f9c66d] transition-[width] duration-300 ease-out"
-        style={{ width: `${progress}%` }}
+        style={{
+          width: `${progress}%`,
+          height: "100%",
+          background: "linear-gradient(90deg, #a31621, #f6c76a)",
+          borderRadius: "0 999px 999px 0",
+          transition: "width 0.3s ease-out"
+        }}
       />
     </div>
   );
@@ -56,9 +60,28 @@ function TopProgress({ routeProgress, routeProgressActive, scrollProgress }) {
 export function ScrollPercentBadge({ visible, value }) {
   return (
     <div
-      className={`pointer-events-none fixed bottom-24 right-4 z-40 grid h-14 w-14 place-items-center rounded-full border border-[#f9c66d]/30 bg-[#101a18] text-sm font-black text-[#f9c66d] shadow-2xl shadow-black/40 ring-4 ring-black/30 transition-all duration-300 sm:bottom-6 sm:right-6 ${
-        visible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
-      }`}
+      style={{
+        position: "fixed",
+        bottom: "6rem",
+        right: "1rem",
+        zIndex: 40,
+        width: "3.25rem",
+        height: "3.25rem",
+        display: "grid",
+        placeItems: "center",
+        borderRadius: "999px",
+        border: "1px solid rgba(246,199,106,0.28)",
+        background: "rgba(12,20,18,0.95)",
+        fontSize: "0.75rem",
+        fontWeight: 900,
+        color: "var(--color-gold)",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+        backdropFilter: "blur(12px)",
+        pointerEvents: "none",
+        transition: "opacity 0.3s, transform 0.3s",
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0)" : "translateY(8px)"
+      }}
     >
       {Math.round(value)}%
     </div>
@@ -125,101 +148,227 @@ export function Header({
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-[#35201f] bg-[#06100e]/85 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 sm:h-16 sm:px-6 lg:px-8">
-        <button
-          className="flex items-center gap-3 text-left"
-          onClick={() => go("home")}
-          type="button"
+      <header
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          borderBottom: "1px solid var(--color-border)",
+          background: "rgba(3, 8, 6, 0.88)",
+          backdropFilter: "blur(28px) saturate(130%)"
+        }}
+      >
+        <div
+          className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"
+          style={{ height: "64px" }}
         >
-          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#991b1b] text-white shadow-lg shadow-[#991b1b]/20">
-            <Scissors size={20} />
-          </span>
-          <span>
-            <span className="block text-xs font-black uppercase tracking-[0.18em] text-[#991b1b]">
-              Santosh
-            </span>
-            <span className="block text-base font-black leading-none sm:text-lg">
-              Salon Queue
-            </span>
-          </span>
-        </button>
-
-        <nav className="hidden items-center gap-1 rounded-full border border-[#35201f] bg-[#101a18]/88 p-1 shadow-sm lg:flex">
-          {navPages.map((item) => (
-            <button
-              className={`h-9 rounded-full px-4 text-sm font-bold transition ${
-                page === item
-                  ? "bg-[#991b1b] text-white"
-                  : "text-[#9db2ad] hover:bg-[#2a1111] hover:text-white"
-              }`}
-              key={item}
-              onClick={() => go(item)}
-              type="button"
+          {/* Logo */}
+          <button
+            className="flex items-center gap-3 text-left"
+            onClick={() => go("home")}
+            type="button"
+          >
+            <span
+              style={{
+                display: "grid",
+                placeItems: "center",
+                height: "2.5rem",
+                width: "2.5rem",
+                borderRadius: "0.875rem",
+                background: "linear-gradient(135deg, #a31621, #7f1317)",
+                boxShadow: "0 4px 16px rgba(163,22,33,0.35)"
+              }}
             >
-              {titleCase(item)}
-            </button>
-          ))}
-        </nav>
+              <Scissors size={18} color="white" />
+            </span>
+            <span>
+              <span
+                style={{
+                  display: "block",
+                  fontSize: "0.62rem",
+                  fontWeight: 800,
+                  letterSpacing: "0.24em",
+                  textTransform: "uppercase",
+                  color: "var(--color-gold)"
+                }}
+              >
+                Santosh
+              </span>
+              <span
+                style={{
+                  display: "block",
+                  fontFamily: "var(--font-display)",
+                  fontSize: "1.05rem",
+                  fontWeight: 400,
+                  lineHeight: 1,
+                  color: "var(--color-text)"
+                }}
+              >
+                Salon Queue
+              </span>
+            </span>
+          </button>
 
-        <div className="hidden items-center gap-2 lg:flex">
-          {canInstall ? (
-            <button
-              className="flex h-10 items-center gap-2 rounded-full border border-[#f9c66d]/35 bg-[#24170d] px-4 text-sm font-black text-[#f9c66d] transition hover:bg-[#33200f]"
-              onClick={install}
-              type="button"
-            >
-              <Download size={18} />
-              Install App
-            </button>
-          ) : null}
+          {/* Desktop Nav */}
+          <nav
+            className="hidden items-center gap-0.5 lg:flex"
+            style={{
+              borderRadius: "999px",
+              border: "1px solid var(--color-border)",
+              background: "rgba(15,26,23,0.7)",
+              padding: "0.3rem"
+            }}
+          >
+            {navPages.map((item) => (
+              <button
+                key={item}
+                onClick={() => go(item)}
+                type="button"
+                style={{
+                  height: "2.1rem",
+                  borderRadius: "999px",
+                  padding: "0 1rem",
+                  fontSize: "0.8125rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.015em",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "all 140ms ease",
+                  background: page === item
+                    ? "linear-gradient(135deg, #a31621, #7f1317)"
+                    : "transparent",
+                  color: page === item
+                    ? "white"
+                    : "var(--color-muted)"
+                }}
+              >
+                {titleCase(item)}
+              </button>
+            ))}
+          </nav>
+
+          {/* Desktop Actions */}
+          <div className="hidden items-center gap-2 lg:flex">
+            {canInstall ? (
+              <button
+                onClick={install}
+                type="button"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  height: "2.25rem",
+                  borderRadius: "999px",
+                  padding: "0 1rem",
+                  fontSize: "0.8125rem",
+                  fontWeight: 800,
+                  border: "1px solid rgba(246,199,106,0.3)",
+                  background: "rgba(36, 23, 13, 0.8)",
+                  color: "var(--color-gold)",
+                  cursor: "pointer",
+                  transition: "all 140ms ease"
+                }}
+              >
+                <Download size={15} />
+                Install App
+              </button>
+            ) : null}
+            {authLoading ? (
+              <div className="skeleton h-10 w-10 rounded-full" />
+            ) : user ? (
+              <button
+                aria-label="Open profile"
+                onClick={() => go("profile")}
+                type="button"
+                style={{
+                  display: "grid",
+                  placeItems: "center",
+                  height: "2.5rem",
+                  width: "2.5rem",
+                  borderRadius: "999px",
+                  border: "1px solid var(--color-border)",
+                  background: "var(--color-elevated)",
+                  padding: "3px",
+                  cursor: "pointer",
+                  transition: "border-color 140ms ease"
+                }}
+              >
+                <UserAvatar size="h-8 w-8" user={user} />
+              </button>
+            ) : (
+              <button
+                onClick={onLogin}
+                disabled={loginLoading}
+                type="button"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  height: "2.25rem",
+                  borderRadius: "999px",
+                  padding: "0 1.1rem",
+                  fontSize: "0.8125rem",
+                  fontWeight: 800,
+                  border: "1px solid var(--color-border)",
+                  background: "var(--color-elevated)",
+                  color: "var(--color-text)",
+                  cursor: loginLoading ? "not-allowed" : "pointer",
+                  opacity: loginLoading ? 0.7 : 1,
+                  transition: "all 140ms ease"
+                }}
+              >
+                {loginLoading ? <ButtonSpinner /> : <LogIn size={15} />}
+                {loginLoading ? "Logging in..." : "Login"}
+              </button>
+            )}
+          </div>
+
+          {/* Mobile user button */}
           {authLoading ? (
-            <div className="skeleton h-12 w-12 rounded-2xl" />
+            <span className="skeleton h-10 w-10 rounded-full lg:hidden" />
           ) : user ? (
             <button
               aria-label="Open profile"
-              className="grid h-10 w-10 place-items-center rounded-full border border-[#35201f] bg-[#101a18] p-1 font-black text-white shadow-sm transition hover:bg-[#2a1111]"
               onClick={() => go("profile")}
               type="button"
+              className="lg:hidden"
+              style={{
+                display: "grid",
+                placeItems: "center",
+                height: "2.25rem",
+                width: "2.25rem",
+                borderRadius: "999px",
+                border: "1px solid var(--color-border)",
+                background: "var(--color-elevated)",
+                padding: "2px",
+                cursor: "pointer"
+              }}
             >
-              <UserAvatar size="h-8 w-8" user={user} />
+              <UserAvatar size="h-7 w-7" user={user} />
             </button>
           ) : (
             <button
-              className="flex h-10 items-center gap-2 rounded-full border border-[#35201f] bg-[#101a18] px-4 text-sm font-black text-white transition hover:bg-[#2a1111] disabled:opacity-70"
-              disabled={loginLoading}
+              aria-label="Login"
               onClick={onLogin}
+              disabled={loginLoading}
               type="button"
+              className="lg:hidden"
+              style={{
+                display: "grid",
+                placeItems: "center",
+                height: "2.25rem",
+                width: "2.25rem",
+                borderRadius: "999px",
+                border: "1px solid rgba(246,199,106,0.25)",
+                background: "rgba(36,23,13,0.6)",
+                color: "var(--color-gold)",
+                cursor: loginLoading ? "not-allowed" : "pointer"
+              }}
             >
-              {loginLoading ? <ButtonSpinner /> : <LogIn size={18} />}
-              {loginLoading ? "Logging in..." : "Login"}
+              {loginLoading ? <ButtonSpinner /> : <UserRound size={17} />}
             </button>
           )}
         </div>
-
-        {authLoading ? (
-          <span className="skeleton h-10 w-10 rounded-full lg:hidden" />
-        ) : user ? (
-          <button
-            aria-label="Open profile"
-            className="grid h-10 w-10 place-items-center rounded-full border border-[#35201f] bg-[#101a18] p-1 shadow-sm lg:hidden"
-            onClick={() => go("profile")}
-            type="button"
-          >
-            <UserAvatar size="h-8 w-8" user={user} />
-          </button>
-        ) : (
-          <button
-            aria-label="Login"
-            className="grid h-10 w-10 place-items-center rounded-full border border-[#35201f] bg-[#101a18] text-[#f9c66d] shadow-sm lg:hidden"
-            disabled={loginLoading}
-            onClick={onLogin}
-            type="button"
-          >
-            {loginLoading ? <ButtonSpinner /> : <UserRound size={20} />}
-          </button>
-        )}
-      </div>
 
         <TopProgress
           routeProgress={routeProgress}
