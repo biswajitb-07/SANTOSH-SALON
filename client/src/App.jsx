@@ -667,12 +667,6 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (page === "booking") {
-      setScrollProgress(0);
-      setScrollBadgeVisible(false);
-      return undefined;
-    }
-
     let hideTimer;
     let rafId = 0;
     let lastProgress = -1;
