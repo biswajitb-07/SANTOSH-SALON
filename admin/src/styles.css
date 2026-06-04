@@ -130,6 +130,11 @@ body {
   pointer-events: none;
 }
 
+.modal-overlay,
+[aria-modal="true"].fixed {
+  z-index: 2147483000 !important;
+}
+
 .app-toaster [data-sonner-toast],
 [data-sonner-toaster] [data-sonner-toast] {
   width: min(92vw, 560px) !important;

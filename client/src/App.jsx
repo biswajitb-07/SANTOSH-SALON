@@ -675,6 +675,9 @@ export function App() {
       if (rafId) return;
       rafId = window.requestAnimationFrame(() => {
         rafId = 0;
+        if (document.body.style.position === "fixed") {
+          return;
+        }
         const scrollTop =
           window.scrollY || document.documentElement.scrollTop || 0;
         const scrollHeight =
@@ -940,11 +943,13 @@ export function App() {
         }}
       />
       {photoPreviewService ? (
-        <div
-          aria-modal="true"
-          className="fixed inset-0 z-[120] grid place-items-center bg-[#020807]/85 p-3 backdrop-blur-xl sm:p-6"
-          role="dialog"
-        >
+        <>
+          <div aria-hidden="true" className="client-modal-backdrop photo-preview-backdrop fixed inset-0" />
+          <div
+            aria-modal="true"
+            className="photo-preview-shell fixed inset-0 grid place-items-center p-3 sm:p-6"
+            role="dialog"
+          >
           <section className="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[2rem] border border-[#5a2525]/70 bg-[#07110f] shadow-[0_30px_120px_rgba(0,0,0,0.55)]">
             <div className="flex items-center justify-between gap-4 border-b border-[#5a2525]/60 px-4 py-4 sm:px-6">
               <div>
@@ -975,6 +980,7 @@ export function App() {
             </div>
           </section>
         </div>
+        </>
       ) : null}
       {confirmLogoutOpen ? (
         <ConfirmDialog

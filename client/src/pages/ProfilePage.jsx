@@ -1330,7 +1330,7 @@ export function ProfilePage({
       </div>
       ) : null}
       {bookingsOnly && selectedBookingGroup && typeof document !== "undefined" ? createPortal(
-        <div className="modal-fade fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-3 py-3 backdrop-blur-md sm:px-5 sm:py-6">
+        <div className="booking-detail-modal modal-fade fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-3 py-3 backdrop-blur-md sm:px-5 sm:py-6">
           <div className="queue-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-[1180px] overflow-y-auto rounded-3xl border border-[#f9c66d]/15 bg-[#081311]/95 text-[#f4fbf8] sm:max-h-[calc(100dvh-3rem)] sm:rounded-[2rem]">
             <div className="sticky top-0 z-10 border-b border-[#35201f] bg-[#081311]/95 p-4 backdrop-blur sm:p-6">
               <button

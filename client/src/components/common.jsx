@@ -356,18 +356,12 @@ export function useBodyScrollLock(locked) {
         htmlOverflow: document.documentElement.style.overflow,
         bodyOverflow: document.body.style.overflow,
         bodyPaddingRight: document.body.style.paddingRight,
-        bodyPosition: document.body.style.position,
-        bodyTop: document.body.style.top,
-        bodyWidth: document.body.style.width,
         scrollY
       };
 
       document.documentElement.style.overflow = "hidden";
       document.body.style.overflow = "hidden";
       document.body.style.paddingRight = scrollbarWidth ? `${scrollbarWidth}px` : "";
-      document.body.style.position = "fixed";
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = "100%";
     }
 
     bodyScrollLockCount += 1;
@@ -380,9 +374,6 @@ export function useBodyScrollLock(locked) {
       document.documentElement.style.overflow = bodyScrollSnapshot.htmlOverflow;
       document.body.style.overflow = bodyScrollSnapshot.bodyOverflow;
       document.body.style.paddingRight = bodyScrollSnapshot.bodyPaddingRight;
-      document.body.style.position = bodyScrollSnapshot.bodyPosition;
-      document.body.style.top = bodyScrollSnapshot.bodyTop;
-      document.body.style.width = bodyScrollSnapshot.bodyWidth;
       bodyScrollSnapshot = null;
       window.scrollTo(0, scrollY);
     };

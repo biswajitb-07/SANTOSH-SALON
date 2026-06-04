@@ -321,9 +321,80 @@ h3 {
   animation: fadeIn 0.2s ease both;
 }
 
+.client-modal-backdrop,
+.modal-overlay,
+.booking-detail-modal,
+.mobile-flow-overlay,
+[aria-modal="true"].fixed {
+  animation: checkoutBackdropIn 180ms ease both;
+  background:
+    radial-gradient(circle at 50% 10%, rgba(246, 199, 106, 0.08), transparent 28rem),
+    rgba(2, 8, 7, 0.5) !important;
+  backdrop-filter: blur(18px) saturate(1.18) !important;
+}
+
+.client-site-header {
+  z-index: 90;
+}
+
+.photo-preview-backdrop {
+  z-index: 60 !important;
+}
+
+.checkout-modal-backdrop {
+  z-index: 100 !important;
+}
+
+.checkout-modal-shell,
+.photo-preview-shell {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  pointer-events: none;
+  z-index: 120 !important;
+}
+
+.checkout-mobile-modal.checkout-modal-shell,
+.photo-preview-shell {
+  z-index: 120 !important;
+}
+
+.checkout-modal-shell > *,
+.photo-preview-shell > * {
+  pointer-events: auto;
+}
+
+.checkout-mobile-panel {
+  animation: checkoutPanelIn 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.checkout-modal-closing {
+  animation: checkoutBackdropOut 180ms ease both;
+}
+
+.checkout-modal-closing .checkout-mobile-panel {
+  animation: checkoutPanelOut 180ms ease both;
+}
+
 .app-toaster,
 [data-sonner-toaster] {
   z-index: 2147483647 !important;
+}
+
+.modal-overlay,
+.checkout-mobile-modal:not(.checkout-modal-shell),
+.booking-detail-modal,
+.mobile-flow-overlay,
+[aria-modal="true"].fixed {
+  z-index: 2147483000 !important;
+}
+
+.checkout-mobile-panel,
+.modal-card,
+.booking-detail-modal > *,
+.mobile-flow-overlay > *,
+[aria-modal="true"].fixed > * {
+  position: relative;
+  z-index: 1;
 }
 
 .shine-button {
@@ -1229,10 +1300,39 @@ textarea.ui-input {
 }
 
 @media (min-width: 1024px) {
+  .booking-detail-modal {
+    height: 100dvh !important;
+    inset: 0 !important;
+  }
+
   .checkout-mobile-modal {
-    height: calc(100dvh - 4.375rem) !important;
-    inset: 4.375rem 0 0 !important;
-    z-index: 45 !important;
+    height: 100dvh !important;
+    inset: 0 !important;
+  }
+
+  .client-modal-backdrop[aria-modal="true"].fixed {
+    height: 100dvh !important;
+    inset: 0 !important;
+  }
+
+  .checkout-modal-shell {
+    align-items: center !important;
+    justify-content: center !important;
+    padding-bottom: 1.5rem !important;
+    padding-top: 1.5rem !important;
+  }
+
+  .photo-preview-shell {
+    align-items: center !important;
+    padding-top: 1.5rem !important;
+  }
+
+  .checkout-modal-shell .checkout-mobile-panel {
+    max-height: min(820px, calc(100dvh - 3rem)) !important;
+  }
+
+  .photo-preview-shell > section {
+    max-height: min(920px, calc(100dvh - 3rem)) !important;
   }
 }
 
@@ -2010,15 +2110,15 @@ textarea.ui-input {
   }
 
   .home-service-strip {
-    gap: 0.65rem;
-    padding-right: 10vw;
+    gap: 0.35rem;
+    padding-right: 4vw;
   }
 
   .home-service-card {
-    aspect-ratio: 1.6 / 1;
+    aspect-ratio: 1.5 / 1;
     border-radius: 1rem;
-    max-width: 55vw;
-    min-width: 55vw;
+    max-width: 68vw;
+    min-width: 68vw;
     position: relative;
   }
 
@@ -2170,14 +2270,14 @@ textarea.ui-input {
   }
 
   .checkout-mobile-modal {
-    align-items: end;
-    padding: 0;
+    align-items: center;
+    padding: 0.75rem;
   }
 
   .checkout-mobile-panel {
     background: #13281b;
-    border-radius: 1.9rem 1.9rem 0 0;
-    max-height: 96dvh;
+    border-radius: 1.9rem;
+    max-height: calc(100dvh - 1.5rem);
   }
 
   .checkout-mobile-panel::before {
@@ -2347,6 +2447,50 @@ textarea.ui-input {
   .booking-mobile-detail-btn {
     margin-top: 1rem;
     width: 100%;
+  }
+}
+
+@keyframes checkoutBackdropIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes checkoutBackdropOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes checkoutPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes checkoutPanelOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
   }
 }
 

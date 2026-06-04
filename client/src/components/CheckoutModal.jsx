@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   collection,
@@ -26,7 +26,6 @@ import {
   ButtonSpinner,
   ConfirmDialog,
   getUserPhotoUrl,
-  useBodyScrollLock,
   useDragScroll
 } from "./common.jsx";
 import { MobileErrorCard } from "./ClientErrorStates.jsx";
@@ -123,6 +122,8 @@ export function CheckoutModal({
   const [loading, setLoading] = useState(false);
   const [processingLabel, setProcessingLabel] = useState("Opening Cashfree...");
   const [showProcessingOverlay, setShowProcessingOverlay] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const closeTimerRef = useRef(null);
   const slotDragScroll = useDragScroll();
   const [slotState, setSlotState] = useState({
     loading: true,
@@ -147,7 +148,21 @@ export function CheckoutModal({
     [availableBarbers]
   );
 
-  useBodyScrollLock(Boolean(service));
+  const requestClose = () => {
+    if (closing || loading) return;
+    setClosing(true);
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = window.setTimeout(() => {
+      onClose();
+    }, 180);
+  };
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(closeTimerRef.current);
+    },
+    []
+  );
 
   useEffect(() => {
     setForm({
@@ -790,7 +805,12 @@ export function CheckoutModal({
   };
 
   return (
-    <div className="checkout-mobile-modal modal-fade fixed inset-0 z-[9999] flex h-[100dvh] items-center justify-center overflow-hidden bg-black/75 px-3 py-4 sm:px-5 sm:py-6">
+    <>
+      <div
+        aria-hidden="true"
+        className={`client-modal-backdrop checkout-modal-backdrop fixed inset-0 ${closing ? "checkout-modal-closing" : ""}`}
+      />
+      <div className={`checkout-mobile-modal checkout-modal-shell fixed inset-0 flex h-[100dvh] items-center justify-center overflow-hidden px-3 py-4 sm:px-5 sm:py-6 ${closing ? "checkout-modal-closing" : ""}`}>
       <section className="checkout-mobile-panel relative flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[#f9c66d]/15 bg-[#081311]/95 text-[#f4fbf8] shadow-2xl shadow-black/45 sm:max-h-[min(820px,calc(100dvh-3rem))] sm:max-w-3xl sm:rounded-[2rem] lg:max-w-4xl">
         <div className="checkout-mobile-header sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#35201f] bg-[#081311]/95 px-5 py-4 backdrop-blur sm:px-6">
           <div>
@@ -804,7 +824,7 @@ export function CheckoutModal({
           </div>
           <button
             className="grid h-11 w-11 place-items-center rounded-2xl border border-[#35201f] bg-[#0b1714] text-[#f4fbf8] transition hover:border-[#f9c66d]/35"
-            onClick={onClose}
+            onClick={requestClose}
             type="button"
           >
             <X size={20} />
@@ -1048,7 +1068,7 @@ export function CheckoutModal({
               ) : slotState.confirmedCount + slotState.waitlistCount >= DAILY_BOOKING_LIMIT ? (
                 <MobileErrorCard
                   actions={
-                    <button className="mobile-error-primary" onClick={onClose} type="button">
+                    <button className="mobile-error-primary" onClick={requestClose} type="button">
                       Select New Slot
                     </button>
                   }
@@ -1060,7 +1080,7 @@ export function CheckoutModal({
               ) : (
                 <MobileErrorCard
                   actions={
-                    <button className="mobile-error-primary" onClick={onClose} type="button">
+                    <button className="mobile-error-primary" onClick={requestClose} type="button">
                       Select New Slot
                     </button>
                   }
@@ -1075,7 +1095,7 @@ export function CheckoutModal({
               <div className="mt-2">
                 <MobileErrorCard
                   actions={
-                    <button className="mobile-error-primary" onClick={onClose} type="button">
+                    <button className="mobile-error-primary" onClick={requestClose} type="button">
                       Select New Slot
                     </button>
                   }
@@ -1302,6 +1322,7 @@ export function CheckoutModal({
         ) : null}
       </section>
     </div>
+    </>
   );
 }
 

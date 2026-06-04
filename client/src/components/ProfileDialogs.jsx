@@ -163,7 +163,7 @@ export function CancelReasonDialog({ booking, loading, onClose, onConfirm }) {
 
   return createPortal(
     <div
-      className="fixed inset-0 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/70 px-3 py-3 backdrop-blur-md sm:items-center sm:py-6"
+      className="fixed inset-0 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-3 py-3 backdrop-blur-md sm:py-6"
       style={{ zIndex: 2147483000 }}
     >
       <form
@@ -349,7 +349,7 @@ export function RescheduleDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/70 px-3 py-3 backdrop-blur-md sm:items-center sm:py-6"
+      className="fixed inset-0 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-3 py-3 backdrop-blur-md sm:py-6"
       style={{ zIndex: 2147483000 }}
     >
       <form

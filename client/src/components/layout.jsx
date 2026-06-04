@@ -126,7 +126,7 @@ export function Header({
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-[#35201f] bg-[#06100e]/85 backdrop-blur-xl">
+      <header className="client-site-header sticky top-0 z-50 border-b border-[#35201f] bg-[#06100e]/85 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 sm:h-16 sm:px-6 lg:px-8">
         <button
           className="flex items-center gap-3 text-left"
