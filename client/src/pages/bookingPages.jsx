@@ -30,217 +30,89 @@ import { defaultServices, getServiceImageUrl } from "../lib/services.js";
 const STAFF_COUNT = 3;
 const SERVICE_PAGE_SIZE = 8;
 const BARBER_STATS_LIMIT = 25;
-
 const getQueueEstimateMinutes = (waitingCount) => {
   if (!waitingCount) return 0;
   return Math.ceil(waitingCount / STAFF_COUNT) * 25;
 };
 
-/* ─────────────────────────────────────────
-   QUEUE SUMMARY CARD
-───────────────────────────────────────── */
 function QueueSummaryCard({ loading, onNavigate, stats }) {
   const nextToken = loading ? "--" : stats.displayToken;
   const waitingCount = loading ? "--" : stats.waitingCount;
-  const estimateMinutes = loading ? "--" : `${getQueueEstimateMinutes(stats.waitingCount)}m`;
+  const estimateMinutes = loading
+    ? "--"
+    : `${getQueueEstimateMinutes(stats.waitingCount)}m`;
 
   return (
-    <section
-      style={{
-        background: "linear-gradient(145deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%), rgba(12,20,18,0.85)",
-        border: "1px solid rgba(246,199,106,0.16)",
-        borderRadius: "1.75rem",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07), 0 24px 64px rgba(0,0,0,0.45)",
-        backdropFilter: "blur(28px)",
-        padding: "1.5rem",
-        color: "var(--color-text)"
-      }}
-    >
-      {/* Live badge */}
-      <div
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          fontSize: "0.68rem",
-          fontWeight: 800,
-          letterSpacing: "0.2em",
-          textTransform: "uppercase",
-          color: "var(--color-muted)",
-          border: "1px solid rgba(246,199,106,0.18)",
-          borderRadius: "999px",
-          padding: "0.35rem 0.85rem"
-        }}
-      >
-        <span className="live-dot" />
-        Live Queue Status
+    <section className="queue-shadow luxury-glass rounded-2xl p-5 text-white sm:p-6">
+      <div className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.16em] text-[#9db2ad]">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-[#ef4444]" />
+        Live Queue
       </div>
-
-      {/* Token display */}
-      <div
-        style={{
-          marginTop: "1rem",
-          borderRadius: "1.25rem",
-          border: "1px solid rgba(255,255,255,0.06)",
-          background: "rgba(4,9,8,0.75)",
-          padding: "1.25rem"
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem" }}>
+      <div className="mt-4 rounded-[1.25rem] border border-[#3a2b20] bg-[#090f0d]/80 p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <p style={{ fontSize: "0.75rem", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#fca5a5" }}>
+            <p className="text-sm font-semibold text-[#991b1b]">
               {loading ? "Now Serving" : stats.tokenLabel}
             </p>
-            <p
-              style={{
-                marginTop: "0.25rem",
-                fontFamily: "var(--font-mono, monospace)",
-                fontSize: "3.75rem",
-                fontWeight: 900,
-                letterSpacing: "-0.03em",
-                lineHeight: 1,
-                color: "var(--color-gold)"
-              }}
-            >
+            <p className="mt-1 font-mono text-6xl font-black tracking-tight text-[#f9c66d]">
               {nextToken}
             </p>
-            <p style={{ marginTop: "0.35rem", fontSize: "0.72rem", fontWeight: 700, color: "var(--color-muted)" }}>
+            <p className="mt-1 text-xs font-black text-[#637371]">
               {loading ? "Syncing..." : stats.tokenHint}
             </p>
-            <p style={{ marginTop: "0.6rem", maxWidth: "200px", fontSize: "0.68rem", fontWeight: 600, lineHeight: 1.5, color: "rgba(180,180,170,0.7)" }}>
-              Turns update live when earlier slots or cancellations happen.
+            <p className="mt-2 max-w-[220px] text-[11px] font-bold leading-4 text-[#9db2ad]">
+              Turns update live when earlier slots, skips, or cancellations happen.
             </p>
           </div>
-          <span
-            style={{
-              display: "grid",
-              placeItems: "center",
-              height: "4rem",
-              width: "4rem",
-              borderRadius: "1.25rem",
-              background: "linear-gradient(135deg, #a31621, #7f1317)",
-              boxShadow: "0 8px 24px rgba(163,22,33,0.35)",
-              flexShrink: 0
-            }}
-          >
-            <BellRing size={26} color="white" />
+          <span className="grid h-16 w-16 place-items-center rounded-3xl bg-[#991b1b] text-white">
+            <BellRing size={28} />
           </span>
         </div>
-
-        {/* Stats */}
-        <div style={{ marginTop: "1.1rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.625rem" }}>
-          {[
-            [UsersRound, "Waiting", waitingCount],
-            [Clock3, "Est. Wait", estimateMinutes]
-          ].map(([Icon, label, value]) => (
-            <div
-              key={label}
-              style={{
-                borderRadius: "1rem",
-                border: "1px solid rgba(255,255,255,0.06)",
-                background: "rgba(12,20,18,0.7)",
-                padding: "0.875rem"
-              }}
-            >
-              <p style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.75rem", color: "var(--color-muted)" }}>
-                <Icon size={14} />
-                {label}
-              </p>
-              <p style={{ marginTop: "0.5rem", fontSize: "1.85rem", fontWeight: 900, color: "var(--color-text)", lineHeight: 1 }}>
-                {value}
-              </p>
-            </div>
-          ))}
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-[#3a2b20] bg-[#101a18]/80 p-4">
+            <p className="flex items-center gap-2 text-sm text-[#637371]">
+              <UsersRound size={16} /> Waiting
+            </p>
+            <p className="mt-2 text-3xl font-black">{waitingCount}</p>
+          </div>
+          <div className="rounded-2xl border border-[#3a2b20] bg-[#101a18]/80 p-4">
+            <p className="flex items-center gap-2 text-sm text-[#637371]">
+              <Clock3 size={16} /> Estimate
+            </p>
+            <p className="mt-2 text-3xl font-black">{estimateMinutes}</p>
+          </div>
         </div>
       </div>
 
-      {/* CTA */}
-      <div
-        style={{
-          marginTop: "1rem",
-          borderRadius: "1.25rem",
-          border: "1px solid rgba(255,255,255,0.06)",
-          background: "rgba(4,9,8,0.75)",
-          padding: "1rem"
-        }}
-      >
-        <p style={{ fontSize: "0.78rem", fontWeight: 600, color: "var(--color-muted)", lineHeight: 1.5 }}>
+      <div className="mt-5 rounded-[1.5rem] border border-[#3a2b20] bg-[#090f0d]/80 p-4">
+        <p className="text-sm font-bold text-[#637371]">
           Choose a service first. Details are collected at checkout.
         </p>
         <button
+          className="mt-4 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl border border-[#991b1b] bg-transparent px-5 py-4 font-black text-[#fca5a5] shadow-lg shadow-[#991b1b]/20 transition hover:bg-[#991b1b] hover:text-white"
           onClick={() => onNavigate("booking")}
           type="button"
-          style={{
-            marginTop: "0.875rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.5rem",
-            width: "100%",
-            minHeight: "50px",
-            borderRadius: "1rem",
-            border: "1px solid rgba(163,22,33,0.5)",
-            background: "transparent",
-            color: "#fca5a5",
-            fontWeight: 800,
-            fontSize: "0.9rem",
-            cursor: "pointer",
-            transition: "all 200ms ease"
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.background = "var(--color-red)";
-            e.currentTarget.style.color = "white";
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color = "#fca5a5";
-          }}
         >
-          View All Services <ArrowRight size={18} />
+          View Services <ArrowRight size={19} />
         </button>
       </div>
     </section>
   );
 }
 
-/* ─────────────────────────────────────────
-   BOOKING CLOSED NOTICE
-───────────────────────────────────────── */
 function BookingClosedNotice({ bookingGate }) {
   if (bookingGate.loading || bookingGate.open) return null;
+
   return (
     <section className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.75rem",
-          borderRadius: "1.75rem",
-          background: "linear-gradient(145deg, rgba(120,20,28,0.28), rgba(12,20,18,0.8))",
-          border: "1px solid rgba(246,199,106,0.16)",
-          padding: "1.25rem 1.5rem",
-          color: "var(--color-text)"
-        }}
-        className="sm:flex-row sm:items-center sm:justify-between"
-      >
+      <div className="queue-shadow luxury-red-glass flex flex-col gap-3 rounded-[2rem] p-5 text-[#f4fbf8] sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="section-kicker">Booking Closed</p>
-          <p style={{ marginTop: "0.25rem", fontSize: "1.05rem", fontWeight: 800 }}>
-            {bookingGate.message}
+          <p className="section-kicker">
+            Booking Closed
           </p>
+          <p className="mt-1 text-lg font-black">{bookingGate.message}</p>
         </div>
-        <span
-          style={{
-            borderRadius: "999px",
-            border: "1px solid rgba(246,199,106,0.2)",
-            background: "rgba(36,23,13,0.8)",
-            padding: "0.4rem 1rem",
-            fontSize: "0.78rem",
-            fontWeight: 800,
-            color: "var(--color-gold)",
-            whiteSpace: "nowrap"
-          }}
-        >
+        <span className="rounded-full border border-[#f9c66d]/20 bg-[#24170d] px-4 py-2 text-sm font-black text-[#f9c66d]">
           Try after sometime
         </span>
       </div>
@@ -248,26 +120,6 @@ function BookingClosedNotice({ bookingGate }) {
   );
 }
 
-/* ─────────────────────────────────────────
-   DUMMY STATS (shown while loading)
-───────────────────────────────────────── */
-const dummyReviews = [
-  { name: "Amit Kumar", text: "Best salon experience! Token system saved me 45 mins of waiting.", rating: 5 },
-  { name: "Rahul Singh", text: "Clean cuts, easy online payment, and the live queue is brilliant.", rating: 5 },
-  { name: "Priya Sharma", text: "Premium feel, affordable price. My go-to place every month.", rating: 5 },
-  { name: "Vikas Gupta", text: "Booked for my brother too. Guest booking feature is super handy.", rating: 4 }
-];
-
-const dummyStats = [
-  ["2,400+", "Happy Customers"],
-  ["4.9", "Average Rating"],
-  ["7 AM", "Opens Daily"],
-  ["11 PM", "Closes Daily"]
-];
-
-/* ─────────────────────────────────────────
-   HOME PAGE
-───────────────────────────────────────── */
 export function HomePage({
   user,
   onLogin,
@@ -283,369 +135,159 @@ export function HomePage({
 }) {
   return (
     <>
-      {/* HERO */}
-      <section className="luxury-hero hero-image" style={{ minHeight: "95vh", overflow: "hidden", color: "white", position: "relative" }}>
-        <div
-          className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
-          style={{ zIndex: 1, display: "grid", minHeight: "95vh", alignItems: "center", gap: "2.5rem", paddingTop: "3rem", paddingBottom: "3rem" }}
-        >
-          <div style={{ display: "grid", alignItems: "center", gap: "2.5rem" }} className="lg:grid-cols-[1fr_430px]">
-            <div style={{ maxWidth: "760px" }}>
-              {/* Badge */}
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  marginBottom: "1.5rem",
-                  borderRadius: "999px",
-                  border: "1px solid rgba(246,199,106,0.28)",
-                  background: "rgba(40,15,20,0.55)",
-                  padding: "0.45rem 1.1rem",
-                  fontSize: "0.72rem",
-                  fontWeight: 800,
-                  color: "var(--color-gold)",
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  backdropFilter: "blur(8px)"
-                }}
-              >
-                <Sparkles size={14} />
-                Premium Salon Experience
-              </div>
-
-              {/* Heading */}
-              <h1
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "clamp(2.5rem, 6vw, 4.5rem)",
-                  fontWeight: 400,
-                  lineHeight: 1.05,
-                  letterSpacing: "-0.01em",
-                  color: "white"
-                }}
-              >
-                Luxury grooming with<br />
-                <em style={{ fontStyle: "italic", color: "var(--color-gold)" }}>live queue</em> confidence.
-              </h1>
-
-              <p
-                style={{
-                  marginTop: "1.25rem",
-                  maxWidth: "560px",
-                  fontSize: "1.05rem",
-                  lineHeight: 1.75,
-                  color: "rgba(255,255,255,0.72)"
-                }}
-              >
-                Choose your service, pay online, and arrive only when your turn is near. A dark luxury booking experience built for modern local salons.
-              </p>
-
-              {/* CTAs */}
-              <div style={{ marginTop: "2rem", display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
-                <button
-                  onClick={() => onNavigate("booking")}
-                  type="button"
-                  className="luxury-button shine-button"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    minHeight: "52px",
-                    borderRadius: "999px",
-                    padding: "0 1.75rem",
-                    fontWeight: 800,
-                    fontSize: "0.9375rem",
-                    border: "none",
-                    cursor: "pointer"
-                  }}
-                >
-                  <CalendarCheck2 size={18} />
-                  Book a Service
-                </button>
-                <button
-                  onClick={() => onNavigate("about")}
-                  type="button"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    minHeight: "52px",
-                    borderRadius: "999px",
-                    padding: "0 1.75rem",
-                    fontWeight: 800,
-                    fontSize: "0.9375rem",
-                    border: "1px solid rgba(255,255,255,0.18)",
-                    background: "rgba(255,255,255,0.07)",
-                    color: "white",
-                    cursor: "pointer",
-                    backdropFilter: "blur(8px)"
-                  }}
-                >
-                  Explore Salon <ArrowRight size={18} />
-                </button>
-              </div>
-
-              {/* Mini stats */}
-              <div style={{ marginTop: "2rem", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.625rem" }} className="sm:grid-cols-4">
-                {dummyStats.map(([value, label]) => (
-                  <div
-                    key={label}
-                    style={{
-                      borderRadius: "1rem",
-                      border: "1px solid rgba(246,199,106,0.14)",
-                      background: "rgba(255,255,255,0.06)",
-                      padding: "0.75rem",
-                      backdropFilter: "blur(12px)"
-                    }}
-                  >
-                    <p style={{ fontSize: "1.25rem", fontWeight: 900, color: "var(--color-gold)", lineHeight: 1 }}>{value}</p>
-                    <p style={{ marginTop: "0.25rem", fontSize: "0.68rem", fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.04em" }}>{label}</p>
-                  </div>
-                ))}
-              </div>
+      <section className="luxury-hero hero-image relative min-h-[92vh] overflow-hidden text-white">
+        <div className="relative z-[1] mx-auto grid min-h-[92vh] max-w-7xl items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_430px] lg:px-8">
+          <div className="max-w-3xl">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#f9c66d]/30 bg-[#2a0f12]/55 px-4 py-2 text-sm font-black text-[#f9c66d] backdrop-blur">
+              <Sparkles size={16} />
+              Premium Salon Experience
             </div>
-
-            <QueueSummaryCard
-              loading={queueLoading}
-              onNavigate={onNavigate}
-              stats={queueStats}
-            />
+            <h1 className="max-w-4xl text-5xl font-black leading-[0.94] sm:text-6xl lg:text-7xl">
+              Luxury grooming with live queue confidence.
+            </h1>
+            <p className="mt-5 max-w-2xl text-base leading-8 text-white/78 sm:text-lg">
+              Choose your service, pay online, and arrive only
+              when your turn is near. A dark luxury booking experience built
+              for modern local salons.
+            </p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <button
+                className="luxury-button flex min-h-[52px] items-center justify-center gap-2 rounded-full px-6 py-4 font-black shadow-lg shadow-[#f9c66d]/20"
+                onClick={() => onNavigate("booking")}
+                type="button"
+              >
+                Choose Service <CalendarCheck2 size={19} />
+              </button>
+              <button
+                className="flex min-h-[52px] items-center justify-center gap-2 rounded-full border border-[#f9c66d]/20 bg-[rgba(255,255,255,0.08)] px-6 py-4 font-black backdrop-blur transition hover:bg-[#2a0f12]/70"
+                onClick={() => onNavigate("about")}
+                type="button"
+              >
+                Explore Salon <ArrowRight size={19} />
+              </button>
+            </div>
+            <div className="mt-7 grid gap-3 sm:grid-cols-3">
+              {[
+                [Gem, "Luxury Finish", "Sharp, polished cuts"],
+                [WalletCards, "Online Pay", "Secure Cashfree checkout"],
+                [MapPin, "Walk In Ready", "Reach near your turn"]
+              ].map(([Icon, title, text]) => (
+                <div
+                  className="luxury-glass rounded-3xl p-4"
+                  key={title}
+                >
+                  <Icon className="text-[#f9c66d]" size={22} />
+                  <p className="mt-3 font-black">{title}</p>
+                  <p className="mt-1 text-sm font-bold text-white/58">{text}</p>
+                </div>
+              ))}
+            </div>
           </div>
+          <QueueSummaryCard
+            loading={queueLoading}
+            onNavigate={onNavigate}
+            stats={queueStats}
+          />
         </div>
       </section>
 
       <BookingClosedNotice bookingGate={bookingGate} />
 
-      {/* LIVE QUEUE + FLOW */}
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div style={{ display: "grid", gap: "1.25rem" }} className="lg:grid-cols-[1fr_340px]">
-          {/* Live queue list */}
-          <div
-            style={{
-              borderRadius: "1.75rem",
-              border: "1px solid var(--color-border)",
-              background: "rgba(12,20,18,0.7)",
-              backdropFilter: "blur(16px)",
-              padding: "1.5rem",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.38)"
-            }}
-          >
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}>
-              <div>
-                <p style={{ fontSize: "0.68rem", fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: "#fca5a5" }}>
-                  Live Status
-                </p>
-                <h2
-                  style={{
-                    marginTop: "0.25rem",
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.6rem",
-                    fontWeight: 400,
-                    borderLeft: "3px solid var(--color-red)",
-                    paddingLeft: "0.75rem"
-                  }}
-                >
-                  Queue moving now
-                </h2>
-              </div>
-              <span
-                style={{
-                  borderRadius: "999px",
-                  background: "rgba(163,22,33,0.15)",
-                  border: "1px solid rgba(163,22,33,0.3)",
-                  padding: "0.35rem 1rem",
-                  fontSize: "0.72rem",
-                  fontWeight: 800,
-                  color: "#fca5a5",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase"
-                }}
-              >
-                Open
-              </span>
+      <section className="mx-auto grid max-w-7xl gap-5 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-8">
+        <div className="luxury-glass rounded-3xl p-4 queue-shadow sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
+                Live status
+              </p>
+              <h2 className="mt-1 border-l-4 border-[#991b1b] pl-3 text-2xl font-black">
+                Queue moving now
+              </h2>
             </div>
-
-            {/* Chair status */}
-            <div style={{ marginTop: "1.25rem", display: "grid", gap: "0.625rem" }} className="md:grid-cols-3">
-              {(queueStats.servingChairs || []).map((chair) => (
-                <div
-                  key={chair.barberName}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "44px 1fr",
-                    alignItems: "center",
-                    gap: "0.75rem",
-                    borderRadius: "1rem",
-                    border: "1px solid rgba(255,255,255,0.06)",
-                    background: "rgba(5,10,9,0.7)",
-                    padding: "0.75rem"
-                  }}
-                >
-                  <span
-                    style={{
-                      display: "grid",
-                      placeItems: "center",
-                      height: "2.75rem",
-                      width: "2.75rem",
-                      borderRadius: "0.75rem",
-                      background: "rgba(163,22,33,0.18)",
-                      fontFamily: "monospace",
-                      fontSize: "1.2rem",
-                      fontWeight: 900,
-                      color: "var(--color-gold)"
-                    }}
-                  >
-                    {queueLoading ? "--" : chair.token}
-                  </span>
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: "0.85rem", fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--color-text)" }}>
-                      {chair.barberName}
-                    </p>
-                    <p style={{ fontSize: "0.72rem", fontWeight: 600, color: "var(--color-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {queueLoading ? "Syncing..." : chair.token === "-" ? "Chair available" : `${chair.customerName} · running`}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Queue items */}
-            <div style={{ marginTop: "1.25rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              {queueLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "48px 1fr auto",
-                      alignItems: "center",
-                      gap: "0.75rem",
-                      borderRadius: "1rem",
-                      border: "1px solid var(--color-border)",
-                      background: "var(--color-elevated)",
-                      padding: "0.75rem"
-                    }}
-                  >
-                    <span className="skeleton h-10 w-10 rounded-xl" />
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                      <span className="skeleton h-3.5 w-28 rounded-full" />
-                      <span className="skeleton h-3 w-20 rounded-full" />
-                    </div>
-                    <span className="skeleton h-3.5 w-10 rounded-full" />
-                  </div>
-                ))
-              ) : queueItems.length ? (
-                queueItems.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "48px 1fr auto",
-                      alignItems: "center",
-                      gap: "0.75rem",
-                      borderRadius: "1rem",
-                      border: "1px solid rgba(255,255,255,0.05)",
-                      background: "rgba(9,16,14,0.8)",
-                      padding: "0.75rem"
-                    }}
-                  >
-                    <span
-                      style={{
-                        display: "grid",
-                        placeItems: "center",
-                        height: "2.75rem",
-                        width: "2.75rem",
-                        borderRadius: "0.75rem",
-                        background: "rgba(246,199,106,0.1)",
-                        border: "1px solid rgba(246,199,106,0.2)",
-                        fontSize: "1rem",
-                        fontWeight: 900,
-                        color: "var(--color-gold)"
-                      }}
-                    >
-                      {item.token}
-                    </span>
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--color-text)" }}>
-                        {item.name}
-                      </p>
-                      <p style={{ fontSize: "0.78rem", textTransform: "capitalize", color: "var(--color-muted)" }}>
-                        {item.status} &bull; {item.barberName}
-                      </p>
-                    </div>
-                    <p style={{ fontSize: "0.8rem", fontWeight: 800, color: "#fca5a5" }}>{item.eta}</p>
-                  </div>
-                ))
-              ) : (
-                <div
-                  style={{
-                    borderRadius: "1rem",
-                    border: "1px dashed var(--color-border)",
-                    background: "var(--color-elevated)",
-                    padding: "1.25rem",
-                    fontSize: "0.85rem",
-                    fontWeight: 600,
-                    color: "var(--color-muted)",
-                    lineHeight: 1.6
-                  }}
-                >
-                  The queue is empty right now. New customer bookings will appear here live.
-                </div>
-              )}
-            </div>
+            <span className="rounded-full bg-[#2a1111] px-4 py-2 text-sm font-bold text-[#fca5a5]">
+              Open
+            </span>
           </div>
 
-          {/* Right side card */}
-          <div
-            style={{
-              borderRadius: "1.75rem",
-              background: "linear-gradient(145deg, rgba(120,20,28,0.28), rgba(12,20,18,0.8))",
-              border: "1px solid rgba(246,199,106,0.16)",
-              backdropFilter: "blur(24px)",
-              padding: "1.5rem",
-              color: "white",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.42)"
-            }}
-          >
-            <ShieldCheck size={28} color="#fca5a5" />
-            <h3
-              style={{
-                marginTop: "1rem",
-                fontFamily: "var(--font-display)",
-                fontSize: "1.5rem",
-                fontWeight: 400,
-                lineHeight: 1.2
-              }}
-            >
-              Simple customer flow
-            </h3>
-            <p style={{ marginTop: "0.75rem", lineHeight: 1.75, color: "rgba(255,255,255,0.7)", fontSize: "0.9rem" }}>
-              Login, choose service, confirm your slot, and watch your estimated turn update live while you travel to the salon.
-            </p>
-            {[
-              [CheckCircle2, "Mobile responsive"],
-              [WalletCards, "Secure online payment"],
-              [MapPin, "Walk in near your turn"]
-            ].map(([Icon, text]) => (
+          <div className="mt-5 grid gap-2 md:grid-cols-3">
+            {(queueStats.servingChairs || []).map((chair) => (
               <div
-                key={text}
-                style={{
-                  marginTop: "0.75rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  borderRadius: "0.875rem",
-                  background: "rgba(255,255,255,0.07)",
-                  padding: "0.875rem 1rem"
-                }}
+                className="grid grid-cols-[46px_1fr] items-center gap-3 rounded-2xl border border-[#3a2b20] bg-[#0b1714]/80 p-3"
+                key={chair.barberName}
               >
-                <Icon size={18} color="var(--color-gold)" />
-                <span style={{ fontSize: "0.85rem", fontWeight: 700 }}>{text}</span>
+                <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#2a1111] font-mono text-lg font-black text-[#f9c66d]">
+                  {queueLoading ? "--" : chair.token}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-[#f4fbf8]">
+                    {chair.barberName}
+                  </p>
+                  <p className="truncate text-xs font-bold text-[#637371]">
+                    {queueLoading
+                      ? "Syncing..."
+                      : chair.token === "-"
+                        ? "Chair available"
+                        : `${chair.customerName} • running`}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
+
+          <div className="mt-5 space-y-3">
+            {queueLoading ? (
+              Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  className="grid grid-cols-[54px_1fr_auto] items-center gap-3 rounded-2xl border border-[#35201f] bg-[#0b1714] p-3"
+                  key={index}
+                >
+                  <span className="h-12 w-12 animate-pulse rounded-2xl bg-[#eef4f0]" />
+                  <div className="min-w-0 space-y-2">
+                    <span className="block h-4 w-32 animate-pulse rounded-full bg-[#eef4f0]" />
+                    <span className="block h-3 w-20 animate-pulse rounded-full bg-[#eef4f0]" />
+                  </div>
+                  <span className="h-4 w-12 animate-pulse rounded-full bg-[#eef4f0]" />
+                </div>
+              ))
+            ) : queueItems.length ? (
+              queueItems.map((item) => (
+                <div
+                  className="grid grid-cols-[54px_1fr_auto] items-center gap-3 rounded-2xl border border-[#3a2b20] bg-[#0b1714]/80 p-3"
+                  key={item.id}
+                >
+                  <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#f1f5f2] text-lg font-black">
+                    {item.token}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-black">{item.name}</p>
+                    <p className="text-sm capitalize text-[#637371]">
+                      {item.status} • {item.barberName}
+                    </p>
+                  </div>
+                  <p className="text-sm font-bold text-[#991b1b]">{item.eta}</p>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-2xl border border-dashed border-[#35201f] bg-[#0b1714] p-5 text-sm font-bold text-[#9db2ad]">
+                The queue is empty right now. New customer bookings will appear
+                here live.
+              </div>
+            )}
+          </div>
         </div>
+
+        <aside className="luxury-red-glass rounded-3xl p-5 text-white queue-shadow">
+          <ShieldCheck className="text-[#fca5a5]" size={28} />
+          <h3 className="mt-4 text-2xl font-black">Simple customer flow</h3>
+          <p className="mt-2 leading-7 text-white/72">
+            Login, choose service, confirm your slot, and watch your estimated
+            turn update live while you travel to the salon.
+          </p>
+          <div className="mt-5 flex items-center gap-3 rounded-2xl bg-[rgba(255,255,255,0.08)] p-4">
+            <CheckCircle2 className="text-[#f9c66d]" />
+            <span className="text-sm font-bold">Mobile responsive ready</span>
+          </div>
+        </aside>
       </section>
 
       <HowItWorksSection />
@@ -660,9 +302,7 @@ export function HomePage({
         services={services}
         user={user}
       />
-
       <HaircutFeature />
-
       <HaircutStylesSection
         bookingGate={bookingGate}
         loginLoading={loginLoading}
@@ -671,101 +311,39 @@ export function HomePage({
         services={services}
         user={user}
       />
-
-      <ReviewsSection />
-
       <LuxuryPromiseSection />
     </>
   );
 }
 
-/* ─────────────────────────────────────────
-   HOW IT WORKS
-───────────────────────────────────────── */
 function HowItWorksSection() {
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div
-        style={{
-          borderRadius: "1.75rem",
-          border: "1px solid rgba(246,199,106,0.14)",
-          background: "linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%), rgba(12,20,18,0.82)",
-          backdropFilter: "blur(28px)",
-          padding: "2rem 1.5rem",
-          boxShadow: "0 24px 80px rgba(0,0,0,0.4)"
-        }}
-        className="sm:p-10"
-      >
+    <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="luxury-glass rounded-[2rem] p-5 sm:p-8">
         <p className="section-kicker">How it works</p>
-        <h2
-          style={{
-            marginTop: "0.5rem",
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(1.75rem,4vw,2.75rem)",
-            fontWeight: 400,
-            maxWidth: "500px"
-          }}
-        >
+        <h2 className="mt-2 max-w-2xl text-3xl font-black sm:text-4xl">
           Book, track, and walk in with a clear turn.
         </h2>
-        <div style={{ marginTop: "2rem", display: "grid", gap: "1rem" }} className="lg:grid-cols-3">
+        <div className="mt-7 grid gap-4 lg:grid-cols-3">
           {[
-            [CalendarCheck2, "01", "Book", "Pick a grooming service and choose an available slot. Your name is pre-filled from Google login."],
-            [BellRing, "02", "Track Turn", "Your estimated turn updates live with people ahead and ETA. No guessing, no waiting blindly."],
-            [Scissors, "03", "Walk In", "Reach the salon around 40 minutes before your turn for a smoother, stress-free visit."]
+            [CalendarCheck2, "01", "Book", "Pick a grooming service and choose an available slot."],
+            [BellRing, "02", "Track Turn", "Your estimated turn updates live with people ahead and ETA."],
+            [Scissors, "03", "Walk In", "Reach around 40 minutes before your turn for a smoother visit."]
           ].map(([Icon, step, title, text]) => (
             <article
+              className="relative rounded-3xl border border-[#3a2b20] bg-[#0b1714]/75 p-5"
               key={title}
-              style={{
-                position: "relative",
-                borderRadius: "1.25rem",
-                border: "1px solid rgba(255,255,255,0.06)",
-                background: "rgba(5,10,9,0.75)",
-                padding: "1.5rem",
-                transition: "border-color 0.2s, box-shadow 0.2s"
-              }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                <span
-                  style={{
-                    display: "grid",
-                    placeItems: "center",
-                    height: "3rem",
-                    width: "3rem",
-                    borderRadius: "0.875rem",
-                    border: "1px solid rgba(246,199,106,0.22)",
-                    background: "rgba(246,199,106,0.08)"
-                  }}
-                >
-                  <Icon size={20} color="var(--color-gold)" />
+              <div className="flex items-center gap-3">
+                <span className="grid h-12 w-12 place-items-center rounded-2xl border border-[#f9c66d]/25 bg-[#f9c66d]/10 text-[#f9c66d]">
+                  <Icon size={22} />
                 </span>
-                <span
-                  style={{
-                    borderRadius: "999px",
-                    background: "rgba(40,15,20,0.8)",
-                    border: "1px solid rgba(163,22,33,0.3)",
-                    padding: "0.25rem 0.75rem",
-                    fontSize: "0.7rem",
-                    fontWeight: 900,
-                    color: "var(--color-gold)",
-                    letterSpacing: "0.08em"
-                  }}
-                >
-                  Step {step}
+                <span className="rounded-full bg-[#2a0f12] px-3 py-1 text-sm font-black text-[#f9c66d]">
+                  {step}
                 </span>
               </div>
-              <h3
-                style={{
-                  marginTop: "1.25rem",
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1.4rem",
-                  fontWeight: 400,
-                  color: "var(--color-text)"
-                }}
-              >
-                {title}
-              </h3>
-              <p style={{ marginTop: "0.5rem", fontSize: "0.875rem", fontWeight: 500, lineHeight: 1.7, color: "var(--color-muted)" }}>
+              <h3 className="mt-5 text-2xl font-black">{title}</h3>
+              <p className="mt-2 text-sm font-bold leading-7 text-[#9db2ad]">
                 {text}
               </p>
             </article>
@@ -776,9 +354,6 @@ function HowItWorksSection() {
   );
 }
 
-/* ─────────────────────────────────────────
-   SERVICES SECTION
-───────────────────────────────────────── */
 function ServicesSection({
   user,
   onLogin,
@@ -794,11 +369,11 @@ function ServicesSection({
   const sliderRef = useRef(null);
   const dragScroll = useDragScroll({ enabled: mobileSlider });
   const listClassName = mobileSlider
-    ? "services-slider drag-scroll flex snap-x gap-4 overflow-x-auto pb-4 pl-1 pr-[24vw] sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-4"
-    : "grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4";
+    ? "services-slider drag-scroll flex snap-x gap-3 overflow-x-auto pb-4 pl-1 pr-[24vw] sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-4"
+    : "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4";
   const cardClassName = mobileSlider
-    ? "service-card min-w-[72vw] max-w-[72vw] shrink-0 snap-start overflow-hidden rounded-2xl sm:min-w-0 sm:max-w-none sm:shrink"
-    : "service-card overflow-hidden rounded-2xl";
+    ? "service-card min-w-[68vw] max-w-[68vw] shrink-0 snap-start overflow-hidden rounded-3xl sm:min-w-0 sm:max-w-none sm:shrink"
+    : "service-card overflow-hidden rounded-3xl";
 
   useEffect(() => {
     if (!mobileSlider || !sliderRef.current) return;
@@ -806,32 +381,32 @@ function ServicesSection({
   }, [mobileSlider, services.length, user?.uid]);
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8" ref={sectionRef}>
-      <div style={{ marginBottom: "1.5rem", display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: "0.75rem" }}>
+    <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8" ref={sectionRef}>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p style={{ fontSize: "0.68rem", fontWeight: 800, letterSpacing: "0.22em", textTransform: "uppercase", color: "#fca5a5" }}>
+          <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
             Services
           </p>
-          <h2
-            style={{
-              marginTop: "0.25rem",
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(1.75rem,4vw,2.75rem)",
-              fontWeight: 400
-            }}
-          >
+          <h2 className="mt-1 text-3xl font-black sm:text-4xl">
             Popular grooming options
           </h2>
         </div>
-        <p style={{ maxWidth: "380px", lineHeight: 1.7, color: "var(--color-muted)", fontSize: "0.875rem" }}>
-          Choose a service now. Name and mobile are collected only at checkout.
+        <p className="max-w-lg leading-7 text-[#637371]">
+          Choose a service now. Name and mobile number are collected only at
+          checkout.
         </p>
       </div>
-
-      <div className={listClassName} ref={sliderRef} {...(mobileSlider ? dragScroll : {})}>
+      <div
+        className={listClassName}
+        ref={sliderRef}
+        {...(mobileSlider ? dragScroll : {})}
+      >
         {services.map((service) => {
           const serviceImageUrl = service.imageUrl || getServiceImageUrl(service.title);
-          const previewService = { ...service, imageUrl: serviceImageUrl };
+          const previewService = {
+            ...service,
+            imageUrl: serviceImageUrl
+          };
           const bookingClosed = !bookingGate.loading && !bookingGate.open;
           const buttonLabel = bookingGate.loading
             ? "Checking..."
@@ -842,424 +417,224 @@ function ServicesSection({
                 : "Login to Choose";
 
           return (
-            <article className={cardClassName} key={service.title}>
-              <div style={{ position: "relative", overflow: "hidden" }}>
+            <article
+              className={cardClassName}
+              key={service.title}
+            >
+              <div className="relative overflow-hidden">
                 <button
                   aria-label={`View ${service.title} photo`}
+                  className="group block h-40 w-full cursor-pointer sm:h-44"
                   onClick={() => onPhotoPreview?.(previewService)}
                   type="button"
-                  style={{ display: "block", width: "100%", height: "168px", cursor: "pointer" }}
-                  className="group sm:h-48"
                 >
                   <img
                     alt={service.title}
-                    src={serviceImageUrl}
-                    loading="lazy"
+                    className="h-full w-full object-cover object-center transition duration-200 group-hover:brightness-90"
                     decoding="async"
-                    style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", transition: "transform 0.3s ease" }}
-                    className="group-hover:scale-105"
+                    loading="lazy"
+                    src={serviceImageUrl}
                   />
                 </button>
-                {/* Scissors badge */}
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "0.75rem",
-                    left: "0.75rem",
-                    display: "grid",
-                    placeItems: "center",
-                    height: "2.5rem",
-                    width: "2.5rem",
-                    borderRadius: "0.75rem",
-                    border: "1px solid rgba(246,199,106,0.18)",
-                    background: "rgba(3,8,6,0.92)"
-                  }}
-                >
-                  <Scissors size={16} color="var(--color-gold)" />
+                <span className="absolute left-3 top-3 grid h-10 w-10 place-items-center rounded-2xl border border-[#f9c66d]/20 bg-[#06100e]/90 text-[#f9c66d] sm:left-4 sm:top-4 sm:h-12 sm:w-12">
+                  <Scissors size={18} className="sm:h-[21px] sm:w-[21px]" />
                 </span>
-                {/* Eye button */}
                 <button
                   aria-label={`Open ${service.title} photo`}
+                  className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-2xl border border-[#f9c66d]/30 bg-[#06100e]/90 text-[#f9c66d] transition-colors hover:bg-[#991b1b] hover:text-white sm:h-12 sm:w-12"
                   onClick={() => onPhotoPreview?.(previewService)}
                   type="button"
-                  style={{
-                    position: "absolute",
-                    top: "0.75rem",
-                    right: "0.75rem",
-                    display: "grid",
-                    placeItems: "center",
-                    height: "2.5rem",
-                    width: "2.5rem",
-                    borderRadius: "0.75rem",
-                    border: "1px solid rgba(246,199,106,0.28)",
-                    background: "rgba(3,8,6,0.92)",
-                    cursor: "pointer",
-                    transition: "background 0.15s"
-                  }}
                 >
-                  <Eye size={16} color="var(--color-gold)" />
+                  <Eye size={18} className="sm:h-[21px] sm:w-[21px]" />
                 </button>
               </div>
-              <div style={{ padding: "1rem" }} className="sm:p-5">
-                <h3
-                  style={{
-                    marginTop: "0.25rem",
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.15rem",
-                    fontWeight: 400,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    color: "var(--color-text)"
-                  }}
-                  title={service.title}
-                >
-                  {service.title}
-                </h3>
-                <p
-                  style={{
-                    marginTop: "0.4rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.4rem",
-                    fontSize: "0.78rem",
-                    color: "var(--color-muted)"
-                  }}
-                >
-                  <Clock3 size={13} />
-                  {service.time}
-                </p>
-                <p
-                  style={{
-                    marginTop: "0.75rem",
-                    borderRadius: "0.75rem",
-                    border: "1px solid rgba(246,199,106,0.18)",
-                    background: "rgba(40,15,20,0.7)",
-                    padding: "0.5rem 0.875rem",
-                    fontSize: "0.875rem",
-                    fontWeight: 900,
-                    color: "var(--color-gold)"
-                  }}
-                >
-                  {service.price}
-                </p>
-                <button
-                  onClick={() => {
-                    if (bookingClosed) { onServiceSelect(service); return; }
-                    user ? onServiceSelect(service) : onLogin();
-                  }}
-                  disabled={bookingGate.loading || (!user && loginLoading)}
-                  type="button"
-                  style={{
-                    marginTop: "0.75rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "0.4rem",
-                    width: "100%",
-                    minHeight: "42px",
-                    borderRadius: "0.75rem",
-                    border: "none",
-                    background: bookingClosed ? "#7f1d1d" : "var(--color-red)",
-                    color: "white",
-                    fontWeight: 800,
-                    fontSize: "0.8125rem",
-                    cursor: "pointer",
-                    transition: "background 0.15s",
-                    opacity: (bookingGate.loading || (!user && loginLoading)) ? 0.6 : 1
-                  }}
-                >
-                  {!user && loginLoading ? (
-                    <><ButtonSpinner /> Logging in...</>
-                  ) : bookingGate.loading ? (
-                    <><ButtonSpinner /> {buttonLabel}</>
-                  ) : (
-                    <>{buttonLabel} <ArrowRight size={15} /></>
-                  )}
-                </button>
+              <div className="p-3 sm:p-5">
+              <h3 className="mt-2 truncate text-base font-black sm:mt-5 sm:text-xl" title={service.title}>
+                {service.title}
+              </h3>
+              <p className="mt-2 flex items-center gap-1.5 text-xs text-[#637371] sm:gap-2 sm:text-sm">
+                <Clock3 size={14} className="sm:h-4 sm:w-4" />
+                {service.time}
+              </p>
+              <p className="mt-3 rounded-2xl border border-[#f9c66d]/20 bg-[#2a0f12] px-3 py-2 text-xs font-black text-[#f9c66d] sm:mt-4 sm:px-4 sm:py-3 sm:text-sm">
+                {service.price}
+              </p>
+              <button
+                className={`mt-3 flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-2xl px-3 py-2 text-xs font-black text-white transition disabled:cursor-not-allowed disabled:opacity-70 sm:mt-4 sm:min-h-[48px] sm:gap-2 sm:px-4 sm:py-3 sm:text-base ${
+                  bookingClosed
+                    ? "bg-[#7f1d1d] hover:bg-[#991b1b]"
+                    : "bg-[#991b1b] hover:bg-[#7f1d1d]"
+                }`}
+                disabled={bookingGate.loading || (!user && loginLoading)}
+                onClick={() => {
+                  if (bookingClosed) {
+                    onServiceSelect(service);
+                    return;
+                  }
+                  user ? onServiceSelect(service) : onLogin();
+                }}
+                type="button"
+              >
+                {!user && loginLoading ? (
+                  <>
+                    <ButtonSpinner /> Logging in...
+                  </>
+                ) : bookingGate.loading ? (
+                  <>
+                    <ButtonSpinner /> {buttonLabel}
+                  </>
+                ) : (
+                  <>
+                    {buttonLabel}
+                    <ArrowRight size={16} className="sm:h-[18px] sm:w-[18px]" />
+                  </>
+                )}
+              </button>
               </div>
             </article>
           );
         })}
       </div>
-
       {pagination ? <PaginationControls {...pagination} /> : null}
     </section>
   );
 }
 
-/* ─────────────────────────────────────────
-   HAIRCUT FEATURE
-───────────────────────────────────────── */
 function HaircutFeature() {
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div style={{ display: "grid", gap: "1.25rem" }} className="lg:grid-cols-[0.95fr_1.05fr]">
-        <div className="haircut-image" style={{ minHeight: "360px", borderRadius: "1.75rem", boxShadow: "0 20px 60px rgba(0,0,0,0.42)" }} />
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            borderRadius: "1.75rem",
-            border: "1px solid rgba(246,199,106,0.14)",
-            background: "linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)), rgba(12,20,18,0.82)",
-            backdropFilter: "blur(24px)",
-            padding: "2rem 1.75rem",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.38)"
-          }}
-        >
-          <p style={{ fontSize: "0.68rem", fontWeight: 800, letterSpacing: "0.22em", textTransform: "uppercase", color: "#fca5a5" }}>
-            Fresh haircut experience
-          </p>
-          <h2
-            style={{
-              marginTop: "0.5rem",
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(1.75rem,3.5vw,2.5rem)",
-              fontWeight: 400,
-              lineHeight: 1.15
-            }}
-          >
-            Stylish service with queue clarity.
-          </h2>
-          <p style={{ marginTop: "1rem", lineHeight: 1.75, color: "var(--color-muted)", fontSize: "0.9rem" }}>
-            Customers do not need to guess in the waiting room. The queue screen clearly shows estimated turn, people ahead, and live status.
-          </p>
-          <div style={{ marginTop: "1.5rem", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.625rem" }}>
-            {[["7 AM", "Opening"], ["11 PM", "Closing"], ["Live", "Queue"]].map(([value, label]) => (
-              <div
-                key={label}
-                style={{
-                  borderRadius: "1rem",
-                  border: "1px solid var(--color-border)",
-                  background: "rgba(5,10,9,0.75)",
-                  padding: "1rem"
-                }}
-              >
-                <p style={{ fontSize: "1.5rem", fontWeight: 900, color: "var(--color-gold)" }}>{value}</p>
-                <p style={{ marginTop: "0.25rem", fontSize: "0.75rem", color: "var(--color-muted)", fontWeight: 600 }}>{label}</p>
-              </div>
-            ))}
-          </div>
+    <section className="mx-auto grid max-w-7xl gap-5 px-4 py-8 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8">
+      <div className="haircut-image min-h-[360px] rounded-[2rem] queue-shadow" />
+      <div className="luxury-glass flex flex-col justify-center rounded-[2rem] p-6 queue-shadow sm:p-8">
+        <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#991b1b]">
+          Fresh haircut experience
+        </p>
+        <h2 className="mt-2 text-3xl font-black leading-tight sm:text-4xl">
+          Stylish service with queue clarity.
+        </h2>
+        <p className="mt-4 leading-8 text-[#637371]">
+          Customers do not need to guess in the waiting room. The queue screen
+          clearly shows estimated turn, people ahead, and live status.
+        </p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {[
+            ["7 AM", "Opening"],
+            ["11 PM", "Closing"],
+            ["Live", "Queue"]
+          ].map(([value, label]) => (
+            <div className="rounded-2xl border border-[#35201f] bg-[#0b1714] p-4" key={label}>
+              <p className="text-2xl font-black text-[#f9c66d]">{value}</p>
+              <p className="mt-1 text-sm text-[#9db2ad]">{label}</p>
+            </div>
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-/* ─────────────────────────────────────────
-   HAIRCUT STYLES SECTION
-───────────────────────────────────────── */
-function HaircutStylesSection({ user, onLogin, onServiceSelect, loginLoading, bookingGate, services }) {
+function HaircutStylesSection({
+  user,
+  onLogin,
+  onServiceSelect,
+  loginLoading,
+  bookingGate,
+  services
+}) {
   const featuredService = services[0] || defaultServices[0];
   const bookingClosed = !bookingGate.loading && !bookingGate.open;
-  const buttonLabel = bookingGate.loading ? "Checking..." : bookingClosed ? "Booking Closed" : user ? "Choose Haircut" : "Login to Choose";
+  const buttonLabel = bookingGate.loading
+    ? "Checking..."
+    : bookingClosed
+      ? "Booking Closed"
+      : user
+        ? "Choose Haircut"
+        : "Login to Choose";
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div style={{ display: "grid", gap: "1.25rem" }} className="lg:grid-cols-[1.1fr_0.9fr]">
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            borderRadius: "1.75rem",
-            background: "linear-gradient(145deg, rgba(120,20,28,0.28), rgba(12,20,18,0.8))",
-            border: "1px solid rgba(246,199,106,0.16)",
-            backdropFilter: "blur(24px)",
-            padding: "2rem 1.75rem",
-            color: "white",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.42)"
-          }}
-        >
-          <p style={{ fontSize: "0.68rem", fontWeight: 800, letterSpacing: "0.22em", textTransform: "uppercase", color: "#fca5a5" }}>
-            Haircut Styles
-          </p>
-          <h2
-            style={{
-              marginTop: "0.5rem",
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(1.75rem,3.5vw,2.5rem)",
-              fontWeight: 400,
-              lineHeight: 1.15
-            }}
-          >
-            Pick a clean look before you arrive.
-          </h2>
-          <p style={{ marginTop: "1rem", lineHeight: 1.75, color: "rgba(255,255,255,0.72)", fontSize: "0.9rem" }}>
-            Select classic cuts, fade-inspired styling, beard shape-up, or grooming combo options from the service cards.
-          </p>
-          <div style={{ marginTop: "1.5rem", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.625rem" }}>
-            {["Classic", "Fade", "Beard"].map((style) => (
-              <div
-                key={style}
-                style={{
-                  borderRadius: "1rem",
-                  background: "rgba(255,255,255,0.08)",
-                  padding: "1rem"
-                }}
-              >
-                <Scissors size={20} color="var(--color-gold)" />
-                <p style={{ marginTop: "0.6rem", fontWeight: 800, fontSize: "0.9rem" }}>{style}</p>
-              </div>
-            ))}
-          </div>
-          <button
-            disabled={bookingGate.loading || (!user && loginLoading)}
-            onClick={() => {
-              if (bookingClosed) { onServiceSelect(featuredService); return; }
-              user ? onServiceSelect(featuredService) : onLogin();
-            }}
-            type="button"
-            className="luxury-button shine-button"
-            style={{
-              marginTop: "1.5rem",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "0.5rem",
-              minHeight: "52px",
-              borderRadius: "999px",
-              padding: "0 2rem",
-              fontWeight: 800,
-              fontSize: "0.9375rem",
-              border: "none",
-              cursor: "pointer",
-              width: "fit-content",
-              opacity: (bookingGate.loading || (!user && loginLoading)) ? 0.6 : 1
-            }}
-          >
-            {!user && loginLoading ? (
-              <><ButtonSpinner dark /> Logging in...</>
-            ) : bookingGate.loading ? (
-              <><ButtonSpinner dark /> {buttonLabel}</>
-            ) : (
-              <>{buttonLabel} <ArrowRight size={18} /></>
-            )}
-          </button>
-        </div>
-        <div className="haircut-styles-image" style={{ minHeight: "360px", borderRadius: "1.75rem", boxShadow: "0 20px 60px rgba(0,0,0,0.42)" }} />
-      </div>
-    </section>
-  );
-}
-
-/* ─────────────────────────────────────────
-   REVIEWS SECTION (dummy data)
-───────────────────────────────────────── */
-function ReviewsSection() {
-  return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div style={{ marginBottom: "1.5rem", textAlign: "center" }}>
-        <p className="section-kicker">Customer Reviews</p>
-        <h2
-          style={{
-            marginTop: "0.5rem",
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(1.75rem,4vw,2.75rem)",
-            fontWeight: 400
-          }}
-        >
-          What our customers say
+    <section className="mx-auto grid max-w-7xl gap-5 px-4 py-8 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:px-8">
+      <div className="luxury-red-glass flex flex-col justify-center rounded-[2rem] p-6 text-white queue-shadow sm:p-8">
+        <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#fca5a5]">
+          Haircut Styles
+        </p>
+        <h2 className="mt-2 text-3xl font-black leading-tight sm:text-4xl">
+          Pick a clean look before you arrive.
         </h2>
-      </div>
-      <div style={{ display: "grid", gap: "1rem" }} className="sm:grid-cols-2 lg:grid-cols-4">
-        {dummyReviews.map((review) => (
-          <article
-            key={review.name}
-            style={{
-              borderRadius: "1.25rem",
-              border: "1px solid var(--color-border)",
-              background: "rgba(12,20,18,0.75)",
-              backdropFilter: "blur(16px)",
-              padding: "1.25rem",
-              transition: "border-color 0.2s, transform 0.2s"
-            }}
-          >
-            <div style={{ display: "flex", gap: "0.25rem", marginBottom: "0.875rem" }}>
-              {Array.from({ length: review.rating }).map((_, i) => (
-                <Star key={i} size={14} color="var(--color-gold)" fill="var(--color-gold)" />
-              ))}
+        <p className="mt-4 leading-8 text-white/76">
+          Select classic cuts, fade-inspired styling, beard shape-up, or
+          grooming combo options from the service cards and complete details at
+          checkout.
+        </p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {["Classic", "Fade", "Beard"].map((style) => (
+            <div className="rounded-2xl bg-[rgba(255,255,255,0.08)] p-4" key={style}>
+              <Scissors className="text-[#f9c66d]" size={22} />
+              <p className="mt-3 font-black">{style}</p>
             </div>
-            <p style={{ fontSize: "0.875rem", lineHeight: 1.65, color: "var(--color-text-secondary, #b5b0a7)", fontStyle: "italic" }}>
-              &ldquo;{review.text}&rdquo;
-            </p>
-            <p style={{ marginTop: "0.875rem", fontWeight: 800, fontSize: "0.875rem", color: "var(--color-text)" }}>{review.name}</p>
-            <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.08em", textTransform: "uppercase", marginTop: "0.2rem" }}>
-              Verified customer
-            </p>
-          </article>
-        ))}
+          ))}
+        </div>
+        <button
+          className={`mt-6 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-black disabled:cursor-not-allowed disabled:opacity-70 sm:w-fit ${
+            bookingClosed
+              ? "bg-[#fee2e2] text-[#991b1b]"
+              : "bg-[#f9c66d] text-[#140707]"
+          }`}
+          disabled={bookingGate.loading || (!user && loginLoading)}
+          onClick={() => {
+            if (bookingClosed) {
+              onServiceSelect(featuredService);
+              return;
+            }
+            user ? onServiceSelect(featuredService) : onLogin();
+          }}
+          type="button"
+        >
+          {!user && loginLoading ? (
+            <>
+              <ButtonSpinner dark /> Logging in...
+            </>
+          ) : bookingGate.loading ? (
+            <>
+              <ButtonSpinner dark /> {buttonLabel}
+            </>
+          ) : (
+            <>
+              {buttonLabel}
+              <ArrowRight size={19} />
+            </>
+          )}
+        </button>
       </div>
+      <div className="haircut-styles-image min-h-[360px] rounded-[2rem] queue-shadow" />
     </section>
   );
 }
 
-/* ─────────────────────────────────────────
-   LUXURY PROMISE
-───────────────────────────────────────── */
 function LuxuryPromiseSection() {
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div style={{ display: "grid", gap: "1.25rem" }} className="lg:grid-cols-[0.95fr_1.05fr]">
-        <div
-          style={{
-            borderRadius: "1.75rem",
-            border: "1px solid rgba(246,199,106,0.14)",
-            background: "linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)), rgba(12,20,18,0.82)",
-            backdropFilter: "blur(24px)",
-            padding: "2rem 1.75rem",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.38)"
-          }}
-        >
+    <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="luxury-glass rounded-[2rem] p-6 sm:p-8">
           <p className="section-kicker">Owner curated</p>
-          <h2
-            style={{
-              marginTop: "0.5rem",
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(1.75rem,3.5vw,2.5rem)",
-              fontWeight: 400,
-              lineHeight: 1.15
-            }}
-          >
+          <h2 className="mt-2 text-3xl font-black sm:text-4xl">
             A calm premium flow for busy salon days.
           </h2>
-          <p style={{ marginTop: "1rem", lineHeight: 1.75, color: "var(--color-muted)", fontSize: "0.9rem" }}>
-            Estimated turns, slots, online payment, guest booking, and refund requests stay organized in one experience so customers know exactly what happens next.
+          <p className="mt-4 leading-8 text-[#9db2ad]">
+            Estimated turns, slots, online payment, guest booking, and refund
+            requests stay organized in one experience so customers know exactly
+            what happens next.
           </p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.875rem" }}>
+        <div className="grid gap-4 sm:grid-cols-2">
           {[
             [BadgeCheck, "Verified payment flow", "Cashfree online checkout with visible charges."],
             [ShieldCheck, "Clean queue control", "Live status and estimated wait reduce confusion."],
             [Gem, "Premium service cards", "Each service has image, duration, amount, and CTA."],
             [Clock3, "Slot-aware booking", "Lunch break and closing time are respected."]
           ].map(([Icon, title, text]) => (
-            <article
-              key={title}
-              style={{
-                borderRadius: "1.25rem",
-                border: "1px solid rgba(246,199,106,0.14)",
-                background: "linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)), rgba(12,20,18,0.82)",
-                backdropFilter: "blur(16px)",
-                padding: "1.25rem"
-              }}
-            >
-              <Icon size={22} color="var(--color-gold)" />
-              <h3
-                style={{
-                  marginTop: "0.875rem",
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1rem",
-                  fontWeight: 400,
-                  lineHeight: 1.3,
-                  color: "var(--color-text)"
-                }}
-              >
-                {title}
-              </h3>
-              <p style={{ marginTop: "0.4rem", fontSize: "0.78rem", lineHeight: 1.65, color: "var(--color-muted)" }}>
+            <article className="luxury-glass rounded-3xl p-5" key={title}>
+              <Icon className="text-[#f9c66d]" size={24} />
+              <h3 className="mt-4 text-xl font-black">{title}</h3>
+              <p className="mt-2 text-sm font-bold leading-7 text-[#9db2ad]">
                 {text}
               </p>
             </article>
@@ -1270,9 +645,6 @@ function LuxuryPromiseSection() {
   );
 }
 
-/* ─────────────────────────────────────────
-   BARBERS PAGE
-───────────────────────────────────────── */
 export function BarbersPage({ bookingGate }) {
   const [barberStats, setBarberStats] = useState({});
   const barbers = bookingGate.barbers?.length ? bookingGate.barbers : [];
@@ -1281,10 +653,10 @@ export function BarbersPage({ bookingGate }) {
     return onSnapshot(
       query(collection(db, "barberStats"), limit(BARBER_STATS_LIMIT)),
       (snapshot) => {
-        const nextStats = snapshot.docs.reduce((acc, d) => {
-          const data = d.data();
-          if (data.name) acc[data.name] = data;
-          return acc;
+        const nextStats = snapshot.docs.reduce((accumulator, snapshotDoc) => {
+          const data = snapshotDoc.data();
+          if (data.name) accumulator[data.name] = data;
+          return accumulator;
         }, {});
         setBarberStats(nextStats);
       },
@@ -1300,136 +672,82 @@ export function BarbersPage({ bookingGate }) {
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Header */}
-      <div
-        style={{
-          borderRadius: "1.75rem",
-          background: "linear-gradient(145deg, rgba(120,20,28,0.28), rgba(12,20,18,0.8))",
-          border: "1px solid rgba(246,199,106,0.16)",
-          backdropFilter: "blur(24px)",
-          padding: "1.5rem 1.75rem",
-          color: "white",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.42)"
-        }}
-        className="sm:p-8"
-      >
-        <p className="section-label-red">Barbers</p>
-        <h1
-          style={{
-            marginTop: "0.5rem",
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(2rem,5vw,3.25rem)",
-            fontWeight: 400,
-            maxWidth: "560px",
-            lineHeight: 1.1
-          }}
-        >
+      <div className="rounded-[2rem] bg-[#1a0f12] p-5 text-white queue-shadow sm:p-6">
+        <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#fca5a5]">
+          Barbers
+        </p>
+        <h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
           Choose your barber with live availability.
         </h1>
-        <p style={{ marginTop: "0.75rem", maxWidth: "520px", lineHeight: 1.75, color: "rgba(255,255,255,0.72)", fontSize: "0.9rem" }}>
-          Photos are managed by admin. Customer ratings appear after completed visits, and queue counts update live.
+        <p className="mt-3 max-w-2xl leading-7 text-white/76">
+          Photos are managed by admin. Customer ratings appear after completed
+          visits, and queue counts update live.
         </p>
       </div>
 
-      <div style={{ marginTop: "1.5rem", display: "grid", gap: "1rem" }} className="md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {barbers.map((barber) => {
           const stats = barberStats[barber.name] || {};
           const rating = getAverageRating(barber.name);
           return (
             <article
+              className="luxury-glass overflow-hidden rounded-[2rem] queue-shadow"
               key={barber.name}
-              style={{
-                borderRadius: "1.75rem",
-                border: "1px solid rgba(246,199,106,0.14)",
-                background: "linear-gradient(135deg, rgba(255,255,255,0.065), rgba(255,255,255,0.02)), rgba(12,20,18,0.82)",
-                backdropFilter: "blur(24px)",
-                overflow: "hidden",
-                boxShadow: "0 20px 60px rgba(0,0,0,0.42)"
-              }}
             >
               {barber.imageUrl ? (
                 <img
                   alt={barber.name}
-                  src={barber.imageUrl}
-                  loading="lazy"
+                  className="h-64 w-full object-cover"
                   decoding="async"
-                  style={{ height: "16rem", width: "100%", objectFit: "cover" }}
+                  loading="lazy"
+                  src={barber.imageUrl}
                 />
               ) : (
-                <div
-                  style={{
-                    height: "16rem",
-                    width: "100%",
-                    display: "grid",
-                    placeItems: "center",
-                    borderBottom: "1px solid var(--color-border)",
-                    background: "var(--color-elevated)",
-                    fontSize: "0.875rem",
-                    fontWeight: 800,
-                    color: "var(--color-muted)"
-                  }}
-                >
+                <div className="grid h-64 w-full place-items-center border-b border-[#35201f] bg-[#0b1714] text-sm font-black text-[#9db2ad]">
                   Image coming soon
                 </div>
               )}
-              <div style={{ padding: "1.25rem" }}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "0.75rem" }}>
+              <div className="p-5">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h2
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "1.4rem",
-                        fontWeight: 400,
-                        color: "var(--color-text)"
-                      }}
-                    >
+                    <h2 className="text-2xl font-black text-[#f4fbf8]">
                       {barber.name}
                     </h2>
-                    <p style={{ marginTop: "0.2rem", fontSize: "0.78rem", fontWeight: 600, color: "var(--color-muted)" }}>
+                    <p className="mt-1 text-sm font-bold text-[#9db2ad]">
                       {barber.available ? "Available today" : "Unavailable today"}
                     </p>
                   </div>
                   <span
-                    style={{
-                      borderRadius: "999px",
-                      padding: "0.35rem 0.875rem",
-                      fontSize: "0.72rem",
-                      fontWeight: 800,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      background: barber.available ? "rgba(45,106,79,0.2)" : "rgba(163,22,33,0.15)",
-                      color: barber.available ? "#86efac" : "#fca5a5",
-                      border: `1px solid ${barber.available ? "rgba(45,106,79,0.3)" : "rgba(163,22,33,0.3)"}`
-                    }}
+                    className={`rounded-full px-3 py-1 text-xs font-black ${
+                      barber.available
+                        ? "bg-[#123125] text-[#bbf7d0]"
+                        : "bg-[#2a1111] text-[#fca5a5]"
+                    }`}
                   >
                     {barber.available ? "Open" : "Off"}
                   </span>
                 </div>
-                <div style={{ marginTop: "1.1rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.625rem" }}>
-                  {[
-                    ["Queue", stats.activeCount || 0],
-                    [`${rating || "-"} ★`, `${stats.ratingCount || 0} reviews`]
-                  ].map(([top, bottom]) => (
-                    <div
-                      key={top}
-                      style={{
-                        borderRadius: "1rem",
-                        border: "1px solid var(--color-border)",
-                        background: "rgba(5,10,9,0.75)",
-                        padding: "1rem"
-                      }}
-                    >
-                      <p style={{ fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--color-muted)" }}>
-                        {typeof bottom === "string" && bottom.includes("reviews") ? "Rating" : top}
-                      </p>
-                      <p style={{ marginTop: "0.5rem", fontSize: "1.85rem", fontWeight: 900, color: "var(--color-gold)", lineHeight: 1 }}>
-                        {typeof bottom === "string" && bottom.includes("reviews") ? top : bottom}
-                      </p>
-                      {typeof bottom === "string" && bottom.includes("reviews") ? (
-                        <p style={{ marginTop: "0.25rem", fontSize: "0.68rem", fontWeight: 600, color: "var(--color-muted)" }}>{bottom}</p>
-                      ) : null}
-                    </div>
-                  ))}
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-[#35201f] bg-[#0b1714] p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#637371]">
+                      Queue
+                    </p>
+                    <p className="mt-2 text-3xl font-black text-[#f9c66d]">
+                      {stats.activeCount || 0}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-[#35201f] bg-[#0b1714] p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#637371]">
+                      Rating
+                    </p>
+                    <p className="mt-2 flex items-center gap-1 text-3xl font-black text-[#f9c66d]">
+                      <Star size={22} />
+                      {rating || "-"}
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-[#9db2ad]">
+                      {stats.ratingCount || 0} reviews
+                    </p>
+                  </div>
                 </div>
               </div>
             </article>
@@ -1440,9 +758,6 @@ export function BarbersPage({ bookingGate }) {
   );
 }
 
-/* ─────────────────────────────────────────
-   BOOKING PAGE
-───────────────────────────────────────── */
 export function BookingPage({
   user,
   onLogin,
@@ -1454,7 +769,10 @@ export function BookingPage({
 }) {
   const [servicePage, setServicePage] = useState(1);
   const servicesSectionRef = useRef(null);
-  const totalServicePages = Math.max(1, Math.ceil(services.length / SERVICE_PAGE_SIZE));
+  const totalServicePages = Math.max(
+    1,
+    Math.ceil(services.length / SERVICE_PAGE_SIZE)
+  );
   const safeServicePage = Math.min(servicePage, totalServicePages);
   const paginatedServices = services.slice(
     (safeServicePage - 1) * SERVICE_PAGE_SIZE,
@@ -1468,74 +786,59 @@ export function BookingPage({
   const handleServicePageChange = (nextPage) => {
     setServicePage(nextPage);
     window.requestAnimationFrame(() => {
-      servicesSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      servicesSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
     });
   };
 
   return (
     <>
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div
-          style={{
-            borderRadius: "1.75rem",
-            background: "linear-gradient(145deg, rgba(120,20,28,0.28), rgba(12,20,18,0.8))",
-            border: "1px solid rgba(246,199,106,0.16)",
-            backdropFilter: "blur(24px)",
-            padding: "1.5rem 1.75rem",
-            color: "white",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.42)"
-          }}
-          className="sm:p-8"
-        >
-          <p className="section-label-red">Booking</p>
-          <h1
-            style={{
-              marginTop: "0.5rem",
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(2rem,5vw,3.25rem)",
-              fontWeight: 400,
-              maxWidth: "600px",
-              lineHeight: 1.1
-            }}
-          >
-            Choose a service first, then continue to payment.
-          </h1>
-          <p style={{ marginTop: "0.75rem", maxWidth: "500px", lineHeight: 1.75, color: "rgba(255,255,255,0.72)", fontSize: "0.9rem" }}>
-            Your Google name is prefilled. The checkout modal lets you edit both name and mobile number.
-          </p>
-          <div style={{ marginTop: "1.5rem", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.625rem" }}>
-            {[
-              [UserRound, "Login"],
-              [CalendarCheck2, "Choose Service"],
-              [BellRing, "Payment Details"]
-            ].map(([Icon, label]) => (
-              <div
-                key={label}
-                style={{
-                  borderRadius: "1rem",
-                  background: "rgba(255,255,255,0.08)",
-                  padding: "0.875rem 0.75rem"
-                }}
-              >
-                <Icon size={18} color="var(--color-gold)" />
-                <p style={{ marginTop: "0.5rem", fontSize: "0.78rem", fontWeight: 800, lineHeight: 1.3 }}>{label}</p>
-              </div>
-            ))}
-          </div>
+    <section className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+      <div className="rounded-[2rem] bg-[#1a0f12] p-5 text-white queue-shadow sm:p-6">
+        <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#fca5a5]">
+          Booking
+        </p>
+        <h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
+          Choose a service first, then continue to payment.
+        </h1>
+        <p className="mt-3 max-w-2xl leading-7 text-white/76">
+          Your Google name is prefilled. The checkout modal lets you edit both
+          name and mobile number.
+        </p>
+        <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+          {[
+            [UserRound, "Login"],
+            [CalendarCheck2, "Choose Service"],
+            [BellRing, "Payment Details"]
+          ].map(([Icon, label]) => (
+            <div className="rounded-2xl bg-[rgba(255,255,255,0.08)] p-2.5 sm:p-3" key={label}>
+              <Icon className="text-[#f9c66d]" size={19} />
+              <p className="mt-2 text-[11px] font-black leading-tight sm:text-base">
+                {label}
+              </p>
+            </div>
+          ))}
         </div>
-      </section>
-      <BookingClosedNotice bookingGate={bookingGate} />
-      <ServicesSection
-        bookingGate={bookingGate}
-        loginLoading={loginLoading}
-        onLogin={onLogin}
-        onPhotoPreview={onPhotoPreview}
-        onServiceSelect={onServiceSelect}
-        pagination={{ page: safeServicePage, totalPages: totalServicePages, onPageChange: handleServicePageChange }}
-        sectionRef={servicesSectionRef}
-        services={paginatedServices}
-        user={user}
-      />
+      </div>
+    </section>
+    <BookingClosedNotice bookingGate={bookingGate} />
+    <ServicesSection
+      bookingGate={bookingGate}
+      loginLoading={loginLoading}
+      onLogin={onLogin}
+      onPhotoPreview={onPhotoPreview}
+      onServiceSelect={onServiceSelect}
+      pagination={{
+        page: safeServicePage,
+        totalPages: totalServicePages,
+        onPageChange: handleServicePageChange
+      }}
+      sectionRef={servicesSectionRef}
+      services={paginatedServices}
+      user={user}
+    />
     </>
   );
 }

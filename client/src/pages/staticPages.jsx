@@ -13,192 +13,58 @@ import {
   where
 } from "firebase/firestore";
 import {
-  Award,
   Clock3,
   Edit3,
   Mail,
   MapPin,
   MessageCircle,
   Phone,
-  Scissors,
-  Shield,
-  Sparkles,
   Star,
   Trash2,
-  Users,
-  Zap,
   X
 } from "lucide-react";
 import { ButtonSpinner } from "../components/common.jsx";
 import { db } from "../lib/firebase.js";
 import { getSafeErrorMessage } from "../lib/errors.js";
 
-/* ─────────────────────────────────────────
-   SHARED STYLES
-───────────────────────────────────────── */
-const glassCard = {
-  background: "linear-gradient(135deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.02) 100%), rgba(12,20,18,0.82)",
-  border: "1px solid rgba(246,199,106,0.14)",
-  backdropFilter: "blur(28px) saturate(135%)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07), 0 20px 60px rgba(0,0,0,0.38)"
-};
-
-const redGlass = {
-  background: "linear-gradient(145deg, rgba(120,20,28,0.28), rgba(12,20,18,0.8))",
-  border: "1px solid rgba(246,199,106,0.16)",
-  backdropFilter: "blur(24px)"
-};
-
-const cardBase = {
-  borderRadius: "1.25rem",
-  border: "1px solid rgba(255,255,255,0.06)",
-  background: "rgba(9,16,14,0.8)"
-};
-
-/* ─────────────────────────────────────────
-   ABOUT PAGE
-───────────────────────────────────────── */
 export function AboutPage() {
   return (
     <>
-      {/* Owner portrait */}
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <div
-            style={{
-              position: "relative",
-              display: "grid",
-              placeItems: "center",
-              height: "18rem",
-              width: "18rem",
-              borderRadius: "999px",
-              padding: "0.75rem",
-              ...glassCard,
-              boxShadow: "0 32px 80px rgba(0,0,0,0.5)"
-            }}
-            className="sm:h-96 sm:w-96"
-          >
-            <div
-              style={{
-                position: "absolute",
-                inset: "1rem",
-                borderRadius: "999px",
-                border: "1px solid rgba(246,199,106,0.28)",
-                pointerEvents: "none"
-              }}
-            />
-            <img
-              alt="Santosh Salon owner"
-              src="/assets/owner-santosh-avatar.png"
-              loading="lazy"
-              decoding="async"
-              style={{ height: "100%", width: "100%", borderRadius: "999px", objectFit: "cover", objectPosition: "63% 34%" }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                bottom: "-0.5rem",
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: "86%",
-                borderRadius: "999px",
-                border: "1px solid rgba(246,199,106,0.22)",
-                background: "rgba(3,8,6,0.92)",
-                padding: "0.75rem 1rem",
-                textAlign: "center",
-                backdropFilter: "blur(16px)",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.5)"
-              }}
-            >
-              <p style={{ fontSize: "0.65rem", fontWeight: 900, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--color-gold)" }}>
-                Owner led service
-              </p>
-              <p
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1rem",
-                  fontWeight: 400,
-                  color: "var(--color-text)"
-                }}
-              >
-                Santosh Salon Queue
-              </p>
-            </div>
+      <section className="mx-auto flex max-w-7xl justify-center px-4 py-8 sm:px-6 lg:px-8">
+        <div className="luxury-glass relative grid h-72 w-72 place-items-center rounded-full p-3 queue-shadow sm:h-96 sm:w-96">
+          <div className="absolute inset-4 rounded-full border border-[#f9c66d]/35" />
+          <img
+            alt="Santosh Salon owner"
+            className="h-full w-full rounded-full object-cover object-[63%_34%]"
+            decoding="async"
+            loading="lazy"
+            src="/assets/owner-santosh-avatar.png"
+          />
+          <div className="absolute -bottom-2 left-1/2 w-[86%] -translate-x-1/2 rounded-full border border-[#f9c66d]/25 bg-[#06100e]/88 px-4 py-3 text-center text-white shadow-2xl backdrop-blur">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#f9c66d]">
+              Owner led service
+            </p>
+            <p className="font-black">Santosh Salon Queue</p>
           </div>
         </div>
       </section>
-
-      {/* Feature cards */}
-      <section className="mx-auto max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
-        <div style={{ display: "grid", gap: "1rem" }} className="md:grid-cols-3">
-          {[
-            [Star, "Live Turns", "Time-slot based flow with a clear estimated turn so you never wait blindly."],
-            [Scissors, "Clean Service", "Haircut, beard, wash, and facial grooming in one professional place."],
-            [Clock3, "Long Hours", "Open daily from 7 AM to 11 PM for convenient visits any time of day."]
-          ].map(([Icon, title, text]) => (
-            <article
-              key={title}
-              style={{ borderRadius: "1.75rem", padding: "1.5rem", ...glassCard }}
-            >
-              <span
-                style={{
-                  display: "grid",
-                  placeItems: "center",
-                  height: "3rem",
-                  width: "3rem",
-                  borderRadius: "0.875rem",
-                  background: "rgba(246,199,106,0.1)",
-                  border: "1px solid rgba(246,199,106,0.2)"
-                }}
-              >
-                <Icon size={20} color="var(--color-gold)" />
-              </span>
-              <h3
-                style={{
-                  marginTop: "1.1rem",
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1.35rem",
-                  fontWeight: 400,
-                  color: "var(--color-text)"
-                }}
-              >
-                {title}
-              </h3>
-              <p style={{ marginTop: "0.5rem", lineHeight: 1.75, color: "var(--color-muted)", fontSize: "0.875rem" }}>
-                {text}
-              </p>
-            </article>
-          ))}
-        </div>
-
-        {/* Extra about content */}
-        <div style={{ marginTop: "1rem", display: "grid", gap: "1rem" }} className="sm:grid-cols-2">
-          {[
-            [Award, "15+ Years Experience", "Santosh brings over 15 years of barbering mastery to every customer, combining traditional techniques with modern styles."],
-            [Users, "3-Chair Capacity", "With three fully equipped barber chairs, we serve customers efficiently while maintaining the highest quality standards."],
-            [Shield, "Hygiene First", "Every tool is sanitized between customers. We follow strict cleanliness protocols for your safety and comfort."],
-            [Zap, "Tech-Powered Queue", "Our live queue system eliminates waiting room anxiety — you know exactly when to arrive for your turn."]
-          ].map(([Icon, title, text]) => (
-            <article
-              key={title}
-              style={{ borderRadius: "1.25rem", padding: "1.25rem", ...cardBase }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-                <Icon size={18} color="var(--color-gold)" />
-                <h3 style={{ fontSize: "0.9375rem", fontWeight: 800, color: "var(--color-text)" }}>{title}</h3>
-              </div>
-              <p style={{ fontSize: "0.85rem", lineHeight: 1.7, color: "var(--color-muted)" }}>{text}</p>
-            </article>
-          ))}
-        </div>
+      <section className="mx-auto grid max-w-7xl gap-4 px-4 pb-8 sm:px-6 md:grid-cols-3 lg:px-8">
+        {[
+          ["Live Turns", "Time-slot based flow with a clear estimated turn."],
+          ["Clean Service", "Haircut, beard, wash, and grooming in one place."],
+          ["Long Hours", "Open daily from 7 AM to 11 PM for easy visits."]
+        ].map(([title, text]) => (
+          <article className="luxury-glass rounded-3xl p-5 queue-shadow" key={title}>
+            <Star className="text-[#f9c66d]" size={24} />
+            <h3 className="mt-4 text-xl font-black">{title}</h3>
+            <p className="mt-2 leading-7 text-[#9db2ad]">{text}</p>
+          </article>
+        ))}
       </section>
     </>
   );
 }
 
-/* ─────────────────────────────────────────
-   CONTACT PAGE
-───────────────────────────────────────── */
 const unresolvedIssueStatuses = ["open", "pending", "in_progress"];
 
 const getIssueMillis = (value) => {
@@ -213,6 +79,7 @@ const normalizeIssue = (snapshotDoc) => {
   const data = snapshotDoc.data();
   const updatedMillis = getIssueMillis(data.updatedAt);
   const createdMillis = getIssueMillis(data.createdAt);
+
   return {
     id: snapshotDoc.id,
     name: data.name || "",
@@ -222,7 +89,12 @@ const normalizeIssue = (snapshotDoc) => {
     status: String(data.status || "open").toLowerCase(),
     sortTime: updatedMillis || createdMillis,
     displayTime: (updatedMillis || createdMillis)
-      ? new Date(updatedMillis || createdMillis).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+      ? new Date(updatedMillis || createdMillis).toLocaleString("en-IN", {
+          day: "numeric",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit"
+        })
       : "Just now"
   };
 };
@@ -240,24 +112,54 @@ export function ContactPage({ user }) {
     message: ""
   });
 
-  const updateField = (field, value) => setForm((c) => ({ ...c, [field]: value }));
+  const updateField = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
 
   const loadIssueHistory = async (mobileValue = form.mobile) => {
     const mobile = String(mobileValue || "").replace(/\D/g, "");
     const issueQueries = [];
+
     if (user?.uid) {
-      issueQueries.push(firestoreQuery(collection(db, "contactIssues"), where("userId", "==", user.uid), limit(20)));
+      issueQueries.push(
+        firestoreQuery(
+          collection(db, "contactIssues"),
+          where("userId", "==", user.uid),
+          limit(20)
+        )
+      );
     }
+
     if (mobile.length >= 10) {
-      issueQueries.push(firestoreQuery(collection(db, "contactIssues"), where("mobile", "==", mobile), limit(20)));
+      issueQueries.push(
+        firestoreQuery(
+          collection(db, "contactIssues"),
+          where("mobile", "==", mobile),
+          limit(20)
+        )
+      );
     }
-    if (!issueQueries.length) { setIssueHistory([]); return []; }
+
+    if (!issueQueries.length) {
+      setIssueHistory([]);
+      return [];
+    }
+
     setHistoryLoading(true);
     try {
-      const snapshots = await Promise.all(issueQueries.map((q) => getDocs(q)));
+      const snapshots = await Promise.all(
+        issueQueries.map((issueQuery) => getDocs(issueQuery))
+      );
       const issueMap = new Map();
-      snapshots.forEach((snap) => snap.docs.forEach((d) => issueMap.set(d.id, normalizeIssue(d))));
-      const issues = [...issueMap.values()].sort((a, b) => b.sortTime - a.sortTime).slice(0, 3);
+      snapshots.forEach((snapshot) => {
+        snapshot.docs.forEach((snapshotDoc) => {
+          issueMap.set(snapshotDoc.id, normalizeIssue(snapshotDoc));
+        });
+      });
+      const issues = [...issueMap.values()]
+        .sort((first, second) => second.sortTime - first.sortTime)
+        .slice(0, 3);
+
       setIssueHistory(issues);
       return issues;
     } catch (error) {
@@ -271,52 +173,119 @@ export function ContactPage({ user }) {
   const cleanupIssueHistory = async (mobileValue) => {
     const mobile = String(mobileValue || "").replace(/\D/g, "");
     const issueQueries = [];
-    if (user?.uid) issueQueries.push(firestoreQuery(collection(db, "contactIssues"), where("userId", "==", user.uid), limit(30)));
-    if (mobile.length >= 10) issueQueries.push(firestoreQuery(collection(db, "contactIssues"), where("mobile", "==", mobile), limit(30)));
-    const snapshots = await Promise.all(issueQueries.map((q) => getDocs(q)));
+
+    if (user?.uid) {
+      issueQueries.push(
+        firestoreQuery(
+          collection(db, "contactIssues"),
+          where("userId", "==", user.uid),
+          limit(30)
+        )
+      );
+    }
+    if (mobile.length >= 10) {
+      issueQueries.push(
+        firestoreQuery(
+          collection(db, "contactIssues"),
+          where("mobile", "==", mobile),
+          limit(30)
+        )
+      );
+    }
+
+    const snapshots = await Promise.all(
+      issueQueries.map((issueQuery) => getDocs(issueQuery))
+    );
     const issueMap = new Map();
-    snapshots.forEach((snap) => snap.docs.forEach((d) => issueMap.set(d.id, normalizeIssue(d))));
-    const oldIssues = [...issueMap.values()].sort((a, b) => b.sortTime - a.sortTime).slice(3);
-    await Promise.all(oldIssues.map((issue) => deleteDoc(doc(db, "contactIssues", issue.id))));
+    snapshots.forEach((snapshot) => {
+      snapshot.docs.forEach((snapshotDoc) => {
+        issueMap.set(snapshotDoc.id, normalizeIssue(snapshotDoc));
+      });
+    });
+
+    const oldIssues = [...issueMap.values()]
+      .sort((first, second) => second.sortTime - first.sortTime)
+      .slice(3);
+
+    await Promise.all(
+      oldIssues.map((issue) => deleteDoc(doc(db, "contactIssues", issue.id)))
+    );
   };
 
   useEffect(() => {
-    setForm((c) => ({ ...c, name: c.name || user?.displayName || "", email: c.email || user?.email || "" }));
+    setForm((current) => ({
+      ...current,
+      name: current.name || user?.displayName || "",
+      email: current.email || user?.email || ""
+    }));
   }, [user]);
 
   useEffect(() => {
-    if (user?.uid) loadIssueHistory();
+    if (user?.uid) {
+      loadIssueHistory();
+    }
   }, [user?.uid]);
 
   const submitContact = async (event) => {
     event.preventDefault();
+
     const name = form.name.trim();
     const mobile = form.mobile.replace(/\D/g, "");
     const email = form.email.trim().toLowerCase();
     const message = form.message.trim();
+
     if (!name || mobile.length < 10 || !message) {
       toast.error("Please enter name, valid mobile number, and message.");
       return;
     }
+
     setSubmitting(true);
     try {
       const issues = await loadIssueHistory(mobile);
-      const hasOpenIssue = issues.some((i) => unresolvedIssueStatuses.includes(i.status));
+      const hasOpenIssue = issues.some((issue) =>
+        unresolvedIssueStatuses.includes(issue.status)
+      );
+
       if (hasOpenIssue && !editingIssueId) {
-        toast.warning("Your previous issue is still open. You can send a new message after it is resolved.");
+        toast.warning(
+          "Your previous issue is still open. You can send a new message after it is resolved."
+        );
         return;
       }
+
       if (editingIssueId) {
-        await updateDoc(doc(db, "contactIssues", editingIssueId), { name, mobile, email: email || user?.email || "", message, editedAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        await updateDoc(doc(db, "contactIssues", editingIssueId), {
+          name,
+          mobile,
+          email: email || user?.email || "",
+          message,
+          editedAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
         toast.success("Message updated.");
       } else {
-        await addDoc(collection(db, "contactIssues"), { userId: user?.uid || "", name, mobile, email: email || user?.email || "", message, status: "open", source: "client-contact-page", createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        await addDoc(collection(db, "contactIssues"), {
+          userId: user?.uid || "",
+          name,
+          mobile,
+          email: email || user?.email || "",
+          message,
+          status: "open",
+          source: "client-contact-page",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
         toast.success("Message sent. The salon team will review your issue.");
       }
+
       await cleanupIssueHistory(mobile);
       await loadIssueHistory(mobile);
+
       setEditingIssueId("");
-      setForm((c) => ({ ...c, message: "" }));
+      setForm((current) => ({
+        ...current,
+        message: ""
+      }));
     } catch (error) {
       toast.error(getSafeErrorMessage(error, "Message could not be sent."));
     } finally {
@@ -326,12 +295,17 @@ export function ContactPage({ user }) {
 
   const editIssue = (issue) => {
     setEditingIssueId(issue.id);
-    setForm({ name: issue.name || form.name, mobile: issue.mobile || form.mobile, email: issue.email || form.email, message: issue.message || "" });
+    setForm({
+      name: issue.name || form.name,
+      mobile: issue.mobile || form.mobile,
+      email: issue.email || form.email,
+      message: issue.message || ""
+    });
   };
 
   const cancelEdit = () => {
     setEditingIssueId("");
-    setForm((c) => ({ ...c, message: "" }));
+    setForm((current) => ({ ...current, message: "" }));
   };
 
   const deleteIssue = async (issueId) => {
@@ -348,492 +322,204 @@ export function ContactPage({ user }) {
     }
   };
 
-  const inputStyle = {
-    display: "block",
-    width: "100%",
-    minHeight: "50px",
-    padding: "0 1rem",
-    borderRadius: "0.875rem",
-    border: "1.5px solid var(--color-border)",
-    background: "rgba(5,10,9,0.85)",
-    color: "var(--color-text)",
-    fontSize: "0.9375rem",
-    outline: "none",
-    transition: "border-color 0.15s"
-  };
-
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div style={{ display: "grid", gap: "1.25rem" }} className="lg:grid-cols-[0.9fr_1.1fr]">
-        {/* Info sidebar */}
-        <aside
-          style={{
-            borderRadius: "1.75rem",
-            padding: "1.75rem",
-            color: "white",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.45)",
-            ...redGlass
-          }}
-          className="sm:p-8"
-        >
-          <p className="section-kicker">Contact Us</p>
-          <h1
-            style={{
-              marginTop: "0.5rem",
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(2rem,4vw,3rem)",
-              fontWeight: 400,
-              lineHeight: 1.1
-            }}
-          >
-            Visit or message the salon.
-          </h1>
-          <div style={{ marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {[
-              [MapPin, "Main Market Road, Near City Chowk"],
-              [Phone, "+91 98765 43210"],
-              [Mail, "hello@santoshsalon.local"],
-              [Clock3, "Open daily, 7 AM – 11 PM"]
-            ].map(([Icon, label]) => (
-              <div
-                key={label}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.875rem",
-                  borderRadius: "0.875rem",
-                  background: "rgba(255,255,255,0.08)",
-                  padding: "1rem"
-                }}
-              >
-                <Icon size={18} color="var(--color-gold)" />
-                <span style={{ fontSize: "0.9rem", fontWeight: 700 }}>{label}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Map placeholder */}
-          <div
-            style={{
-              marginTop: "1.25rem",
-              borderRadius: "1rem",
-              height: "10rem",
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              display: "grid",
-              placeItems: "center",
-              color: "rgba(255,255,255,0.4)",
-              fontSize: "0.8rem",
-              fontWeight: 700,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase"
-            }}
-          >
-            <div style={{ textAlign: "center" }}>
-              <MapPin size={28} color="var(--color-gold)" style={{ margin: "0 auto 0.5rem" }} />
-              <span>Map coming soon</span>
+    <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
+      <aside className="luxury-red-glass rounded-[2rem] p-6 text-white queue-shadow sm:p-8">
+        <p className="section-kicker">
+          Contact Us
+        </p>
+        <h1 className="mt-2 text-4xl font-black leading-tight">
+          Visit or message the salon.
+        </h1>
+        <div className="mt-6 space-y-3">
+          {[
+            [MapPin, "Main Market Road, Near City Chowk"],
+            [Phone, "+91 98765 43210"],
+            [Mail, "hello@santoshsalon.local"],
+            [Clock3, "Open daily, 7 AM - 11 PM"]
+          ].map(([Icon, label]) => (
+            <div className="flex items-center gap-3 rounded-2xl bg-[rgba(255,255,255,0.08)] p-4" key={label}>
+              <Icon className="text-[#f9c66d]" size={20} />
+              <span className="font-bold">{label}</span>
             </div>
-          </div>
-        </aside>
+          ))}
+        </div>
+      </aside>
 
-        {/* Form */}
-        <form
-          onSubmit={submitContact}
-          style={{
-            borderRadius: "1.75rem",
-            padding: "1.75rem",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.38)",
-            ...glassCard
-          }}
-          className="sm:p-8"
-        >
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "2rem",
-              fontWeight: 400,
-              color: "var(--color-text)"
-            }}
-          >
-            Send a message
-          </h2>
-          <div style={{ marginTop: "1.25rem", display: "grid", gap: "1rem" }} className="sm:grid-cols-2">
-            {[
-              { label: "Full Name", field: "name", placeholder: "Your name" },
-              { label: "Mobile Number", field: "mobile", placeholder: "98765 43210" }
-            ].map(({ label, field, placeholder }) => (
-              <label key={field} style={{ display: "block" }}>
-                <span style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--color-muted)" }}>
-                  {label}
-                </span>
-                <input
-                  style={inputStyle}
-                  placeholder={placeholder}
-                  value={form[field]}
-                  onChange={(e) => updateField(field, e.target.value)}
-                />
-              </label>
-            ))}
-          </div>
-
-          <label style={{ display: "block", marginTop: "1rem" }}>
-            <span style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--color-muted)" }}>
-              Email
-            </span>
+      <form
+        className="luxury-glass rounded-[2rem] p-6 queue-shadow sm:p-8"
+        onSubmit={submitContact}
+      >
+        <h2 className="text-3xl font-black">Send message</h2>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold">Name</span>
             <input
-              style={inputStyle}
-              type="email"
-              placeholder="you@example.com"
-              value={form.email}
-              onChange={(e) => updateField("email", e.target.value)}
+              className="h-12 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] px-4 text-[#f4fbf8] outline-none focus:border-[#f87171]"
+              onChange={(event) => updateField("name", event.target.value)}
+              value={form.name}
             />
           </label>
-
-          <label style={{ display: "block", marginTop: "1rem" }}>
-            <span style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--color-muted)" }}>
-              Message
-            </span>
-            <textarea
-              style={{ ...inputStyle, minHeight: "140px", padding: "0.875rem 1rem", resize: "vertical" }}
-              placeholder="Write your message..."
-              value={form.message}
-              onChange={(e) => updateField("message", e.target.value)}
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold">Mobile</span>
+            <input
+              className="h-12 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] px-4 text-[#f4fbf8] outline-none focus:border-[#f87171]"
+              onChange={(event) => updateField("mobile", event.target.value)}
+              placeholder="98765 43210"
+              value={form.mobile}
             />
           </label>
-
+        </div>
+        <label className="mt-4 block">
+          <span className="mb-2 block text-sm font-bold">Email</span>
+          <input
+            className="h-12 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] px-4 text-[#f4fbf8] outline-none focus:border-[#f87171]"
+            onChange={(event) => updateField("email", event.target.value)}
+            placeholder="you@example.com"
+            type="email"
+            value={form.email}
+          />
+        </label>
+        <label className="mt-4 block">
+          <span className="mb-2 block text-sm font-bold">Message</span>
+          <textarea
+            className="min-h-36 w-full resize-y rounded-2xl border border-[#4a2525] bg-[#0b1714] p-4 text-[#f4fbf8] outline-none focus:border-[#f87171]"
+            onChange={(event) => updateField("message", event.target.value)}
+            placeholder="Write your message"
+            value={form.message}
+          />
+        </label>
+        <button
+          className="shine-button mt-4 flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-6 py-4 font-black text-white disabled:opacity-60"
+          disabled={submitting}
+          type="submit"
+        >
+          {submitting ? <ButtonSpinner /> : <MessageCircle size={19} />}
+          {submitting
+            ? "Sending..."
+            : editingIssueId
+              ? "Update Message"
+              : "Send Message"}
+        </button>
+        {editingIssueId ? (
           <button
-            type="submit"
-            disabled={submitting}
-            style={{
-              marginTop: "1rem",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "0.5rem",
-              minHeight: "52px",
-              width: "100%",
-              borderRadius: "999px",
-              border: "none",
-              background: "linear-gradient(135deg, #a31621, #7f1317)",
-              color: "white",
-              fontWeight: 800,
-              fontSize: "0.9375rem",
-              cursor: submitting ? "not-allowed" : "pointer",
-              opacity: submitting ? 0.7 : 1,
-              boxShadow: "0 8px 24px rgba(163,22,33,0.3)"
-            }}
+            className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[#35201f] bg-[#101a18] px-5 font-black text-[#f4fbf8]"
+            onClick={cancelEdit}
+            type="button"
           >
-            {submitting ? <ButtonSpinner /> : <MessageCircle size={18} />}
-            {submitting ? "Sending..." : editingIssueId ? "Update Message" : "Send Message"}
+            <X size={18} />
+            Cancel Edit
           </button>
-
-          {editingIssueId ? (
+        ) : null}
+        <p className="mt-4 rounded-2xl bg-[#2a1111] px-4 py-3 text-sm font-bold text-[#fca5a5]">
+          You can keep only one unresolved issue open at a time. A new message
+          is allowed after the salon marks your previous issue as resolved.
+        </p>
+        <div className="mt-5 rounded-3xl border border-[#35201f] bg-[#0b1714] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-lg font-black">Recent messages</h3>
             <button
+              className="rounded-full border border-[#35201f] px-3 py-1 text-xs font-black text-[#f9c66d]"
+              onClick={() => loadIssueHistory()}
               type="button"
-              onClick={cancelEdit}
-              style={{
-                marginTop: "0.75rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.5rem",
-                minHeight: "46px",
-                width: "100%",
-                borderRadius: "999px",
-                border: "1px solid var(--color-border)",
-                background: "var(--color-elevated)",
-                color: "var(--color-text)",
-                fontWeight: 800,
-                fontSize: "0.875rem",
-                cursor: "pointer"
-              }}
             >
-              <X size={16} />
-              Cancel Edit
+              Refresh
             </button>
-          ) : null}
-
-          <p
-            style={{
-              marginTop: "0.875rem",
-              borderRadius: "0.875rem",
-              background: "rgba(163,22,33,0.12)",
-              border: "1px solid rgba(163,22,33,0.25)",
-              padding: "0.75rem 1rem",
-              fontSize: "0.78rem",
-              fontWeight: 600,
-              color: "#fca5a5",
-              lineHeight: 1.6
-            }}
-          >
-            You can keep only one unresolved issue open at a time. A new message is allowed after the salon marks your previous issue as resolved.
-          </p>
-
-          {/* Issue history */}
-          <div
-            style={{
-              marginTop: "1.25rem",
-              borderRadius: "1.25rem",
-              border: "1px solid var(--color-border)",
-              background: "rgba(5,10,9,0.75)",
-              padding: "1rem"
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}>
-              <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "var(--color-text)" }}>Recent messages</h3>
-              <button
-                type="button"
-                onClick={() => loadIssueHistory()}
-                style={{
-                  borderRadius: "999px",
-                  border: "1px solid var(--color-border)",
-                  background: "transparent",
-                  padding: "0.25rem 0.75rem",
-                  fontSize: "0.72rem",
-                  fontWeight: 800,
-                  color: "var(--color-gold)",
-                  cursor: "pointer"
-                }}
-              >
-                Refresh
-              </button>
-            </div>
-            {historyLoading ? (
-              <p style={{ marginTop: "0.75rem", fontSize: "0.85rem", fontWeight: 600, color: "var(--color-muted)" }}>Loading...</p>
-            ) : issueHistory.length ? (
-              <div style={{ marginTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.625rem" }}>
-                {issueHistory.map((issue) => (
-                  <article
-                    key={issue.id}
-                    style={{
-                      borderRadius: "1rem",
-                      border: "1px solid var(--color-border)",
-                      background: "rgba(12,20,18,0.7)",
-                      padding: "1rem"
-                    }}
-                  >
-                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: "0.625rem" }}>
-                      <div>
-                        <span
-                          style={{
-                            display: "inline-block",
-                            borderRadius: "999px",
-                            background: "rgba(163,22,33,0.15)",
-                            border: "1px solid rgba(163,22,33,0.25)",
-                            padding: "0.2rem 0.6rem",
-                            fontSize: "0.65rem",
-                            fontWeight: 800,
-                            letterSpacing: "0.1em",
-                            textTransform: "uppercase",
-                            color: "#fca5a5"
-                          }}
-                        >
-                          {issue.status.replace(/_/g, " ")}
-                        </span>
-                        <p style={{ marginTop: "0.35rem", fontSize: "0.72rem", fontWeight: 600, color: "var(--color-muted)" }}>
-                          {issue.displayTime}
-                        </p>
-                      </div>
-                      <div style={{ display: "flex", gap: "0.5rem" }}>
-                        <button
-                          type="button"
-                          onClick={() => editIssue(issue)}
-                          style={{
-                            display: "grid",
-                            placeItems: "center",
-                            height: "2.25rem",
-                            width: "2.25rem",
-                            borderRadius: "0.625rem",
-                            border: "1px solid rgba(246,199,106,0.2)",
-                            background: "rgba(246,199,106,0.08)",
-                            color: "var(--color-gold)",
-                            cursor: "pointer"
-                          }}
-                        >
-                          <Edit3 size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={deletingIssueId === issue.id}
-                          onClick={() => deleteIssue(issue.id)}
-                          style={{
-                            display: "grid",
-                            placeItems: "center",
-                            height: "2.25rem",
-                            width: "2.25rem",
-                            borderRadius: "0.625rem",
-                            border: "1px solid rgba(163,22,33,0.25)",
-                            background: "rgba(163,22,33,0.12)",
-                            color: "#fca5a5",
-                            cursor: deletingIssueId === issue.id ? "not-allowed" : "pointer",
-                            opacity: deletingIssueId === issue.id ? 0.5 : 1
-                          }}
-                        >
-                          {deletingIssueId === issue.id ? <ButtonSpinner /> : <Trash2 size={15} />}
-                        </button>
-                      </div>
-                    </div>
-                    <p style={{ marginTop: "0.75rem", fontSize: "0.875rem", fontWeight: 600, lineHeight: 1.65, color: "var(--color-text)", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                      {issue.message}
-                    </p>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <p style={{ marginTop: "0.75rem", fontSize: "0.85rem", fontWeight: 600, color: "var(--color-muted)" }}>
-                No recent messages found.
-              </p>
-            )}
           </div>
-        </form>
-      </div>
+          {historyLoading ? (
+            <p className="mt-3 text-sm font-bold text-[#9db2ad]">Loading...</p>
+          ) : issueHistory.length ? (
+            <div className="mt-3 grid gap-3">
+              {issueHistory.map((issue) => (
+                <article
+                  className="rounded-2xl border border-[#35201f] bg-[#101a18] p-4"
+                  key={issue.id}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <span className="rounded-full bg-[#2a1111] px-3 py-1 text-xs font-black uppercase text-[#fca5a5]">
+                        {issue.status.replace(/_/g, " ")}
+                      </span>
+                      <p className="mt-2 text-xs font-bold text-[#9db2ad]">
+                        {issue.displayTime}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        className="grid h-10 w-10 place-items-center rounded-xl bg-[#24170d] text-[#f9c66d]"
+                        onClick={() => editIssue(issue)}
+                        type="button"
+                      >
+                        <Edit3 size={17} />
+                      </button>
+                      <button
+                        className="grid h-10 w-10 place-items-center rounded-xl bg-[#3a1515] text-[#fca5a5] disabled:opacity-60"
+                        disabled={deletingIssueId === issue.id}
+                        onClick={() => deleteIssue(issue.id)}
+                        type="button"
+                      >
+                        {deletingIssueId === issue.id ? (
+                          <ButtonSpinner />
+                        ) : (
+                          <Trash2 size={17} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="mt-3 line-clamp-3 text-sm font-bold leading-6 text-[#f4fbf8]">
+                    {issue.message}
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm font-bold text-[#9db2ad]">
+              No recent messages found.
+            </p>
+          )}
+        </div>
+      </form>
     </section>
   );
 }
 
-/* ─────────────────────────────────────────
-   PRICING PAGE
-───────────────────────────────────────── */
+const pageShellClass = "mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8";
+
 export function PricingPage() {
   const plans = [
-    { title: "Classic Haircut", price: "Rs. 120", duration: "25 min", text: "Slot booking with live queue status. Precision cut by experienced barber.", popular: true },
-    { title: "Beard Styling", price: "Rs. 80", duration: "15 min", text: "Quick grooming slot with clear turn tracking. Sharp edges guaranteed.", popular: false },
-    { title: "Hair Wash", price: "Rs. 70", duration: "12 min", text: "Fresh wash service with time slot booking. Premium shampoo included.", popular: false },
-    { title: "Facial Grooming", price: "Rs. 250", duration: "35 min", text: "Premium grooming service with online payment option. Full face care.", popular: false }
+    ["Classic Haircut", "Rs. 120", "Slot booking with live queue status."],
+    ["Beard Styling", "Rs. 80", "Quick grooming slot with clear turn tracking."],
+    ["Hair Wash", "Rs. 70", "Fresh wash service with time slot booking."],
+    ["Facial Grooming", "Rs. 250", "Premium grooming service with online payment option."]
   ];
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div
-        style={{
-          borderRadius: "1.75rem",
-          padding: "2rem 1.75rem",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.45)",
-          ...redGlass
-        }}
-        className="sm:p-10"
-      >
-        <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-          <p className="section-kicker">Pricing</p>
-          <h1
-            style={{
-              marginTop: "0.5rem",
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(2rem,5vw,3.5rem)",
-              fontWeight: 400,
-              lineHeight: 1.1,
-              color: "var(--color-text)"
-            }}
-          >
-            Transparent grooming prices.
-          </h1>
-          <p style={{ marginTop: "0.75rem", maxWidth: "560px", margin: "0.75rem auto 0", lineHeight: 1.75, color: "rgba(255,255,255,0.65)", fontSize: "0.9rem" }}>
-            Every customer booking is confirmed only after Cashfree online payment. The final payable amount, including Cashfree charge, is shown at checkout.
-          </p>
-        </div>
-
-        <div style={{ display: "grid", gap: "1rem" }} className="md:grid-cols-2">
-          {plans.map(({ title, price, duration, text, popular }) => (
-            <article
-              key={title}
-              style={{
-                borderRadius: "1.25rem",
-                border: popular ? "1px solid rgba(246,199,106,0.4)" : "1px solid rgba(255,255,255,0.06)",
-                background: popular ? "rgba(246,199,106,0.06)" : "rgba(9,16,14,0.8)",
-                padding: "1.5rem",
-                position: "relative",
-                transition: "border-color 0.2s, transform 0.2s"
-              }}
-            >
-              {popular && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "-0.6rem",
-                    right: "1.25rem",
-                    borderRadius: "999px",
-                    background: "var(--color-gold)",
-                    color: "#0b0c08",
-                    padding: "0.2rem 0.75rem",
-                    fontSize: "0.65rem",
-                    fontWeight: 900,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase"
-                  }}
-                >
-                  Most Popular
-                </span>
-              )}
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem" }}>
-                <div>
-                  <p style={{ fontSize: "0.68rem", fontWeight: 900, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--color-gold)" }}>
-                    {title}
-                  </p>
-                  <p
-                    style={{
-                      marginTop: "0.75rem",
-                      fontFamily: "var(--font-display)",
-                      fontSize: "2.25rem",
-                      fontWeight: 400,
-                      color: "var(--color-text)",
-                      lineHeight: 1
-                    }}
-                  >
-                    {price}
-                  </p>
-                </div>
-                <span
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.35rem",
-                    borderRadius: "999px",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    background: "rgba(255,255,255,0.07)",
-                    padding: "0.35rem 0.75rem",
-                    fontSize: "0.72rem",
-                    fontWeight: 700,
-                    color: "var(--color-muted)",
-                    whiteSpace: "nowrap"
-                  }}
-                >
-                  <Clock3 size={12} />
-                  {duration}
-                </span>
-              </div>
-              <p style={{ marginTop: "0.875rem", fontSize: "0.875rem", lineHeight: 1.65, color: "var(--color-muted)" }}>
-                {text}
+    <section className={pageShellClass}>
+      <div className="luxury-red-glass rounded-[2rem] p-6 queue-shadow sm:p-8">
+        <p className="section-kicker">Pricing</p>
+        <h1 className="mt-2 text-4xl font-black leading-tight sm:text-5xl">
+          Transparent grooming prices.
+        </h1>
+        <p className="mt-3 max-w-3xl text-[#b9c7c3]">
+          Every customer booking is confirmed only after Cashfree online payment.
+          The final payable amount, including Cashfree charge, is shown at checkout.
+        </p>
+        <div className="mt-7 grid gap-4 md:grid-cols-2">
+          {plans.map(([title, price, text]) => (
+            <article className="rounded-3xl border border-[#5a2525] bg-[#101a18] p-5" key={title}>
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-[#f9c66d]">
+                {title}
               </p>
+              <h2 className="mt-3 text-3xl font-black text-white">{price}</h2>
+              <p className="mt-2 text-[#9db2ad]">{text}</p>
             </article>
           ))}
-        </div>
-
-        {/* Payment note */}
-        <div
-          style={{
-            marginTop: "1.5rem",
-            borderRadius: "1rem",
-            border: "1px solid rgba(246,199,106,0.2)",
-            background: "rgba(246,199,106,0.06)",
-            padding: "1rem 1.25rem",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.875rem"
-          }}
-        >
-          <Sparkles size={18} color="var(--color-gold)" style={{ flexShrink: 0 }} />
-          <p style={{ fontSize: "0.85rem", fontWeight: 600, color: "rgba(246,199,106,0.85)", lineHeight: 1.6 }}>
-            All prices shown are base rates. The Cashfree payment gateway charge will be displayed separately before you confirm your booking.
-          </p>
         </div>
       </div>
     </section>
   );
 }
 
-/* ─────────────────────────────────────────
-   GALLERY PAGE
-───────────────────────────────────────── */
 export function GalleryPage() {
   const gallery = [
     ["/assets/salon-hero.png", "Santosh Salon interior"],
@@ -852,132 +538,69 @@ export function GalleryPage() {
   ];
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div
-        style={{
-          borderRadius: "1.75rem",
-          padding: "2rem 1.75rem",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.38)",
-          ...glassCard
-        }}
-        className="sm:p-10"
-      >
+    <section className={pageShellClass}>
+      <div className="luxury-glass rounded-[2rem] p-6 queue-shadow sm:p-8">
         <p className="section-kicker">Gallery</p>
-        <h1
-          style={{
-            marginTop: "0.5rem",
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(2rem,5vw,3.5rem)",
-            fontWeight: 400,
-            lineHeight: 1.1
-          }}
-        >
+        <h1 className="mt-2 text-4xl font-black leading-tight sm:text-5xl">
           Salon visuals before you visit.
         </h1>
-
-        {/* Main gallery grid */}
-        <div style={{ marginTop: "2rem", display: "grid", gap: "1rem" }} className="sm:grid-cols-2">
+        <div className="mt-7 grid gap-4 sm:grid-cols-2">
           {gallery.map(([src, alt]) => (
-            <figure
-              key={src}
-              style={{
-                overflow: "hidden",
-                borderRadius: "1.25rem",
-                border: "1px solid var(--color-border)",
-                background: "var(--color-elevated)"
-              }}
-            >
+            <figure className="overflow-hidden rounded-3xl border border-[#35201f] bg-[#101a18]" key={src}>
               <img
                 alt={alt}
-                src={src}
-                loading="lazy"
+                className="h-64 w-full object-cover"
                 decoding="async"
-                style={{ height: "16rem", width: "100%", objectFit: "cover", display: "block", transition: "transform 0.3s ease" }}
+                loading="lazy"
+                src={src}
               />
-              <figcaption style={{ padding: "0.875rem 1rem", fontWeight: 800, color: "var(--color-text)", fontSize: "0.875rem" }}>
-                {alt}
-              </figcaption>
+              <figcaption className="p-4 font-black text-[#f4fbf8]">{alt}</figcaption>
             </figure>
           ))}
         </div>
-
-        {/* Before / After */}
-        <div style={{ marginTop: "2.5rem" }}>
+        <div className="mt-8">
           <p className="section-kicker">Before / After</p>
-          <div style={{ marginTop: "1rem", display: "grid", gap: "1rem" }} className="md:grid-cols-2">
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
             {beforeAfter.map(([title, before, after]) => (
-              <article
-                key={title}
-                style={{ borderRadius: "1.25rem", border: "1px solid var(--color-border)", background: "rgba(9,16,14,0.8)", padding: "1.25rem" }}
-              >
-                <h2
-                  style={{ fontFamily: "var(--font-display)", fontSize: "1.25rem", fontWeight: 400, color: "var(--color-text)", marginBottom: "1rem" }}
-                >
-                  {title}
-                </h2>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-                  {[["Before", before, "#b5b0a7"], ["After", after, "var(--color-gold)"]].map(([label, imgSrc, color]) => (
-                    <figure key={label}>
-                      <img
-                        alt={`${title} ${label}`}
-                        src={imgSrc}
-                        loading="lazy"
-                        decoding="async"
-                        style={{ height: "11rem", width: "100%", objectFit: "cover", borderRadius: "0.875rem", display: "block" }}
-                      />
-                      <figcaption style={{ marginTop: "0.5rem", fontSize: "0.65rem", fontWeight: 900, letterSpacing: "0.16em", textTransform: "uppercase", color }}>{label}</figcaption>
-                    </figure>
-                  ))}
+              <article className="rounded-3xl border border-[#35201f] bg-[#101a18] p-4" key={title}>
+                <h2 className="text-xl font-black text-white">{title}</h2>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <figure>
+                    <img
+                      alt={`${title} before`}
+                      className="h-44 w-full rounded-2xl object-cover"
+                      decoding="async"
+                      loading="lazy"
+                      src={before}
+                    />
+                    <figcaption className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#9db2ad]">Before</figcaption>
+                  </figure>
+                  <figure>
+                    <img
+                      alt={`${title} after`}
+                      className="h-44 w-full rounded-2xl object-cover"
+                      decoding="async"
+                      loading="lazy"
+                      src={after}
+                    />
+                    <figcaption className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#f9c66d]">After</figcaption>
+                  </figure>
                 </div>
               </article>
             ))}
           </div>
         </div>
-
-        {/* Offers + Reviews */}
-        <div style={{ marginTop: "2.5rem", display: "grid", gap: "1rem" }} className="lg:grid-cols-[0.8fr_1.2fr]">
-          <aside
-            style={{
-              borderRadius: "1.25rem",
-              border: "1px solid rgba(246,199,106,0.22)",
-              background: "rgba(246,199,106,0.06)",
-              padding: "1.25rem"
-            }}
-          >
+        <div className="mt-8 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+          <aside className="rounded-3xl border border-[#f9c66d]/20 bg-[#24170d] p-5 text-[#f9c66d]">
             <p className="section-kicker">Offers</p>
-            <h2
-              style={{
-                marginTop: "0.5rem",
-                fontFamily: "var(--font-display)",
-                fontSize: "1.5rem",
-                fontWeight: 400,
-                color: "var(--color-gold)"
-              }}
-            >
-              Use WELCOME10 at checkout.
-            </h2>
-            <p style={{ marginTop: "0.5rem", fontSize: "0.85rem", fontWeight: 600, color: "rgba(246,199,106,0.75)", lineHeight: 1.65 }}>
-              New customers can apply the coupon in the booking modal.
-            </p>
+            <h2 className="mt-2 text-2xl font-black">Use WELCOME10 at checkout.</h2>
+            <p className="mt-2 text-sm font-bold">New customers can apply the coupon in the booking modal.</p>
           </aside>
-          <div style={{ display: "grid", gap: "0.75rem" }} className="sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-3">
             {reviews.map(([name, text]) => (
-              <article
-                key={name}
-                style={{
-                  borderRadius: "1.25rem",
-                  border: "1px solid var(--color-border)",
-                  background: "rgba(9,16,14,0.8)",
-                  padding: "1.25rem"
-                }}
-              >
-                <div style={{ display: "flex", gap: "0.2rem", marginBottom: "0.5rem" }}>
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} size={12} color="var(--color-gold)" fill="var(--color-gold)" />
-                  ))}
-                </div>
-                <p style={{ fontSize: "0.875rem", fontWeight: 800, color: "var(--color-text)", marginBottom: "0.4rem" }}>{name}</p>
-                <p style={{ fontSize: "0.8rem", lineHeight: 1.65, color: "var(--color-muted)" }}>{text}</p>
+              <article className="rounded-3xl border border-[#35201f] bg-[#101a18] p-5" key={name}>
+                <p className="font-black text-white">{name}</p>
+                <p className="mt-2 text-sm leading-6 text-[#9db2ad]">{text}</p>
               </article>
             ))}
           </div>
@@ -987,70 +610,26 @@ export function GalleryPage() {
   );
 }
 
-/* ─────────────────────────────────────────
-   STAFF PAGE
-───────────────────────────────────────── */
 export function StaffPage() {
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div
-        style={{ borderRadius: "1.75rem", padding: "2rem 1.75rem", boxShadow: "0 20px 60px rgba(0,0,0,0.38)", ...glassCard }}
-        className="sm:p-10"
-      >
+    <section className={pageShellClass}>
+      <div className="luxury-glass rounded-[2rem] p-6 queue-shadow sm:p-8">
         <p className="section-kicker">Staff</p>
-        <h1
-          style={{
-            marginTop: "0.5rem",
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(2rem,5vw,3.5rem)",
-            fontWeight: 400,
-            lineHeight: 1.1
-          }}
-        >
+        <h1 className="mt-2 text-4xl font-black leading-tight sm:text-5xl">
           Three-chair service capacity.
         </h1>
-        <p style={{ marginTop: "0.75rem", maxWidth: "560px", lineHeight: 1.75, color: "var(--color-muted)", fontSize: "0.9rem" }}>
-          Santosh Salon uses staff capacity to calculate live slot availability, waiting list movement, and estimated queue time.
+        <p className="mt-3 max-w-3xl text-[#9db2ad]">
+          Santosh Salon uses staff capacity to calculate live slot availability,
+          waiting list movement, and estimated queue time.
         </p>
-        <div style={{ marginTop: "2rem", display: "grid", gap: "1rem" }} className="md:grid-cols-3">
-          {[
-            ["Haircut Specialist", "Mastery in classic cuts, modern fades, and textured styles.", "01"],
-            ["Beard Stylist", "Expert in beard shaping, trimming, hot towel finish, and grooming.", "02"],
-            ["Grooming Assistant", "Hair wash, face cleanup, and customer-care services.", "03"]
-          ].map(([role, desc, num]) => (
-            <article
-              key={role}
-              style={{ borderRadius: "1.25rem", border: "1px solid var(--color-border)", background: "rgba(9,16,14,0.8)", padding: "1.5rem" }}
-            >
-              <span
-                style={{
-                  display: "grid",
-                  placeItems: "center",
-                  height: "3rem",
-                  width: "3rem",
-                  borderRadius: "0.875rem",
-                  background: "rgba(163,22,33,0.15)",
-                  border: "1px solid rgba(163,22,33,0.25)",
-                  fontFamily: "monospace",
-                  fontSize: "1.1rem",
-                  fontWeight: 900,
-                  color: "var(--color-gold)"
-                }}
-              >
-                {num}
+        <div className="mt-7 grid gap-4 md:grid-cols-3">
+          {["Haircut specialist", "Beard stylist", "Grooming assistant"].map((role, index) => (
+            <article className="rounded-3xl border border-[#35201f] bg-[#101a18] p-5" key={role}>
+              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#2a1111] text-xl font-black text-[#f9c66d]">
+                {index + 1}
               </span>
-              <h2
-                style={{
-                  marginTop: "1.1rem",
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1.25rem",
-                  fontWeight: 400,
-                  color: "var(--color-text)"
-                }}
-              >
-                {role}
-              </h2>
-              <p style={{ marginTop: "0.5rem", fontSize: "0.85rem", lineHeight: 1.7, color: "var(--color-muted)" }}>{desc}</p>
+              <h2 className="mt-4 text-xl font-black text-white">{role}</h2>
+              <p className="mt-2 text-[#9db2ad]">Live queue work is coordinated through the owner dashboard.</p>
             </article>
           ))}
         </div>
@@ -1059,148 +638,92 @@ export function StaffPage() {
   );
 }
 
-/* ─────────────────────────────────────────
-   SERVICE SEO PAGE
-───────────────────────────────────────── */
 export function ServiceSeoPage({ page }) {
   const services = {
-    "haircut-service": { title: "Haircut service in Santosh Salon", image: "/assets/haircut-feature.png", price: "From Rs. 120", text: "Classic, modern, and clean haircut services with live token booking and estimated wait time." },
-    "beard-styling-service": { title: "Beard styling and trimming", image: "/assets/owner-santosh-portrait.png", price: "From Rs. 80", text: "Sharp beard shaping, trimming, and finishing with easy queue booking." },
-    "facial-grooming-service": { title: "Facial grooming service", image: "/assets/salon-hero.png", price: "From Rs. 250", text: "Premium grooming care for a clean, fresh salon finish." },
-    "hair-wash-service": { title: "Hair wash service", image: "/assets/haircut-styles.png", price: "From Rs. 70", text: "Fresh hair wash service with simple time-slot booking." }
+    "haircut-service": {
+      title: "Haircut service in Santosh Salon",
+      image: "/assets/haircut-feature.png",
+      price: "From Rs. 120",
+      text: "Classic, modern, and clean haircut services with live token booking and estimated wait time."
+    },
+    "beard-styling-service": {
+      title: "Beard styling and trimming",
+      image: "/assets/owner-santosh-portrait.png",
+      price: "From Rs. 80",
+      text: "Sharp beard shaping, trimming, and finishing with easy queue booking."
+    },
+    "facial-grooming-service": {
+      title: "Facial grooming service",
+      image: "/assets/salon-hero.png",
+      price: "From Rs. 250",
+      text: "Premium grooming care for a clean, fresh salon finish."
+    },
+    "hair-wash-service": {
+      title: "Hair wash service",
+      image: "/assets/haircut-styles.png",
+      price: "From Rs. 70",
+      text: "Fresh hair wash service with simple time-slot booking."
+    }
   };
   const content = services[page] || services["haircut-service"];
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div style={{ display: "grid", gap: "1.25rem", alignItems: "center" }} className="lg:grid-cols-[1.1fr_0.9fr]">
-        <div
-          style={{ borderRadius: "1.75rem", padding: "2rem 1.75rem", boxShadow: "0 20px 60px rgba(0,0,0,0.38)", ...glassCard }}
-          className="sm:p-8"
-        >
+    <section className={pageShellClass}>
+      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <div className="luxury-glass rounded-[2rem] p-6 queue-shadow sm:p-8">
           <p className="section-kicker">Salon Service</p>
-          <h1
-            style={{
-              marginTop: "0.5rem",
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(2rem,4vw,3rem)",
-              fontWeight: 400,
-              lineHeight: 1.1
-            }}
-          >
+          <h1 className="mt-2 text-4xl font-black leading-tight sm:text-5xl">
             {content.title}
           </h1>
-          <p style={{ marginTop: "1rem", maxWidth: "500px", fontSize: "1rem", lineHeight: 1.75, color: "var(--color-muted)" }}>
+          <p className="mt-4 max-w-3xl text-lg leading-8 text-[#9db2ad]">
             {content.text}
           </p>
-          <div style={{ marginTop: "1.5rem", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "0.625rem" }}>
-            {[["Price", content.price], ["Booking", "Live token"], ["Refund", "Policy at checkout"]].map(([label, value]) => (
-              <div key={label} style={{ borderRadius: "0.875rem", border: "1px solid var(--color-border)", background: "rgba(5,10,9,0.75)", padding: "1rem" }}>
-                <p style={{ fontSize: "0.65rem", fontWeight: 900, letterSpacing: "0.16em", textTransform: "uppercase", color: "#fca5a5" }}>{label}</p>
-                <p style={{ marginTop: "0.5rem", fontWeight: 800, color: "var(--color-text)", fontSize: "0.875rem" }}>{value}</p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            {[
+              ["Price", content.price],
+              ["Booking", "Live token"],
+              ["Refund", "Policy shown at checkout"]
+            ].map(([label, value]) => (
+              <div className="rounded-2xl border border-[#35201f] bg-[#0b1714] p-4" key={label}>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#991b1b]">{label}</p>
+                <p className="mt-2 font-black text-[#f4fbf8]">{value}</p>
               </div>
             ))}
           </div>
         </div>
         <img
           alt={content.title}
-          src={content.image}
-          loading="lazy"
+          className="h-[360px] w-full rounded-[2rem] object-cover queue-shadow"
           decoding="async"
-          style={{ height: "22rem", width: "100%", objectFit: "cover", borderRadius: "1.75rem", boxShadow: "0 20px 60px rgba(0,0,0,0.42)" }}
+          loading="lazy"
+          src={content.image}
         />
       </div>
     </section>
   );
 }
 
-/* ─────────────────────────────────────────
-   FAQ PAGE
-───────────────────────────────────────── */
 export function FaqPage() {
-  const [openIndex, setOpenIndex] = useState(null);
   const faqs = [
-    ["Can I book without OTP?", "Yes. Login is Google-based and checkout asks for name and mobile number. No separate OTP is needed."],
-    ["Can I book for another person?", "Yes. One checkout can include you and one guest. Guest name and mobile are entered at checkout."],
+    ["Can I book without OTP?", "Yes. Login is Google-based and checkout asks for name and mobile number."],
+    ["Can I book for another person?", "Yes. One checkout can include you and one guest."],
     ["When does waiting list start?", "After confirmed daily capacity is full, eligible online bookings can move to waiting list."],
-    ["Are Cashfree charges refundable?", "No. Refunds cover eligible service amount only; Cashfree charges are non-refundable as per their policy."],
-    ["What if payment fails but money is debited?", "Wait for provider or bank auto-reversal, or contact the salon with payment/order ID for manual verification."],
-    ["How accurate is the live queue estimate?", "Estimates are based on average service time and active queue. They update live as customers complete service."]
+    ["Are Cashfree charges refundable?", "No. Refunds cover eligible service amount only; Cashfree charges are non-refundable."],
+    ["What if payment fails but money is debited?", "Wait for provider or bank auto-reversal, or contact the salon with payment/order ID."]
   ];
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div
-        style={{ borderRadius: "1.75rem", padding: "2rem 1.75rem", boxShadow: "0 20px 60px rgba(0,0,0,0.38)", ...glassCard }}
-        className="sm:p-10"
-      >
+    <section className={pageShellClass}>
+      <div className="luxury-glass rounded-[2rem] p-6 queue-shadow sm:p-8">
         <p className="section-kicker">FAQ</p>
-        <h1
-          style={{
-            marginTop: "0.5rem",
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(2rem,5vw,3.5rem)",
-            fontWeight: 400,
-            lineHeight: 1.1
-          }}
-        >
+        <h1 className="mt-2 text-4xl font-black leading-tight sm:text-5xl">
           Common booking questions.
         </h1>
-        <div style={{ marginTop: "2rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          {faqs.map(([question, answer], i) => (
-            <article
-              key={question}
-              style={{
-                borderRadius: "1.25rem",
-                border: openIndex === i ? "1px solid rgba(246,199,106,0.3)" : "1px solid var(--color-border)",
-                background: openIndex === i ? "rgba(246,199,106,0.04)" : "rgba(9,16,14,0.8)",
-                overflow: "hidden",
-                transition: "border-color 0.2s"
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setOpenIndex(openIndex === i ? null : i)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  width: "100%",
-                  padding: "1.25rem",
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  gap: "1rem"
-                }}
-              >
-                <h2 style={{ fontSize: "0.9375rem", fontWeight: 800, color: "var(--color-text)", lineHeight: 1.4 }}>
-                  {question}
-                </h2>
-                <span
-                  style={{
-                    display: "grid",
-                    placeItems: "center",
-                    height: "1.75rem",
-                    width: "1.75rem",
-                    borderRadius: "999px",
-                    border: "1px solid var(--color-border)",
-                    background: "var(--color-elevated)",
-                    color: "var(--color-gold)",
-                    fontSize: "1rem",
-                    flexShrink: 0,
-                    transition: "transform 0.2s",
-                    transform: openIndex === i ? "rotate(45deg)" : "none"
-                  }}
-                >
-                  +
-                </span>
-              </button>
-              {openIndex === i && (
-                <div style={{ padding: "0 1.25rem 1.25rem" }}>
-                  <p style={{ fontSize: "0.875rem", lineHeight: 1.75, color: "var(--color-muted)" }}>{answer}</p>
-                </div>
-              )}
+        <div className="mt-7 grid gap-4">
+          {faqs.map(([question, answer]) => (
+            <article className="rounded-3xl border border-[#35201f] bg-[#101a18] p-5" key={question}>
+              <h2 className="text-xl font-black text-white">{question}</h2>
+              <p className="mt-2 leading-7 text-[#9db2ad]">{answer}</p>
             </article>
           ))}
         </div>
@@ -1209,21 +732,36 @@ export function FaqPage() {
   );
 }
 
-/* ─────────────────────────────────────────
-   LEGAL PAGE
-───────────────────────────────────────── */
 const legalContent = {
   "privacy-policy": {
     eyebrow: "Privacy Policy",
     title: "How Santosh Salon handles customer data",
     updated: "30 May 2026",
     sections: [
-      ["Information we collect", "We collect Google profile details after login, customer name, mobile number, selected service, booking date, time slot, estimated token number, payment status, and refund details when submitted."],
-      ["How we use data", "We use this information to create estimated salon turns, show booking status, contact customers about their visit, process payments, manage refunds, and improve salon operations."],
-      ["Authentication and payments", "Google Authentication is used for login. Online payments may be processed through Cashfree. Payment providers process payment details under their own security and compliance systems."],
-      ["Data sharing", "We do not sell customer data. Data is shared only with service providers required to run authentication, database, hosting, payment, refund, and support workflows."],
-      ["Data security", "Booking data is stored in Firebase Firestore. Access should be protected using Firebase rules, admin authentication, and server-side validation before production launch."],
-      ["Contact", "For privacy requests, contact Santosh Salon at hello@santoshsalon.local or +91 98765 43210."]
+      [
+        "Information we collect",
+        "We collect Google profile details after login, customer name, mobile number, selected service, booking date, time slot, estimated token number, payment status, and refund details when submitted."
+      ],
+      [
+        "How we use data",
+        "We use this information to create estimated salon turns, show booking status, contact customers about their visit, process payments, manage refunds, and improve salon operations."
+      ],
+      [
+        "Authentication and payments",
+        "Google Authentication is used for login. Online payments may be processed through Cashfree. Payment providers process payment details under their own security and compliance systems."
+      ],
+      [
+        "Data sharing",
+        "We do not sell customer data. Data is shared only with service providers required to run authentication, database, hosting, payment, refund, and support workflows."
+      ],
+      [
+        "Data security",
+        "Booking data is stored in Firebase Firestore. Access should be protected using Firebase rules, admin authentication, and server-side validation before production launch."
+      ],
+      [
+        "Contact",
+        "For privacy requests, contact Santosh Salon at hello@santoshsalon.local or +91 98765 43210."
+      ]
     ]
   },
   "terms-and-conditions": {
@@ -1231,12 +769,30 @@ const legalContent = {
     title: "Rules for using Santosh Salon Queue",
     updated: "30 May 2026",
     sections: [
-      ["Service usage", "Customers can book salon services, choose available time slots, join queue, and view live booking status. Bookings are subject to salon working hours, staff availability, and operational decisions."],
-      ["Customer responsibility", "Customers must provide correct name and mobile number. Please reach the salon around 40 minutes before your turn for smoother service."],
-      ["Booking limits", "One logged-in customer can create a booking for self and one guest. New booking is restricted while an active booking is waiting, in chair, or waitlisted."],
-      ["Salon operations", "The salon may skip, complete, cancel, transfer, or reschedule bookings due to closing time, staff availability, customer absence, or operational reasons."],
-      ["Payments", "Customer bookings require Cashfree online payment. Booking confirmation depends on successful payment provider response."],
-      ["Changes", "Santosh Salon may update these terms when service rules, pricing, payment flow, or legal requirements change."]
+      [
+        "Service usage",
+        "Customers can book salon services, choose available time slots, join queue, and view live booking status. Bookings are subject to salon working hours, staff availability, and operational decisions."
+      ],
+      [
+        "Customer responsibility",
+        "Customers must provide correct name and mobile number. Please reach the salon around 40 minutes before your turn for smoother service."
+      ],
+      [
+        "Booking limits",
+        "One logged-in customer can create a booking for self and one guest. New booking is restricted while an active booking is waiting, in chair, or waitlisted."
+      ],
+      [
+        "Salon operations",
+        "The salon may skip, complete, cancel, transfer, or reschedule bookings due to closing time, staff availability, customer absence, or operational reasons."
+      ],
+      [
+        "Payments",
+        "Customer bookings require Cashfree online payment. Booking confirmation depends on successful payment provider response."
+      ],
+      [
+        "Changes",
+        "Santosh Salon may update these terms when service rules, pricing, payment flow, or legal requirements change."
+      ]
     ]
   },
   "cancellation-refund-policy": {
@@ -1244,11 +800,26 @@ const legalContent = {
     title: "Booking cancellation and refund rules",
     updated: "30 May 2026",
     sections: [
-      ["Customer cancellation", "Customers can cancel eligible waiting or waitlisted bookings from My Bookings. Completed haircut bookings are not eligible for refund."],
-      ["Online paid bookings", "If an online paid booking is cancelled before service completion, the customer can submit a refund request with payment ID or order ID."],
-      ["Refund review", "Refund requests go to the admin panel for verification. Approved refunds are generally processed within 5-7 business days."],
-      ["Payment gateway charges", "Cashfree payment gateway charges are non-refundable. If a refund is approved, only the eligible service amount is refunded."],
-      ["Non-refundable cases", "Refund may be rejected if the service is completed, payment cannot be verified, incorrect refund details are submitted, or cancellation violates salon policy."]
+      [
+        "Customer cancellation",
+        "Customers can cancel eligible waiting or waitlisted bookings from My Bookings. Completed haircut bookings are not eligible for refund."
+      ],
+      [
+        "Online paid bookings",
+        "If an online paid booking is cancelled before service completion, the customer can submit a refund request with payment ID or order ID. Refunds are sent back to the original payment method for the eligible service amount only."
+      ],
+      [
+        "Refund review",
+        "Refund requests go to the admin panel for verification. Approved refunds are generally processed within 5-7 business days, depending on bank/payment provider timelines."
+      ],
+      [
+        "Payment gateway charges",
+        "Cashfree payment gateway charges are non-refundable. If a refund is approved, only the eligible service amount is refunded."
+      ],
+      [
+        "Non-refundable cases",
+        "Refund may be rejected if the service is completed, payment cannot be verified, incorrect refund details are submitted, or cancellation violates salon policy."
+      ]
     ]
   },
   "payment-policy": {
@@ -1256,11 +827,26 @@ const legalContent = {
     title: "Online payment information",
     updated: "30 May 2026",
     sections: [
-      ["Accepted payment modes", "Customer service bookings are accepted through Cashfree online checkout only."],
-      ["Charges", "Customer online payments may include a Cashfree payment charge shown at checkout. The final payable amount is displayed before payment."],
-      ["Payment confirmation", "Booking is confirmed only after successful online payment verification."],
-      ["Failed payments", "If a payment fails or remains unverified, the booking may not be confirmed. Customers can try again or contact the salon."],
-      ["Payment provider role", "Cashfree and Razorpay are third-party payment providers. They may collect and process payment information according to their own policies."]
+      [
+        "Accepted payment modes",
+        "Customer service bookings are accepted through Cashfree online checkout only."
+      ],
+      [
+        "Charges",
+        "Customer online payments may include a Cashfree payment charge shown at checkout. The final payable amount is displayed before payment."
+      ],
+      [
+        "Payment confirmation",
+        "Booking is confirmed only after successful online payment verification."
+      ],
+      [
+        "Failed payments",
+        "If a payment fails or remains unverified, the booking may not be confirmed. Customers can try again or contact the salon."
+      ],
+      [
+        "Payment provider role",
+        "Cashfree and Razorpay are third-party payment providers. They may collect and process payment information according to their own policies and applicable payment regulations."
+      ]
     ]
   }
 };
@@ -1269,51 +855,28 @@ export function LegalPage({ page }) {
   const content = legalContent[page] || legalContent["privacy-policy"];
 
   return (
-    <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <div
-        style={{ borderRadius: "1.75rem", padding: "2rem 1.75rem", boxShadow: "0 20px 60px rgba(0,0,0,0.38)", ...glassCard }}
-        className="sm:p-10"
-      >
-        <p className="section-kicker">{content.eyebrow}</p>
-        <h1
-          style={{
-            marginTop: "0.5rem",
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(2rem,5vw,3.5rem)",
-            fontWeight: 400,
-            lineHeight: 1.1
-          }}
-        >
+    <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="luxury-glass rounded-[2rem] p-6 queue-shadow sm:p-8">
+        <p className="section-kicker">
+          {content.eyebrow}
+        </p>
+        <h1 className="mt-2 text-4xl font-black leading-tight sm:text-5xl">
           {content.title}
         </h1>
-        <p style={{ marginTop: "0.5rem", fontSize: "0.78rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.06em" }}>
+        <p className="mt-3 text-sm font-bold text-[#637371]">
           Last updated: {content.updated}
         </p>
-        <div style={{ marginTop: "2rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        <div className="mt-7 grid gap-4">
           {content.sections.map(([heading, text]) => (
-            <article
-              key={heading}
-              style={{ borderRadius: "1.25rem", border: "1px solid var(--color-border)", background: "rgba(9,16,14,0.8)", padding: "1.25rem" }}
-            >
-              <h2 style={{ fontSize: "0.9375rem", fontWeight: 800, color: "var(--color-text)", marginBottom: "0.5rem" }}>{heading}</h2>
-              <p style={{ fontSize: "0.875rem", lineHeight: 1.75, color: "var(--color-muted)" }}>{text}</p>
+            <article className="rounded-3xl border border-[#35201f] bg-[#0b1714] p-5" key={heading}>
+              <h2 className="text-xl font-black text-[#f4fbf8]">{heading}</h2>
+              <p className="mt-2 leading-7 text-[#9db2ad]">{text}</p>
             </article>
           ))}
         </div>
-        <p
-          style={{
-            marginTop: "1.25rem",
-            borderRadius: "0.875rem",
-            border: "1px solid rgba(246,199,106,0.22)",
-            background: "rgba(246,199,106,0.06)",
-            padding: "0.875rem 1.1rem",
-            fontSize: "0.8rem",
-            fontWeight: 600,
-            color: "rgba(246,199,106,0.8)",
-            lineHeight: 1.65
-          }}
-        >
-          This page is a business policy template for launch readiness. Review with a qualified professional before final production use.
+        <p className="mt-6 rounded-2xl border border-[#f9c66d]/20 bg-[#24170d] px-4 py-3 text-sm font-bold text-[#f9c66d]">
+          This page is a business policy template for launch readiness. Review
+          with a qualified professional before final production use.
         </p>
       </div>
     </section>
