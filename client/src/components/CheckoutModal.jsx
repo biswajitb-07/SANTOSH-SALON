@@ -1246,14 +1246,7 @@ export function CheckoutModal({
           <div className="p-5 pt-0 sm:p-6 sm:pt-0">
             <MobileErrorCard
               actions={
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    className="mobile-error-secondary"
-                    onClick={() => setStatus(null)}
-                    type="button"
-                  >
-                    Change Method
-                  </button>
+                <div className="grid gap-2">
                   <button
                     className="mobile-error-primary"
                     onClick={() => setStatus(null)}
@@ -1265,7 +1258,7 @@ export function CheckoutModal({
               }
               details={[
                 ["Amount", formatMoney(chargePreview.payableAmount)],
-                ["Ref", service.title]
+                ["Service", service.title]
               ]}
               icon="failed"
               title={
