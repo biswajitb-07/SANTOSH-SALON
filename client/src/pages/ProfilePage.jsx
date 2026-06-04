@@ -27,7 +27,6 @@ import {
   LogIn,
   LogOut,
   Share2,
-  Star,
   Upload,
   UserRound,
   X
@@ -38,6 +37,8 @@ import {
   UserAvatar,
   useBodyScrollLock
 } from "../components/common.jsx";
+import { MobileErrorCard } from "../components/ClientErrorStates.jsx";
+import { ReviewExperienceCard } from "../components/MobileFlowStates.jsx";
 import {
   CancelReasonDialog,
   RefundStatusTracker,
@@ -60,6 +61,7 @@ import {
   getVisibleTimeSlots,
   ONLINE_BOOKING_START_HOUR
 } from "../lib/bookingFlow.js";
+import { getServiceImageUrl } from "../lib/services.js";
 
 const BOOKING_PAGE_SIZE = 5;
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -363,9 +365,11 @@ const groupUserBookings = (bookings) =>
 export function ProfilePage({
   bookingGate = {},
   bookingsOnly = false,
+  initialOpenBookingId = "",
   loginLoading,
   logoutLoading,
   onMyBookings,
+  onInitialOpenHandled,
   onLogin,
   onLogout,
   onProfilePhotoUpdated,
@@ -379,6 +383,7 @@ export function ProfilePage({
   const [rescheduleBooking, setRescheduleBooking] = useState(null);
   const [rescheduleBookingId, setRescheduleBookingId] = useState("");
   const [bookingPage, setBookingPage] = useState(1);
+  const [bookingTab, setBookingTab] = useState("upcoming");
   const [selectedBookingGroupKey, setSelectedBookingGroupKey] = useState("");
   const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
   const [selectedProfilePhotoFile, setSelectedProfilePhotoFile] = useState(null);
@@ -387,6 +392,18 @@ export function ProfilePage({
   const profilePhotoInputRef = useRef(null);
   const onProfilePhotoUpdatedRef = useRef(onProfilePhotoUpdated);
   const groupedBookings = groupUserBookings(bookings).slice(0, 5);
+  const visibleBookingGroups = groupedBookings.filter((group) => {
+    const statuses = group.items.map((booking) => booking.status);
+    if (bookingTab === "completed") {
+      return statuses.every((status) => status === "completed");
+    }
+    if (bookingTab === "cancelled") {
+      return statuses.some((status) => status === "cancelled");
+    }
+    return statuses.some((status) =>
+      ["confirmed", "waiting", "waitlist", "in_chair"].includes(status)
+    );
+  });
   const displayUser = useMemo(() => {
     if (!user) return null;
     const accountPhotoUrl = getCloudinaryProfilePhotoUrl(profileAccount);
@@ -416,10 +433,10 @@ export function ProfilePage({
 
   const totalBookingPages = Math.max(
     1,
-    Math.ceil(groupedBookings.length / BOOKING_PAGE_SIZE)
+    Math.ceil(visibleBookingGroups.length / BOOKING_PAGE_SIZE)
   );
   const safeBookingPage = Math.min(bookingPage, totalBookingPages);
-  const paginatedBookingGroups = groupedBookings.slice(
+  const paginatedBookingGroups = visibleBookingGroups.slice(
     (safeBookingPage - 1) * BOOKING_PAGE_SIZE,
     safeBookingPage * BOOKING_PAGE_SIZE
   );
@@ -428,6 +445,18 @@ export function ProfilePage({
     null;
 
   useBodyScrollLock(Boolean(bookingsOnly && selectedBookingGroup));
+
+  useEffect(() => {
+    if (!bookingsOnly || !initialOpenBookingId || !groupedBookings.length) return;
+
+    const groupToOpen = groupedBookings.find((group) =>
+      group.items.some((booking) => booking.id === initialOpenBookingId)
+    );
+
+    if (!groupToOpen) return;
+    setSelectedBookingGroupKey(groupToOpen.key);
+    onInitialOpenHandled?.();
+  }, [bookingsOnly, groupedBookings, initialOpenBookingId, onInitialOpenHandled]);
 
   useEffect(() => {
     onProfilePhotoUpdatedRef.current = onProfilePhotoUpdated;
@@ -549,7 +578,7 @@ export function ProfilePage({
 
   useEffect(() => {
     setBookingPage(1);
-  }, [groupedBookings.length]);
+  }, [bookingTab, visibleBookingGroups.length]);
 
   useEffect(() => {
     if (selectedBookingGroupKey && !selectedBookingGroup) {
@@ -963,24 +992,24 @@ export function ProfilePage({
   if (!user) {
     return (
       <section className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="luxury-glass rounded-[2rem] p-6 text-center queue-shadow sm:p-8">
-          <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#effaf7] text-[#991b1b]">
-            <UserRound size={26} />
-          </span>
-          <h1 className="mt-5 text-3xl font-black">Login required</h1>
-          <p className="mt-3 leading-7 text-[#637371]">
-            Log in to view your {bookingsOnly ? "bookings" : "profile"}.
-          </p>
-          <button
-            className="mx-auto mt-5 flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-[#1a0f12] px-6 py-4 font-black text-white disabled:opacity-70"
-            disabled={loginLoading}
-            onClick={onLogin}
-            type="button"
-          >
-            {loginLoading ? <ButtonSpinner /> : <LogIn size={19} />}
-            {loginLoading ? "Logging in..." : "Login"}
-          </button>
-        </div>
+        <MobileErrorCard
+          actions={
+            <button
+              className="mobile-error-primary"
+              disabled={loginLoading}
+              onClick={onLogin}
+              type="button"
+            >
+              {loginLoading ? <ButtonSpinner /> : <LogIn size={16} />}
+              {loginLoading ? "Logging in..." : "Log In"}
+            </button>
+          }
+          icon="session"
+          title="Session Expired"
+          tone="red"
+        >
+          Please log in to view your {bookingsOnly ? "bookings" : "profile"}.
+        </MobileErrorCard>
       </section>
     );
   }
@@ -1102,12 +1131,35 @@ export function ProfilePage({
 
       {bookingsOnly ? (
       <div
-        className="luxury-glass scroll-mt-28 rounded-[2rem] p-6 queue-shadow sm:p-8"
+        className="bookings-mobile-shell luxury-glass scroll-mt-28 rounded-[2rem] p-6 queue-shadow sm:p-8"
       >
-        <p className="section-kicker">
-          Queue History
-        </p>
-        <h2 className="mt-2 text-3xl font-black">My bookings</h2>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-black">My Bookings</h2>
+            <p className="mt-1 text-sm font-bold text-[#9db2ad]">
+              Manage your salon visits
+            </p>
+          </div>
+          <span className="grid h-12 w-12 place-items-center rounded-full border border-[#f9c66d]/25 bg-[#18271f] text-[#f9c66d]">
+            <CalendarCheck2 size={20} />
+          </span>
+        </div>
+        <div className="booking-tabs mt-6">
+          {[
+            ["upcoming", "Upcoming"],
+            ["completed", "Completed"],
+            ["cancelled", "Cancelled"]
+          ].map(([key, label]) => (
+            <button
+              className={bookingTab === key ? "booking-tab-active" : ""}
+              key={key}
+              onClick={() => setBookingTab(key)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="mt-6 grid gap-4">
           {bookingsLoading ? (
             Array.from({ length: 3 }).map((_, index) => (
@@ -1116,7 +1168,7 @@ export function ProfilePage({
                 key={index}
               />
             ))
-          ) : groupedBookings.length ? (
+          ) : visibleBookingGroups.length ? (
             paginatedBookingGroups.map((group) => {
               const primaryBooking = group.items[0];
               const groupNeedsReschedule = group.items.some(isPastActiveBooking);
@@ -1146,62 +1198,64 @@ export function ProfilePage({
 
               return (
                 <article
-                  className="rounded-2xl border border-[#35201f] bg-[#0b1714] p-4"
+                  className="booking-mobile-card rounded-2xl border border-[#35201f] bg-[#0b1714] p-4"
                   key={group.key}
                 >
                   <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
                     <div className="min-w-0">
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#991b1b]">
-                        {turnLabel}
-                      </p>
-                      <h3 className="mt-1 truncate text-xl font-black text-[#f4fbf8]">
-                        {primaryBooking.service}
-                      </h3>
-                      <p className="mt-1 text-sm font-bold text-[#637371]">
-                        {group.items.length}{" "}
-                        {group.items.length > 1 ? "people" : "person"} •{" "}
-                        {primaryBooking.bookingLabel} •{" "}
-                        {primaryBooking.timeSlotLabel ||
-                          primaryBooking.timeSlot ||
-                          "Waiting list"}
-                      </p>
+                      <div className="booking-mobile-head">
+                        <img
+                          alt={primaryBooking.service}
+                          className="booking-mobile-thumb"
+                          decoding="async"
+                          loading="lazy"
+                          src={getServiceImageUrl(primaryBooking.service)}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate text-xl font-black text-[#f4fbf8]">
+                            {primaryBooking.service}
+                          </h3>
+                          <p className="mt-1 text-sm font-bold text-[#637371]">
+                            Booking #{String(primaryBooking.id || group.key).slice(-6).toUpperCase()}
+                          </p>
+                        </div>
+                        <span className="booking-status-pill">
+                          {statusLabels.join(", ")}
+                        </span>
+                      </div>
                       <p className="mt-2 text-xs font-bold leading-5 text-[#f9c66d]">
                         {groupNeedsReschedule
                           ? "This booking date has passed. Please reschedule before visiting."
                           : "Live turn updates with the queue. Earlier slots, skips, or cancellations can change your number."}
                       </p>
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-[#f4fbf8]">
-                        <span className="rounded-full bg-[#101a18] px-3 py-2 text-[#9db2ad]">
-                          Live position:{" "}
-                          {peopleAhead.length
-                            ? Math.min(...peopleAhead) === 0
-                              ? "Your turn is near"
-                              : `Aapke aage ${Math.min(...peopleAhead)} log`
-                            : "-"}
-                        </span>
-                        <span className="rounded-full bg-[#101a18] px-3 py-2">
-                          {formatMoney(group.totalAmount)}
-                        </span>
-                        {group.totalPlatformFee > 0 ? (
-                          <span className="rounded-full bg-[#24170d] px-3 py-2 text-[#f9c66d]">
-                            Platform fee {formatMoney(group.totalPlatformFee)}
-                          </span>
-                        ) : null}
-                        {group.totalCashfreeFee > 0 ? (
-                          <span className="rounded-full bg-[#24170d] px-3 py-2 text-[#f9c66d]">
-                            Cashfree charge {formatMoney(group.totalCashfreeFee)}
-                          </span>
-                        ) : null}
-                        <span className="rounded-full bg-[#2a1111] px-3 py-2 text-[#991b1b]">
-                          {statusLabels.join(", ")}
-                        </span>
-                        <span className="rounded-full bg-[#24170d] px-3 py-2 text-[#f9c66d]">
-                          ETA: {getLiveWaitEstimate(primaryBooking)}
-                        </span>
+                      <div className="booking-mobile-info-grid">
+                        {[
+                          ["Barber", primaryBooking.barberName],
+                          [
+                            "Date & Time",
+                            `${primaryBooking.bookingLabel} ${primaryBooking.timeSlotLabel || primaryBooking.timeSlot || ""}`.trim()
+                          ],
+                          ["Token", turnLabel],
+                          [
+                            "People Ahead",
+                            peopleAhead.length
+                              ? Math.min(...peopleAhead) === 0
+                                ? "Your turn"
+                                : `${Math.min(...peopleAhead)} waiting`
+                              : "-"
+                          ],
+                          ["ETA", getLiveWaitEstimate(primaryBooking)],
+                          ["Payment", formatMoney(group.totalAmount)]
+                        ].map(([label, value]) => (
+                          <div className="booking-mobile-info" key={label}>
+                            <p>{label}</p>
+                            <strong>{value}</strong>
+                          </div>
+                        ))}
                       </div>
                     </div>
                     <button
-                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 font-black text-white"
+                      className="booking-mobile-detail-btn inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 font-black text-white"
                       onClick={() => setSelectedBookingGroupKey(group.key)}
                       type="button"
                     >
@@ -1213,15 +1267,38 @@ export function ProfilePage({
               );
             })
           ) : (
-            <div className="rounded-2xl border border-dashed border-[#35201f] bg-[#0b1714] p-6 text-center">
-              <CalendarCheck2 className="mx-auto text-[#991b1b]" size={30} />
-              <p className="mt-3 font-black">No bookings yet.</p>
-              <p className="mt-1 text-sm font-bold text-[#637371]">
-                Your bookings will appear here after you choose a service.
-              </p>
-            </div>
+            <MobileErrorCard
+              actions={
+                <button
+                  className="mobile-error-primary"
+                  onClick={() => {
+                    window.history.pushState({}, "", "/services");
+                    window.dispatchEvent(new PopStateEvent("popstate"));
+                  }}
+                  type="button"
+                >
+                  Book a Service
+                </button>
+              }
+              icon="empty"
+              title={
+                bookingTab === "completed"
+                  ? "No Completed Bookings"
+                  : bookingTab === "cancelled"
+                    ? "No Cancelled Bookings"
+                    : "No Upcoming Bookings"
+              }
+            >
+              {groupedBookings.length
+                ? bookingTab === "completed"
+                  ? "Completed bookings will appear here after the salon marks your service done."
+                  : bookingTab === "cancelled"
+                    ? "Cancelled bookings will appear here if you cancel a visit."
+                    : "Upcoming bookings will appear here after you book a service."
+                : "You have no bookings yet. Book a service to get started."}
+            </MobileErrorCard>
           )}
-          {!bookingsLoading && groupedBookings.length ? (
+          {!bookingsLoading && visibleBookingGroups.length ? (
             <PaginationControls
               onPageChange={(nextPage) => {
                 setBookingPage(nextPage);
@@ -1411,36 +1488,12 @@ export function ProfilePage({
                     {booking.status === "completed" &&
                     booking.barberName &&
                     booking.barberName !== "Next available barber" ? (
-                      <div className="mt-4 rounded-2xl border border-[#35201f] bg-[#101a18] p-3">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#637371]">
-                              Rate Barber
-                            </p>
-                            <p className="mt-1 text-sm font-bold text-[#9db2ad]">
-                              {booking.barberRating
-                                ? `You rated ${booking.barberName} ${booking.barberRating}/5`
-                                : `How was ${booking.barberName}?`}
-                            </p>
-                          </div>
-                          <div className="flex gap-1">
-                            {[1, 2, 3, 4, 5].map((rating) => (
-                              <button
-                                aria-label={`Rate ${rating} star`}
-                                className={`grid h-10 w-10 place-items-center rounded-xl border transition ${
-                                  Number(booking.barberRating || 0) >= rating
-                                    ? "border-[#f9c66d]/35 bg-[#24170d] text-[#f9c66d]"
-                                    : "border-[#35201f] bg-[#0b1714] text-[#637371] hover:text-[#f9c66d]"
-                                }`}
-                                key={rating}
-                                onClick={() => rateBarber(booking, rating)}
-                                type="button"
-                              >
-                                <Star size={18} />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
+                      <div className="mt-4">
+                        <ReviewExperienceCard
+                          barberName={booking.barberName}
+                          currentRating={booking.barberRating}
+                          onRate={(rating) => rateBarber(booking, rating)}
+                        />
                       </div>
                     ) : null}
 

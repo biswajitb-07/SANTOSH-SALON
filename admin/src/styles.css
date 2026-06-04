@@ -969,6 +969,29 @@ textarea.ui-input {
 }
 
 @media (max-width: 767px) {
+  .modal-body,
+  .modal-card,
+  .admin-mobile-more-sheet,
+  [aria-modal="true"] .overflow-y-auto,
+  [aria-modal="true"].overflow-y-auto,
+  [role="dialog"] .overflow-y-auto,
+  [role="dialog"].overflow-y-auto {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .modal-body::-webkit-scrollbar,
+  .modal-card::-webkit-scrollbar,
+  .admin-mobile-more-sheet::-webkit-scrollbar,
+  [aria-modal="true"] .overflow-y-auto::-webkit-scrollbar,
+  [aria-modal="true"].overflow-y-auto::-webkit-scrollbar,
+  [role="dialog"] .overflow-y-auto::-webkit-scrollbar,
+  [role="dialog"].overflow-y-auto::-webkit-scrollbar {
+    display: none;
+    height: 0;
+    width: 0;
+  }
+
   .ui-button {
     min-height: 52px;
   }

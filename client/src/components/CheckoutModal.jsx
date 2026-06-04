@@ -7,7 +7,15 @@ import {
   serverTimestamp,
   setDoc
 } from "firebase/firestore";
-import { ArrowRight, Phone, Tag, X } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  Clock3,
+  CreditCard,
+  Phone,
+  Tag,
+  X
+} from "lucide-react";
 import { db } from "../lib/firebase.js";
 import {
   useCreateCustomerPaymentOrderMutation,
@@ -18,8 +26,10 @@ import {
   ButtonSpinner,
   ConfirmDialog,
   getUserPhotoUrl,
-  useBodyScrollLock
+  useBodyScrollLock,
+  useDragScroll
 } from "./common.jsx";
+import { MobileErrorCard } from "./ClientErrorStates.jsx";
 import { formatMoney } from "../lib/formatters.js";
 import { defaultServices } from "../lib/services.js";
 import {
@@ -113,6 +123,7 @@ export function CheckoutModal({
   const [loading, setLoading] = useState(false);
   const [processingLabel, setProcessingLabel] = useState("Opening Cashfree...");
   const [showProcessingOverlay, setShowProcessingOverlay] = useState(false);
+  const slotDragScroll = useDragScroll();
   const [slotState, setSlotState] = useState({
     loading: true,
     availableSlots: [],
@@ -752,6 +763,11 @@ export function CheckoutModal({
       setLoading(false);
       onBookingSuccess?.({
         bookingId: bookingRefs[0]?.id,
+        serviceTitle: service.title,
+        slotText: `${selectedSlot?.label || selectedSlot?.value || ""} ${bookingOption.label}`.trim(),
+        turnText: bookedTurns.length
+          ? `#${firstTurn}${bookedTurns.length > 1 ? `-${lastTurn}` : ""}`
+          : "Waiting list",
         toastMessage: successToastMessage
       });
     } catch (error) {
@@ -774,14 +790,14 @@ export function CheckoutModal({
   };
 
   return (
-    <div className="modal-fade fixed inset-0 z-[9999] flex h-[100dvh] items-center justify-center overflow-hidden bg-black/75 px-3 py-4 sm:px-5 sm:py-6">
-      <section className="relative flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[#f9c66d]/15 bg-[#081311]/95 text-[#f4fbf8] shadow-2xl shadow-black/45 sm:max-h-[min(820px,calc(100dvh-3rem))] sm:max-w-3xl sm:rounded-[2rem] lg:max-w-4xl">
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#35201f] bg-[#081311]/95 px-5 py-4 backdrop-blur sm:px-6">
+    <div className="checkout-mobile-modal modal-fade fixed inset-0 z-[9999] flex h-[100dvh] items-center justify-center overflow-hidden bg-black/75 px-3 py-4 sm:px-5 sm:py-6">
+      <section className="checkout-mobile-panel relative flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[#f9c66d]/15 bg-[#081311]/95 text-[#f4fbf8] shadow-2xl shadow-black/45 sm:max-h-[min(820px,calc(100dvh-3rem))] sm:max-w-3xl sm:rounded-[2rem] lg:max-w-4xl">
+        <div className="checkout-mobile-header sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#35201f] bg-[#081311]/95 px-5 py-4 backdrop-blur sm:px-6">
           <div>
             <p className="section-kicker">
-              Checkout Details
+              Santosh Salon Queue
             </p>
-            <h2 className="mt-1 text-3xl font-black">{service.title}</h2>
+            <h2 className="mt-1 text-3xl font-black">Checkout</h2>
             <p className="mt-2 text-[#9db2ad]">
               {service.time} • {service.price}
             </p>
@@ -795,7 +811,54 @@ export function CheckoutModal({
           </button>
         </div>
 
-        <form className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5 sm:p-6" onSubmit={submitCheckout}>
+        <form className="checkout-mobile-form min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5 sm:p-6" onSubmit={submitCheckout}>
+          <div className="checkout-stepper" aria-label="Checkout progress">
+            {[
+              [Check, "Service", true],
+              [Check, "Details", true],
+              [Check, "Barber", true],
+              [Clock3, "Slot", true],
+              [CreditCard, "Pay", false]
+            ].map(([Icon, label, active], index) => (
+              <div
+                className={`checkout-step ${active ? "checkout-step-active" : ""}`}
+                key={label}
+              >
+                {index > 0 ? <span className="checkout-step-line" /> : null}
+                <span className="checkout-step-dot">
+                  <Icon size={14} />
+                </span>
+                <span className="checkout-step-label">{label}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="checkout-selected-card">
+            <p className="checkout-section-label">Selected Service</p>
+            <div className="checkout-selected-content">
+              <img
+                alt={service.title}
+                className="checkout-selected-image"
+                decoding="async"
+                loading="lazy"
+                src={service.imageUrl || "/assets/service-haircut.jpg"}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-base font-black text-[#f4fbf8]">
+                  {service.title}
+                  {peopleCount > 1 ? ` x ${peopleCount}` : ""}
+                </p>
+                <p className="mt-1 flex items-center gap-1.5 text-sm font-bold text-[#9db2ad]">
+                  <Clock3 size={14} />
+                  {service.time || "25 min"}
+                </p>
+              </div>
+              <p className="text-xl font-black text-[#f9c66d]">
+                {formatMoney(discountedServiceAmount)}
+              </p>
+            </div>
+          </div>
+
           <label className="block">
             <span className="mb-2 block text-sm font-bold">Name</span>
             <input
@@ -927,9 +990,10 @@ export function CheckoutModal({
             </div>
           </div>
           <div>
-            <span className="mb-2 block text-sm font-bold">Time Slot</span>
+            <span className="checkout-section-label mb-2 block">Select Time Slot</span>
             <div
-              className="services-slider -mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-3"
+              className="checkout-slot-grid services-slider drag-scroll -mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-3"
+              {...slotDragScroll}
             >
               {slotState.loading ? (
                 Array.from({ length: 3 }).map((_, index) => (
@@ -951,7 +1015,7 @@ export function CheckoutModal({
 
                   return (
                     <button
-                    className={`min-h-20 min-w-[80px] snap-start rounded-2xl border px-4 py-3 text-center transition disabled:cursor-not-allowed disabled:opacity-70 sm:min-w-[42%] lg:min-w-[34%] ${
+                    className={`checkout-slot-button min-h-20 min-w-[80px] snap-start rounded-2xl border px-4 py-3 text-center transition disabled:cursor-not-allowed disabled:opacity-70 sm:min-w-[42%] lg:min-w-[34%] ${
                         active
                           ? "border-[#f87171] bg-[#3a1515] text-[#f4fbf8] ring-4 ring-[#ef4444]/20"
                           : disabled
@@ -982,18 +1046,44 @@ export function CheckoutModal({
                   );
                 })
               ) : slotState.confirmedCount + slotState.waitlistCount >= DAILY_BOOKING_LIMIT ? (
-                <div className="min-w-full rounded-2xl border border-[#f9c66d]/25 bg-[#24170d] px-4 py-3 text-sm font-black text-[#f9c66d]">
+                <MobileErrorCard
+                  actions={
+                    <button className="mobile-error-primary" onClick={onClose} type="button">
+                      Select New Slot
+                    </button>
+                  }
+                  icon="slot"
+                  title="Slot No Longer Available"
+                >
                   Today&apos;s online booking slots are complete. Go to salon for walk-in help.
-                </div>
+                </MobileErrorCard>
               ) : (
-                <div className="min-w-full rounded-2xl border border-[#f9c66d]/25 bg-[#24170d] px-4 py-3 text-sm font-black text-[#f9c66d]">
+                <MobileErrorCard
+                  actions={
+                    <button className="mobile-error-primary" onClick={onClose} type="button">
+                      Select New Slot
+                    </button>
+                  }
+                  icon="slot"
+                  title="Slot No Longer Available"
+                >
                   No future slots are available for today. Go to salon for walk-in help.
-                </div>
+                </MobileErrorCard>
               )}
             </div>
             {slotState.displaySlots.length && !slotState.availableSlots.length ? (
-              <div className="mt-2 rounded-2xl border border-[#f9c66d]/25 bg-[#24170d] px-4 py-3 text-sm font-black text-[#f9c66d]">
-                Online slots are complete for this time window. Go to salon for walk-in help.
+              <div className="mt-2">
+                <MobileErrorCard
+                  actions={
+                    <button className="mobile-error-primary" onClick={onClose} type="button">
+                      Select New Slot
+                    </button>
+                  }
+                  icon="slot"
+                  title="Slot No Longer Available"
+                >
+                  Online slots are complete for this time window. Go to salon for walk-in help.
+                </MobileErrorCard>
               </div>
             ) : null}
             <p className="mt-2 text-xs font-bold text-[#9db2ad]">
@@ -1078,8 +1168,8 @@ export function CheckoutModal({
               </p>
             </div>
           </div>
-          <div className="rounded-2xl border border-[#35201f] bg-[#0b1714] p-4">
-            <p className="text-sm font-bold text-[#9db2ad]">Selected Service</p>
+          <div className="checkout-price-card rounded-2xl border border-[#35201f] bg-[#0b1714] p-4">
+            <p className="checkout-section-label text-sm font-bold text-[#9db2ad]">Price Breakdown</p>
             <div className="mt-2 flex items-center justify-between gap-3 border-b border-[#35201f] pb-3">
               <p className="font-black">
                 {service.title}
@@ -1124,7 +1214,7 @@ export function CheckoutModal({
                 <span>Cashfree charge 1.60%</span>
                 <span>{formatMoney(chargePreview.cashfreeFee)}</span>
               </div>
-              <div className="flex items-center justify-between gap-3 border-t border-[#35201f] pt-2 text-base text-[#f4fbf8]">
+              <div className="checkout-total-row flex items-center justify-between gap-3 border-t border-[#35201f] pt-2 text-base text-[#f4fbf8]">
                 <span>Total payable</span>
                 <span>{formatMoney(chargePreview.payableAmount)}</span>
               </div>
@@ -1152,7 +1242,43 @@ export function CheckoutModal({
           </button>
         </form>
 
-        {status ? (
+        {status?.type === "error" ? (
+          <div className="p-5 pt-0 sm:p-6 sm:pt-0">
+            <MobileErrorCard
+              actions={
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    className="mobile-error-secondary"
+                    onClick={() => setStatus(null)}
+                    type="button"
+                  >
+                    Change Method
+                  </button>
+                  <button
+                    className="mobile-error-primary"
+                    onClick={() => setStatus(null)}
+                    type="button"
+                  >
+                    Retry Payment
+                  </button>
+                </div>
+              }
+              details={[
+                ["Amount", formatMoney(chargePreview.payableAmount)],
+                ["Ref", service.title]
+              ]}
+              icon="failed"
+              title={
+                status.message.toLowerCase().includes("payment")
+                  ? "Payment Failed"
+                  : "Booking Error"
+              }
+              tone="red"
+            >
+              {status.message}
+            </MobileErrorCard>
+          </div>
+        ) : status ? (
           <p
             className={`mt-4 rounded-2xl px-4 py-3 text-sm font-bold ${
               status.type === "success"

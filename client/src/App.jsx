@@ -24,6 +24,8 @@ import {
   ConfirmDialog,
   useBodyScrollLock
 } from "./components/common.jsx";
+import { ConnectionLostScreen } from "./components/ClientErrorStates.jsx";
+import { BookingConfirmedCard } from "./components/MobileFlowStates.jsx";
 import {
   Header,
   PageSkeleton,
@@ -127,12 +129,18 @@ export function App() {
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const [selectedService, setSelectedService] = useState(null);
+  const [bookingSuccess, setBookingSuccess] = useState(null);
+  const [bookingDetailIdToOpen, setBookingDetailIdToOpen] = useState("");
   const [photoPreviewService, setPhotoPreviewService] = useState(null);
   const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [scrollBadgeVisible, setScrollBadgeVisible] = useState(false);
   const [routeProgress, setRouteProgress] = useState(0);
   const [routeProgressActive, setRouteProgressActive] = useState(false);
+  const [offline, setOffline] = useState(() =>
+    typeof navigator !== "undefined" ? !navigator.onLine : false
+  );
+  const [offlineMode, setOfflineMode] = useState(false);
   const [salonServices, setSalonServices] = useState(defaultServices);
   const [queueItems, setQueueItems] = useState([]);
   const [queueStats, setQueueStats] = useState({
@@ -169,6 +177,25 @@ export function App() {
   useBodyScrollLock(Boolean(photoPreviewService));
 
   useRevealOnScroll(page);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setOffline(false);
+      setOfflineMode(false);
+      toast.success("Connection restored.");
+    };
+    const handleOffline = () => {
+      setOffline(true);
+      setOfflineMode(false);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     return onAuthStateChanged(auth, (currentUser) => {
@@ -775,18 +802,32 @@ export function App() {
 
   const handleBookingSuccess = (result = {}) => {
     setSelectedService(null);
-    navigatePage("my-bookings");
-    window.setTimeout(() => {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      toast.success(
-        result.toastMessage ||
-          "Booking confirmed. You can view it in My Bookings."
-      );
-    }, 180);
+    setBookingSuccess(result);
+    toast.success(result.toastMessage || "Booking confirmed.");
   };
 
   if (authLoading) {
     return <PageSkeleton />;
+  }
+
+  if (offline && !offlineMode) {
+    return (
+      <>
+        <ClientToaster />
+        <ConnectionLostScreen
+          onOfflineMode={() => setOfflineMode(true)}
+          onRetry={() => {
+            if (navigator.onLine) {
+              setOffline(false);
+              setOfflineMode(false);
+              toast.success("Connection restored.");
+            } else {
+              toast.error("Still offline. Please check your connection.");
+            }
+          }}
+        />
+      </>
+    );
   }
 
   return (
@@ -863,10 +904,12 @@ export function App() {
           <ProfilePage
             bookingsOnly
             bookingGate={bookingGate}
+            initialOpenBookingId={bookingDetailIdToOpen}
             loginLoading={loginLoading}
             logoutLoading={logoutLoading}
             onLogin={login}
             onLogout={requestLogout}
+            onInitialOpenHandled={() => setBookingDetailIdToOpen("")}
             onProfilePhotoUpdated={updateProfilePhoto}
             user={displayUser}
           />
@@ -884,6 +927,18 @@ export function App() {
           />
         </Suspense>
       ) : null}
+      <BookingConfirmedCard
+        booking={bookingSuccess}
+        onDone={() => {
+          setBookingSuccess(null);
+          navigatePage("my-bookings");
+        }}
+        onViewBooking={() => {
+          setBookingDetailIdToOpen(bookingSuccess?.bookingId || "");
+          setBookingSuccess(null);
+          navigatePage("my-bookings");
+        }}
+      />
       {photoPreviewService ? (
         <div
           aria-modal="true"

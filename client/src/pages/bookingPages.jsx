@@ -369,11 +369,11 @@ function ServicesSection({
   const sliderRef = useRef(null);
   const dragScroll = useDragScroll({ enabled: mobileSlider });
   const listClassName = mobileSlider
-    ? "services-slider drag-scroll flex snap-x gap-3 overflow-x-auto pb-4 pl-1 pr-[24vw] sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-4"
-    : "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4";
+    ? "services-slider home-service-strip drag-scroll flex snap-x gap-3 overflow-x-auto pb-4 pl-1 pr-[24vw] sm:grid sm:grid-cols-2 sm:overflow-visible sm:p-0 lg:grid-cols-4"
+    : "mobile-service-list grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4";
   const cardClassName = mobileSlider
-    ? "service-card min-w-[68vw] max-w-[68vw] shrink-0 snap-start overflow-hidden rounded-3xl sm:min-w-0 sm:max-w-none sm:shrink"
-    : "service-card overflow-hidden rounded-3xl";
+    ? "service-card home-service-card min-w-[45vw] max-w-[45vw] shrink-0 snap-start overflow-hidden rounded-2xl sm:min-w-0 sm:max-w-none sm:shrink sm:rounded-3xl"
+    : "service-card mobile-service-card overflow-hidden rounded-3xl";
 
   useEffect(() => {
     if (!mobileSlider || !sliderRef.current) return;
@@ -421,10 +421,10 @@ function ServicesSection({
               className={cardClassName}
               key={service.title}
             >
-              <div className="relative overflow-hidden">
+              <div className="service-card-media relative overflow-hidden">
                 <button
                   aria-label={`View ${service.title} photo`}
-                  className="group block h-40 w-full cursor-pointer sm:h-44"
+                  className="service-image-button group block h-40 w-full cursor-pointer sm:h-44"
                   onClick={() => onPhotoPreview?.(previewService)}
                   type="button"
                 >
@@ -436,43 +436,45 @@ function ServicesSection({
                     src={serviceImageUrl}
                   />
                 </button>
-                <span className="absolute left-3 top-3 grid h-10 w-10 place-items-center rounded-2xl border border-[#f9c66d]/20 bg-[#06100e]/90 text-[#f9c66d] sm:left-4 sm:top-4 sm:h-12 sm:w-12">
+                <span className="service-card-icon absolute left-3 top-3 grid h-10 w-10 place-items-center rounded-2xl border border-[#f9c66d]/20 bg-[#06100e]/90 text-[#f9c66d] sm:left-4 sm:top-4 sm:h-12 sm:w-12">
                   <Scissors size={18} className="sm:h-[21px] sm:w-[21px]" />
                 </span>
                 <button
                   aria-label={`Open ${service.title} photo`}
-                  className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-2xl border border-[#f9c66d]/30 bg-[#06100e]/90 text-[#f9c66d] transition-colors hover:bg-[#991b1b] hover:text-white sm:h-12 sm:w-12"
+                  className="service-card-preview absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-2xl border border-[#f9c66d]/30 bg-[#06100e]/90 text-[#f9c66d] transition-colors hover:bg-[#991b1b] hover:text-white sm:h-12 sm:w-12"
                   onClick={() => onPhotoPreview?.(previewService)}
                   type="button"
                 >
                   <Eye size={18} className="sm:h-[21px] sm:w-[21px]" />
                 </button>
               </div>
-              <div className="p-3 sm:p-5">
-              <h3 className="mt-2 truncate text-base font-black sm:mt-5 sm:text-xl" title={service.title}>
+              <div className="service-card-body p-3 sm:p-5">
+              <h3 className="service-card-title mt-2 truncate text-base font-black sm:mt-5 sm:text-xl" title={service.title}>
                 {service.title}
               </h3>
               <p className="mt-2 flex items-center gap-1.5 text-xs text-[#637371] sm:gap-2 sm:text-sm">
                 <Clock3 size={14} className="sm:h-4 sm:w-4" />
                 {service.time}
               </p>
-              <p className="mt-3 rounded-2xl border border-[#f9c66d]/20 bg-[#2a0f12] px-3 py-2 text-xs font-black text-[#f9c66d] sm:mt-4 sm:px-4 sm:py-3 sm:text-sm">
+              <p className="service-card-price mt-3 rounded-2xl border border-[#f9c66d]/20 bg-[#2a0f12] px-3 py-2 text-xs font-black text-[#f9c66d] sm:mt-4 sm:px-4 sm:py-3 sm:text-sm">
                 {service.price}
               </p>
               <button
-                className={`mt-3 flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-2xl px-3 py-2 text-xs font-black text-white transition disabled:cursor-not-allowed disabled:opacity-70 sm:mt-4 sm:min-h-[48px] sm:gap-2 sm:px-4 sm:py-3 sm:text-base ${
+                className={`service-card-cta mt-3 flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-2xl px-3 py-2 text-xs font-black text-white transition disabled:cursor-not-allowed disabled:opacity-70 sm:mt-4 sm:min-h-[48px] sm:gap-2 sm:px-4 sm:py-3 sm:text-base ${
                   bookingClosed
                     ? "bg-[#7f1d1d] hover:bg-[#991b1b]"
                     : "bg-[#991b1b] hover:bg-[#7f1d1d]"
                 }`}
                 disabled={bookingGate.loading || (!user && loginLoading)}
-                onClick={() => {
+                onClick={(event) => {
+                  event.stopPropagation();
                   if (bookingClosed) {
                     onServiceSelect(service);
                     return;
                   }
                   user ? onServiceSelect(service) : onLogin();
                 }}
+                onPointerDown={(event) => event.stopPropagation()}
                 type="button"
               >
                 {!user && loginLoading ? (
@@ -671,8 +673,8 @@ export function BarbersPage({ bookingGate }) {
   };
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="rounded-[2rem] bg-[#1a0f12] p-5 text-white queue-shadow sm:p-6">
+    <section className="barbers-mobile-page mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="barbers-mobile-hero rounded-[2rem] bg-[#1a0f12] p-5 text-white queue-shadow sm:p-6">
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#fca5a5]">
           Barbers
         </p>
@@ -685,29 +687,29 @@ export function BarbersPage({ bookingGate }) {
         </p>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="barber-mobile-list mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {barbers.map((barber) => {
           const stats = barberStats[barber.name] || {};
           const rating = getAverageRating(barber.name);
           return (
             <article
-              className="luxury-glass overflow-hidden rounded-[2rem] queue-shadow"
+              className="barber-mobile-card luxury-glass overflow-hidden rounded-[2rem] queue-shadow"
               key={barber.name}
             >
               {barber.imageUrl ? (
                 <img
                   alt={barber.name}
-                  className="h-64 w-full object-cover"
+                  className="barber-mobile-photo h-64 w-full object-cover"
                   decoding="async"
                   loading="lazy"
                   src={barber.imageUrl}
                 />
               ) : (
-                <div className="grid h-64 w-full place-items-center border-b border-[#35201f] bg-[#0b1714] text-sm font-black text-[#9db2ad]">
+                <div className="barber-mobile-photo grid h-64 w-full place-items-center border-b border-[#35201f] bg-[#0b1714] text-sm font-black text-[#9db2ad]">
                   Image coming soon
                 </div>
               )}
-              <div className="p-5">
+              <div className="barber-mobile-body p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className="text-2xl font-black text-[#f4fbf8]">

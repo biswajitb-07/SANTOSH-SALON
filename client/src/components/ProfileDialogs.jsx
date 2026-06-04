@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarClock, X } from "lucide-react";
 import { ButtonSpinner, useBodyScrollLock } from "./common.jsx";
+import { CancelBookingConfirmCard } from "./MobileFlowStates.jsx";
 import { formatMoney } from "../lib/formatters.js";
 import {
   createTimeSlots,
@@ -140,31 +141,26 @@ export function CancelReasonDialog({ booking, loading, onClose, onConfirm }) {
       style={{ zIndex: 2147483000 }}
     >
       <form
-        className="queue-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-[#f9c66d]/15 bg-[#081311] p-5 text-[#f4fbf8]"
+        className="cancel-flow-form queue-shadow max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-[#f9c66d]/15 bg-[#081311] p-5 text-[#f4fbf8]"
         onSubmit={(event) => {
           event.preventDefault();
           onConfirm(booking, reason, note);
         }}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="section-kicker">Cancel Booking</p>
-            <h2 className="mt-1 text-2xl font-black">Select a reason</h2>
-            {willAutoRefund ? (
-              <p className="mt-2 text-sm font-bold leading-6 text-[#9db2ad]">
-                Cancellation ke saath refund request automatically submit hogi.
-              </p>
-            ) : null}
-          </div>
-          <button
-            className="grid h-10 w-10 place-items-center rounded-xl bg-[#0b1714]"
-            onClick={onClose}
-            type="button"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        <div className="mt-5 grid gap-2">
+        <button
+          className="ml-auto grid h-10 w-10 place-items-center rounded-xl bg-[#0b1714] sm:hidden"
+          onClick={onClose}
+          type="button"
+        >
+          <X size={20} />
+        </button>
+        <CancelBookingConfirmCard
+          loading={loading}
+          onClose={onClose}
+          onConfirm={() => onConfirm(booking, reason, note)}
+          willAutoRefund={willAutoRefund}
+        />
+        <div className="cancel-reason-list mt-5 grid gap-2">
           {cancelReasons.map((item) => (
             <label
               className="flex items-center gap-3 rounded-2xl border border-[#35201f] bg-[#0b1714] px-4 py-3 text-sm font-black"
@@ -181,7 +177,7 @@ export function CancelReasonDialog({ booking, loading, onClose, onConfirm }) {
           ))}
         </div>
         <textarea
-          className="mt-4 min-h-24 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] p-4 text-[#f4fbf8] outline-none focus:border-[#f87171]"
+          className="cancel-note mt-4 min-h-24 w-full rounded-2xl border border-[#4a2525] bg-[#0b1714] p-4 text-[#f4fbf8] outline-none focus:border-[#f87171]"
           onChange={(event) => setNote(event.target.value)}
           placeholder={willAutoRefund ? "Optional refund/cancel note" : "Optional note"}
           value={note}
@@ -210,18 +206,6 @@ export function CancelReasonDialog({ booking, loading, onClose, onConfirm }) {
             </div>
           </div>
         ) : null}
-        <button
-          className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-5 font-black text-white disabled:opacity-60"
-          disabled={loading}
-          type="submit"
-        >
-          {loading ? <ButtonSpinner /> : null}
-          {loading
-            ? "Cancelling..."
-            : willAutoRefund
-              ? "Cancel & Request Refund"
-              : "Confirm Cancellation"}
-        </button>
       </form>
     </div>,
     document.body

@@ -270,6 +270,7 @@ export function useDragScroll({ enabled = true } = {}) {
   const dragRef = useRef({
     active: false,
     dragged: false,
+    interactive: false,
     lastX: 0,
     pointerId: null,
     startX: 0,
@@ -282,7 +283,7 @@ export function useDragScroll({ enabled = true } = {}) {
 
     state.active = false;
     event.currentTarget.classList.remove("is-dragging", "is-mouse-dragging");
-    if (state.pointerId !== null) {
+    if (state.pointerId !== null && !state.interactive) {
       event.currentTarget.releasePointerCapture?.(state.pointerId);
     }
     window.getSelection?.()?.removeAllRanges?.();
@@ -303,17 +304,25 @@ export function useDragScroll({ enabled = true } = {}) {
 
       const element = event.currentTarget;
       if (element.scrollWidth <= element.clientWidth) return;
+      const interactive = Boolean(
+        event.target?.closest?.(
+          "button, a, input, textarea, select, label, [role='button']"
+        )
+      );
 
       dragRef.current = {
         active: true,
         dragged: false,
+        interactive,
         lastX: event.clientX,
         pointerId: event.pointerId,
         startX: event.clientX,
         type: event.pointerType || "mouse"
       };
       element.classList.add("is-dragging", "is-mouse-dragging");
-      element.setPointerCapture?.(event.pointerId);
+      if (!interactive) {
+        element.setPointerCapture?.(event.pointerId);
+      }
     },
     onPointerLeave: (event) => {
       if (dragRef.current.active) endDrag(event);
