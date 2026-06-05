@@ -8,7 +8,6 @@ import {
   createTimeSlots,
   getBookingDayStats,
   getVisibleTimeSlots,
-  ONLINE_BOOKING_START_HOUR,
   STAFF_COUNT
 } from "../lib/bookingFlow.js";
 
@@ -246,25 +245,16 @@ export function RescheduleDialog({
   onConfirm
 }) {
   const today = toDateInputValue(new Date());
-  const tomorrowDate = new Date();
-  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-  const tomorrow = toDateInputValue(tomorrowDate);
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const canUseTomorrow =
-    currentMinutes >= ONLINE_BOOKING_START_HOUR * 60 ||
-    booking?.bookingDate === tomorrow;
-  const currentBookingIsToday = booking?.bookingDate === today;
-  const dateOptions = currentBookingIsToday
-    ? [{ value: today, label: `Today, ${getDisplayDate(today)}` }]
-    : [
-        { value: today, label: `Today, ${getDisplayDate(today)}` },
-        ...(canUseTomorrow
-          ? [{ value: tomorrow, label: `Tomorrow, ${getDisplayDate(tomorrow)}` }]
-          : [])
-      ];
+  const lockedBookingDate = booking?.bookingDate || today;
+  const lockedBookingLabel =
+    lockedBookingDate === today
+      ? `Today, ${getDisplayDate(lockedBookingDate)}`
+      : `Booking day, ${getDisplayDate(lockedBookingDate)}`;
+  const dateOptions = [{ value: lockedBookingDate, label: lockedBookingLabel }];
   const getSafeDraftDate = (dateValue) =>
-    dateOptions.some((option) => option.value === dateValue) ? dateValue : today;
+    dateOptions.some((option) => option.value === dateValue)
+      ? dateValue
+      : lockedBookingDate;
   const [draft, setDraft] = useState({
     bookingDate: getSafeDraftDate(booking?.bookingDate),
     timeSlot: booking?.timeSlot || ""
@@ -281,7 +271,7 @@ export function RescheduleDialog({
       bookingDate: getSafeDraftDate(booking?.bookingDate),
       timeSlot: booking?.timeSlot || ""
     });
-  }, [booking, today, tomorrow]);
+  }, [booking, lockedBookingDate]);
 
   useEffect(() => {
     if (!booking) return undefined;
@@ -412,9 +402,8 @@ export function RescheduleDialog({
           </select>
         </label>
         <p className="mt-4 rounded-2xl border border-[#f9c66d]/20 bg-[#24170d] px-4 py-3 text-sm font-bold text-[#f9c66d]">
-          Har time slot me max {STAFF_COUNT} bookings allowed hain. Today ke liye
-          sirf future time slots milenge; tomorrow option booking window ke baad
-          available hota hai.
+          Each time slot accepts up to {STAFF_COUNT} bookings. Rescheduling
+          keeps the booking date unchanged and only updates the time slot.
         </p>
         {slotState.error ? (
           <p className="mt-3 rounded-2xl border border-[#f87171]/30 bg-[#2a1111] px-4 py-3 text-sm font-bold text-[#fca5a5]">

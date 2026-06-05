@@ -77,7 +77,7 @@ function RefundRejectDialog({ actionLoading, dialog, onClose, onConfirm }) {
               Reason visible to customer
             </h2>
             <p className="mt-2 text-sm font-bold leading-6 text-[#9db2ad]">
-              {refund.customerName} ko yeh admin note refund status ke saath dikhega.
+              This admin note will be visible to {refund.customerName} with the refund status.
             </p>
           </div>
           <button

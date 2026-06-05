@@ -58,8 +58,7 @@ import {
 import {
   createTimeSlots,
   getBookingDayStats,
-  getVisibleTimeSlots,
-  ONLINE_BOOKING_START_HOUR
+  getVisibleTimeSlots
 } from "../lib/bookingFlow.js";
 import { getServiceImageUrl } from "../lib/services.js";
 
@@ -143,8 +142,8 @@ const getLivePositionText = (booking) => {
 
   const peopleAhead = Math.max(0, Number(booking.peopleAhead || 0));
   return peopleAhead === 0
-    ? "Aapke aage 0 log hain. Your turn is near."
-    : `Aapke aage ${peopleAhead} log hain.`;
+    ? "No customers are ahead of you. Your turn is near."
+    : `${peopleAhead} customer${peopleAhead === 1 ? "" : "s"} ahead of you.`;
 };
 
 const getEstimatedTurnLabel = (booking) => {
@@ -771,10 +770,10 @@ export function ProfilePage({
       const tomorrowDate = new Date();
       tomorrowDate.setDate(tomorrowDate.getDate() + 1);
       const tomorrow = toDateInputValue(tomorrowDate);
-      const bookingDate = draft.bookingDate || today;
+      const originalBookingDate = booking.bookingDate || today;
+      const requestedBookingDate = draft.bookingDate || originalBookingDate;
+      const bookingDate = originalBookingDate;
       const selectedTimeSlot = draft.timeSlot || "";
-      const now = new Date();
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
       const allSlots = createTimeSlots(
         bookingGate.openingTime || "07:00",
         bookingGate.closingTime || "23:00"
@@ -783,18 +782,11 @@ export function ProfilePage({
       const visibleSlots = getVisibleTimeSlots(dayKey, allSlots);
 
       if (![today, tomorrow].includes(bookingDate)) {
-        toast.error("You can reschedule only for today or tomorrow.");
+        toast.error("This booking date cannot be rescheduled online.");
         return;
       }
-      if (booking.bookingDate === today && bookingDate !== today) {
-        toast.error("Today booking can only change time slot, not date.");
-        return;
-      }
-      if (
-        bookingDate === tomorrow &&
-        currentMinutes < ONLINE_BOOKING_START_HOUR * 60
-      ) {
-        toast.error("Tomorrow reschedule opens after 6:00 AM.");
+      if (requestedBookingDate !== originalBookingDate) {
+        toast.error("The booking date cannot be changed during reschedule. Please choose a different time slot.");
         return;
       }
       if (!visibleSlots.some((slot) => slot.value === selectedTimeSlot)) {
