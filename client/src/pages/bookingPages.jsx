@@ -19,7 +19,6 @@ import {
   ShieldCheck,
   Sparkles,
   Star,
-  UserRound,
   WalletCards,
   UsersRound
 } from "lucide-react";
@@ -30,6 +29,43 @@ import { defaultServices, getServiceImageUrl } from "../lib/services.js";
 const STAFF_COUNT = 3;
 const SERVICE_PAGE_SIZE = 8;
 const BARBER_STATS_LIMIT = 25;
+const SERVICE_FILTERS = [
+  { key: "all", label: "All" },
+  { key: "haircut", label: "Haircut" },
+  { key: "beard", label: "Beard" },
+  { key: "facial", label: "Facial" },
+  { key: "wash", label: "Hair Wash" }
+];
+
+const getServiceFilterKey = (service = {}) => {
+  const title = String(service.title || "").toLowerCase();
+  if (title.includes("beard")) return "beard";
+  if (title.includes("facial")) return "facial";
+  if (title.includes("wash")) return "wash";
+  return "haircut";
+};
+
+const getInitialQueryValue = (key, fallback = "") => {
+  if (typeof window === "undefined") return fallback;
+  return new URLSearchParams(window.location.search).get(key) || fallback;
+};
+
+const writeServiceQuery = ({ filter, page }) => {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (!filter || filter === "all") {
+    url.searchParams.delete("filter");
+  } else {
+    url.searchParams.set("filter", filter);
+  }
+  if (!page || page <= 1) {
+    url.searchParams.delete("servicePage");
+  } else {
+    url.searchParams.set("servicePage", String(page));
+  }
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+};
+
 const getQueueEstimateMinutes = (waitingCount) => {
   if (!waitingCount) return 0;
   return Math.ceil(waitingCount / STAFF_COUNT) * 25;
@@ -364,7 +400,10 @@ function ServicesSection({
   mobileSlider = false,
   services,
   pagination = null,
-  sectionRef = null
+  sectionRef = null,
+  filters = null,
+  activeFilter = "all",
+  onFilterChange = null
 }) {
   const sliderRef = useRef(null);
   const dragScroll = useDragScroll({ enabled: mobileSlider });
@@ -396,12 +435,30 @@ function ServicesSection({
           checkout.
         </p>
       </div>
+      {filters?.length ? (
+        <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
+          {filters.map((filter) => (
+            <button
+              className={`min-h-11 shrink-0 rounded-full border px-4 text-sm font-black transition ${
+                activeFilter === filter.key
+                  ? "border-[#f9c66d] bg-[#f9c66d] text-[#06100e]"
+                  : "border-[#35201f] bg-[#101a18] text-[#9db2ad] hover:border-[#f9c66d]/50 hover:text-[#f9c66d]"
+              }`}
+              key={filter.key}
+              onClick={() => onFilterChange?.(filter.key)}
+              type="button"
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div
         className={listClassName}
         ref={sliderRef}
         {...(mobileSlider ? dragScroll : {})}
       >
-        {services.map((service) => {
+        {services.length ? services.map((service) => {
           const serviceImageUrl = service.imageUrl || getServiceImageUrl(service.title);
           const previewService = {
             ...service,
@@ -495,7 +552,11 @@ function ServicesSection({
               </div>
             </article>
           );
-        })}
+        }) : (
+          <div className="rounded-3xl border border-dashed border-[#35201f] bg-[#0b1714] p-6 text-center font-bold text-[#9db2ad] sm:col-span-2 lg:col-span-4">
+            No services found for this filter.
+          </div>
+        )}
       </div>
       {pagination ? <PaginationControls {...pagination} /> : null}
     </section>
@@ -769,21 +830,38 @@ export function BookingPage({
   bookingGate,
   services
 }) {
-  const [servicePage, setServicePage] = useState(1);
+  const getInitialServicePage = () => {
+    const value = Number(getInitialQueryValue("servicePage", "1"));
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
+  };
+  const getInitialServiceFilter = () => {
+    const value = getInitialQueryValue("filter", "all").toLowerCase();
+    return SERVICE_FILTERS.some((filter) => filter.key === value) ? value : "all";
+  };
+  const [serviceFilter, setServiceFilter] = useState(getInitialServiceFilter);
+  const [servicePage, setServicePage] = useState(getInitialServicePage);
   const servicesSectionRef = useRef(null);
+  const filteredServices =
+    serviceFilter === "all"
+      ? services
+      : services.filter((service) => getServiceFilterKey(service) === serviceFilter);
   const totalServicePages = Math.max(
     1,
-    Math.ceil(services.length / SERVICE_PAGE_SIZE)
+    Math.ceil(filteredServices.length / SERVICE_PAGE_SIZE)
   );
   const safeServicePage = Math.min(servicePage, totalServicePages);
-  const paginatedServices = services.slice(
+  const paginatedServices = filteredServices.slice(
     (safeServicePage - 1) * SERVICE_PAGE_SIZE,
     safeServicePage * SERVICE_PAGE_SIZE
   );
 
   useEffect(() => {
-    setServicePage(1);
-  }, [services.length]);
+    setServicePage((current) => Math.min(current, totalServicePages));
+  }, [filteredServices.length, totalServicePages]);
+
+  useEffect(() => {
+    writeServiceQuery({ filter: serviceFilter, page: safeServicePage });
+  }, [safeServicePage, serviceFilter]);
 
   const handleServicePageChange = (nextPage) => {
     setServicePage(nextPage);
@@ -794,37 +872,19 @@ export function BookingPage({
       });
     });
   };
+  const handleServiceFilterChange = (nextFilter) => {
+    setServiceFilter(nextFilter);
+    setServicePage(1);
+    window.requestAnimationFrame(() => {
+      servicesSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    });
+  };
 
   return (
     <>
-    <section className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-      <div className="rounded-[2rem] bg-[#1a0f12] p-5 text-white queue-shadow sm:p-6">
-        <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#fca5a5]">
-          Booking
-        </p>
-        <h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
-          Choose a service first, then continue to payment.
-        </h1>
-        <p className="mt-3 max-w-2xl leading-7 text-white/76">
-          Your Google name is prefilled. The checkout modal lets you edit both
-          name and mobile number.
-        </p>
-        <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
-          {[
-            [UserRound, "Login"],
-            [CalendarCheck2, "Choose Service"],
-            [BellRing, "Payment Details"]
-          ].map(([Icon, label]) => (
-            <div className="rounded-2xl bg-[rgba(255,255,255,0.08)] p-2.5 sm:p-3" key={label}>
-              <Icon className="text-[#f9c66d]" size={19} />
-              <p className="mt-2 text-[11px] font-black leading-tight sm:text-base">
-                {label}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
     <BookingClosedNotice bookingGate={bookingGate} />
     <ServicesSection
       bookingGate={bookingGate}
@@ -840,6 +900,9 @@ export function BookingPage({
       sectionRef={servicesSectionRef}
       services={paginatedServices}
       user={user}
+      filters={SERVICE_FILTERS}
+      activeFilter={serviceFilter}
+      onFilterChange={handleServiceFilterChange}
     />
     </>
   );

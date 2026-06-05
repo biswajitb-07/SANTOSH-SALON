@@ -130,6 +130,10 @@ export function writeClientRoute({ page }, replace = false) {
   url.pathname = getClientPagePath(safePage);
   url.searchParams.delete("page");
   url.searchParams.delete("tab");
+  if (safePage !== "booking") {
+    url.searchParams.delete("filter");
+    url.searchParams.delete("servicePage");
+  }
 
   const method = replace ? "replaceState" : "pushState";
   window.history[method]({}, "", `${url.pathname}${url.search}${url.hash}`);
