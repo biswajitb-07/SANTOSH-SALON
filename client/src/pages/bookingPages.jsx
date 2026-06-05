@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Sparkles,
   Star,
+  UserRound,
   WalletCards,
   UsersRound
 } from "lucide-react";
