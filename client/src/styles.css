@@ -273,6 +273,80 @@ h3 {
   backdrop-filter: blur(22px) saturate(128%);
 }
 
+.hero-feature-slider {
+  overflow: hidden;
+}
+
+.hero-feature-track {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.hero-feature-card {
+  min-height: 9rem;
+}
+
+@media (min-width: 640px) {
+  .hero-feature-track {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .hero-feature-clone {
+    display: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .hero-feature-slider {
+    border-radius: 1.5rem;
+  }
+
+  .hero-feature-track {
+    display: flex;
+    gap: 0;
+    width: 400%;
+    animation: hero-feature-slide 7.5s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  .hero-feature-card {
+    flex: 0 0 25%;
+    min-height: 8.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-feature-track {
+    animation: none;
+  }
+}
+
+@keyframes hero-feature-slide {
+  0%,
+  20% {
+    transform: translateX(0);
+  }
+
+  28%,
+  45% {
+    transform: translateX(-25%);
+  }
+
+  53%,
+  70% {
+    transform: translateX(-50%);
+  }
+
+  78%,
+  95% {
+    transform: translateX(-75%);
+  }
+
+  100% {
+    transform: translateX(-75%);
+  }
+}
+
 .luxury-red-glass {
   background:
     linear-gradient(145deg, rgba(127, 29, 29, 0.32), rgba(16, 26, 24, 0.74)),

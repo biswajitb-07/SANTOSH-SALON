@@ -19,9 +19,7 @@ import {
   ShieldCheck,
   Sparkles,
   Star,
-  UserRound,
   WalletCards,
-  UsersRound
 } from "lucide-react";
 import { ButtonSpinner, PaginationControls, useDragScroll } from "../components/common.jsx";
 import { db } from "../lib/firebase.js";
@@ -67,82 +65,6 @@ const writeServiceQuery = ({ filter, page }) => {
   window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
 };
 
-const getQueueEstimateMinutes = (waitingCount) => {
-  if (!waitingCount) return 0;
-  return Math.ceil(waitingCount / STAFF_COUNT) * 25;
-};
-
-function QueueSummaryCard({ loading, loginLoading, onLogin, onNavigate, stats, user }) {
-  const nextToken = loading ? "--" : stats.displayToken;
-  const waitingCount = loading ? "--" : stats.waitingCount;
-  const estimateMinutes = loading
-    ? "--"
-    : `${getQueueEstimateMinutes(stats.waitingCount)}m`;
-
-  return (
-    <section className="w-full max-w-sm justify-self-start text-white lg:justify-self-end">
-      <div className="queue-shadow rounded-[1.5rem] border border-[#f9c66d]/15 bg-[#081311]/74 p-4 backdrop-blur-xl">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-[#9db2ad]">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-[#ef4444]" />
-              Live Queue
-            </div>
-            <p className="mt-2 text-sm font-bold text-[#ffb4b4]">
-              {loading ? "Syncing queue" : stats.tokenLabel}
-            </p>
-          </div>
-          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#991b1b] text-white">
-            <BellRing size={21} />
-          </span>
-        </div>
-
-        <div className="mt-4 grid grid-cols-[auto_1fr] items-end gap-4">
-          <p className="font-mono text-5xl font-black leading-none text-[#f9c66d]">
-            {nextToken}
-          </p>
-          <p className="pb-1 text-xs font-bold leading-5 text-[#9db2ad]">
-            {loading ? "Loading live status..." : stats.tokenHint}
-          </p>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <div className="rounded-2xl border border-[#3a2b20] bg-[#06100e]/85 p-3">
-            <p className="flex items-center gap-2 text-xs font-bold text-[#9db2ad]">
-              <UsersRound size={15} /> Waiting
-            </p>
-            <p className="mt-1 text-2xl font-black">{waitingCount}</p>
-          </div>
-          <div className="rounded-2xl border border-[#3a2b20] bg-[#06100e]/85 p-3">
-            <p className="flex items-center gap-2 text-xs font-bold text-[#9db2ad]">
-              <Clock3 size={15} /> Estimate
-            </p>
-            <p className="mt-1 text-2xl font-black">{estimateMinutes}</p>
-          </div>
-        </div>
-
-        <button
-          className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-4 text-sm font-black text-white transition hover:bg-[#7f1d1d] disabled:opacity-70"
-          disabled={!user && loginLoading}
-          onClick={() => (user ? onNavigate("profile") : onLogin())}
-          type="button"
-        >
-          {!user && loginLoading ? (
-            <>
-              <ButtonSpinner /> Logging in...
-            </>
-          ) : (
-            <>
-              <UserRound size={18} />
-              {user ? "Profile" : "Login"}
-            </>
-          )}
-        </button>
-      </div>
-    </section>
-  );
-}
-
 function BookingClosedNotice({ bookingGate }) {
   if (bookingGate.loading || bookingGate.open) return null;
 
@@ -179,7 +101,7 @@ export function HomePage({
   return (
     <>
       <section className="luxury-hero hero-image relative min-h-[92vh] overflow-hidden text-white">
-        <div className="relative z-[1] mx-auto grid min-h-[92vh] max-w-7xl items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_430px] lg:px-8">
+        <div className="relative z-[1] mx-auto grid min-h-[92vh] max-w-7xl items-center gap-8 px-4 py-10 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#f9c66d]/30 bg-[#2a0f12]/55 px-4 py-2 text-sm font-black text-[#f9c66d] backdrop-blur">
               <Sparkles size={16} />
@@ -209,31 +131,27 @@ export function HomePage({
                 Explore Salon <ArrowRight size={19} />
               </button>
             </div>
-            <div className="mt-7 grid gap-3 sm:grid-cols-3">
-              {[
-                [Gem, "Luxury Finish", "Sharp, polished cuts"],
-                [WalletCards, "Online Pay", "Secure Cashfree checkout"],
-                [MapPin, "Walk In Ready", "Reach near your turn"]
-              ].map(([Icon, title, text]) => (
-                <div
-                  className="luxury-glass rounded-3xl p-4"
-                  key={title}
-                >
-                  <Icon className="text-[#f9c66d]" size={22} />
-                  <p className="mt-3 font-black">{title}</p>
-                  <p className="mt-1 text-sm font-bold text-white/58">{text}</p>
-                </div>
-              ))}
+            <div className="hero-feature-slider mt-7">
+              <div className="hero-feature-track">
+                {[
+                  [Gem, "Luxury Finish", "Sharp, polished cuts"],
+                  [WalletCards, "Online Pay", "Secure Cashfree checkout"],
+                  [MapPin, "Walk In Ready", "Reach near your turn"],
+                  [Gem, "Luxury Finish", "Sharp, polished cuts", true]
+                ].map(([Icon, title, text, isLoopClone]) => (
+                  <div
+                    aria-hidden={isLoopClone ? "true" : undefined}
+                    className={`hero-feature-card luxury-glass rounded-3xl p-4 ${isLoopClone ? "hero-feature-clone" : ""}`}
+                    key={`${title}-${isLoopClone ? "clone" : "main"}`}
+                  >
+                    <Icon className="text-[#f9c66d]" size={22} />
+                    <p className="mt-3 font-black">{title}</p>
+                    <p className="mt-1 text-sm font-bold text-white/58">{text}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <QueueSummaryCard
-            loginLoading={loginLoading}
-            loading={queueLoading}
-            onLogin={onLogin}
-            onNavigate={onNavigate}
-            stats={queueStats}
-            user={user}
-          />
         </div>
       </section>
 

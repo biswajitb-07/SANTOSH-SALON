@@ -17,6 +17,7 @@ import {
   writeBatch
 } from "firebase/firestore";
 import {
+  BellRing,
   CalendarClock,
   CalendarCheck2,
   Camera,
@@ -28,7 +29,7 @@ import {
   LogOut,
   Share2,
   Upload,
-  UserRound,
+  UsersRound,
   X
 } from "lucide-react";
 import {
@@ -68,6 +69,7 @@ const STAFF_COUNT = 3;
 const PROFILE_PHOTO_MAX_BYTES = 300 * 1024;
 const PROFILE_PHOTO_CHANGE_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
 const PLATFORM_FEE_PER_PERSON = 2;
+const QUEUE_STAFF_COUNT = 3;
 const SERVICE_ESTIMATE_MINUTES = {
   haircut: 25,
   beard: 15,
@@ -78,6 +80,11 @@ const SERVICE_ESTIMATE_MINUTES = {
 };
 const queueCountStatuses = new Set(["confirmed", "waiting", "in_chair"]);
 const editableBookingStatuses = ["confirmed", "waiting", "waitlist"];
+
+const getQueueEstimateMinutes = (waitingCount) => {
+  if (!waitingCount) return 0;
+  return Math.ceil(waitingCount / QUEUE_STAFF_COUNT) * 25;
+};
 const liveBookingStatuses = new Set(["confirmed", "waiting", "waitlist", "in_chair"]);
 
 const getBarberStatsId = (barberName = "") =>
@@ -361,6 +368,56 @@ const groupUserBookings = (bookings) =>
     return groups;
   }, []);
 
+function ProfileLiveQueueCard({ loading = false, stats = {} }) {
+  const nextToken = loading ? "--" : stats.displayToken || "-";
+  const waitingCount = loading ? "--" : Number(stats.waitingCount || 0);
+  const estimateMinutes = loading
+    ? "--"
+    : `${getQueueEstimateMinutes(Number(stats.waitingCount || 0))}m`;
+
+  return (
+    <div className="queue-shadow rounded-[1.65rem] border border-[#35201f] bg-[#081311]/86 p-5 text-[#f4fbf8]">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-[#9db2ad]">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-[#ef4444]" />
+            Live Queue
+          </div>
+          <p className="mt-2 text-sm font-bold text-[#ffb4b4]">
+            {loading ? "Syncing queue" : stats.tokenLabel || "Next Live Turn"}
+          </p>
+        </div>
+        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#991b1b] text-white">
+          <BellRing size={21} />
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-[auto_1fr_1fr] sm:items-end">
+        <div className="flex items-end gap-3">
+          <p className="font-mono text-5xl font-black leading-none text-[#f9c66d]">
+            {nextToken}
+          </p>
+          <p className="pb-1 text-xs font-bold leading-5 text-[#9db2ad]">
+            {loading ? "Loading live status..." : stats.tokenHint || "Live queue updates automatically."}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[#3a2b20] bg-[#06100e]/85 p-3">
+          <p className="flex items-center gap-2 text-xs font-bold text-[#9db2ad]">
+            <UsersRound size={15} /> Waiting
+          </p>
+          <p className="mt-1 text-2xl font-black">{waitingCount}</p>
+        </div>
+        <div className="rounded-2xl border border-[#3a2b20] bg-[#06100e]/85 p-3">
+          <p className="flex items-center gap-2 text-xs font-bold text-[#9db2ad]">
+            <Clock3 size={15} /> Estimate
+          </p>
+          <p className="mt-1 text-2xl font-black">{estimateMinutes}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ProfilePage({
   bookingGate = {},
   bookingsOnly = false,
@@ -374,6 +431,8 @@ export function ProfilePage({
   onLogin,
   onLogout,
   onProfilePhotoUpdated,
+  queueLoading = false,
+  queueStats = {},
   user
 }) {
   const [bookings, setBookings] = useState([]);
@@ -1117,13 +1176,15 @@ export function ProfilePage({
           </div>
         </div>
 
+        <div className="mt-6">
+          <ProfileLiveQueueCard loading={queueLoading} stats={queueStats} />
+        </div>
+
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[
             ["Name", user.displayName || "Not available"],
             ["Email", user.email || "Not available"],
             ["Login Provider", "Google"],
-            ["Total Visits", String(bookings.filter((booking) => booking.status === "completed").length)],
-            ["Loyalty Points", `${bookings.filter((booking) => booking.status === "completed").length * 10} pts`],
             ["User ID", user.uid]
           ].map(([label, value]) => (
             <div className="rounded-2xl border border-[#35201f] bg-[#0b1714] p-4" key={label}>

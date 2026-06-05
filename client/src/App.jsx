@@ -900,6 +900,8 @@ export function App() {
             onLogin={login}
             onLogout={requestLogout}
             onProfilePhotoUpdated={updateProfilePhoto}
+            queueLoading={queueLoading}
+            queueStats={queueStats}
             user={displayUser}
           />
         ) : null}
