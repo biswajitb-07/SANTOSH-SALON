@@ -71,7 +71,7 @@ const getQueueEstimateMinutes = (waitingCount) => {
   return Math.ceil(waitingCount / STAFF_COUNT) * 25;
 };
 
-function QueueSummaryCard({ loading, onNavigate, stats }) {
+function QueueSummaryCard({ loading, loginLoading, onLogin, onNavigate, stats, user }) {
   const nextToken = loading ? "--" : stats.displayToken;
   const waitingCount = loading ? "--" : stats.waitingCount;
   const estimateMinutes = loading
@@ -79,57 +79,63 @@ function QueueSummaryCard({ loading, onNavigate, stats }) {
     : `${getQueueEstimateMinutes(stats.waitingCount)}m`;
 
   return (
-    <section className="queue-shadow luxury-glass rounded-2xl p-5 text-white sm:p-6">
-      <div className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.16em] text-[#9db2ad]">
-        <span className="h-2 w-2 animate-pulse rounded-full bg-[#ef4444]" />
-        Live Queue
-      </div>
-      <div className="mt-4 rounded-[1.25rem] border border-[#3a2b20] bg-[#090f0d]/80 p-4 sm:p-5">
+    <section className="w-full max-w-sm justify-self-start text-white lg:justify-self-end">
+      <div className="queue-shadow rounded-[1.5rem] border border-[#f9c66d]/15 bg-[#081311]/74 p-4 backdrop-blur-xl">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-[#991b1b]">
-              {loading ? "Now Serving" : stats.tokenLabel}
-            </p>
-            <p className="mt-1 font-mono text-6xl font-black tracking-tight text-[#f9c66d]">
-              {nextToken}
-            </p>
-            <p className="mt-1 text-xs font-black text-[#637371]">
-              {loading ? "Syncing..." : stats.tokenHint}
-            </p>
-            <p className="mt-2 max-w-[220px] text-[11px] font-bold leading-4 text-[#9db2ad]">
-              Turns update live when earlier slots, skips, or cancellations happen.
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-[#9db2ad]">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-[#ef4444]" />
+              Live Queue
+            </div>
+            <p className="mt-2 text-sm font-bold text-[#ffb4b4]">
+              {loading ? "Syncing queue" : stats.tokenLabel}
             </p>
           </div>
-          <span className="grid h-16 w-16 place-items-center rounded-3xl bg-[#991b1b] text-white">
-            <BellRing size={28} />
+          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#991b1b] text-white">
+            <BellRing size={21} />
           </span>
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <div className="rounded-2xl border border-[#3a2b20] bg-[#101a18]/80 p-4">
-            <p className="flex items-center gap-2 text-sm text-[#637371]">
-              <UsersRound size={16} /> Waiting
+
+        <div className="mt-4 grid grid-cols-[auto_1fr] items-end gap-4">
+          <p className="font-mono text-5xl font-black leading-none text-[#f9c66d]">
+            {nextToken}
+          </p>
+          <p className="pb-1 text-xs font-bold leading-5 text-[#9db2ad]">
+            {loading ? "Loading live status..." : stats.tokenHint}
+          </p>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="rounded-2xl border border-[#3a2b20] bg-[#06100e]/85 p-3">
+            <p className="flex items-center gap-2 text-xs font-bold text-[#9db2ad]">
+              <UsersRound size={15} /> Waiting
             </p>
-            <p className="mt-2 text-3xl font-black">{waitingCount}</p>
+            <p className="mt-1 text-2xl font-black">{waitingCount}</p>
           </div>
-          <div className="rounded-2xl border border-[#3a2b20] bg-[#101a18]/80 p-4">
-            <p className="flex items-center gap-2 text-sm text-[#637371]">
-              <Clock3 size={16} /> Estimate
+          <div className="rounded-2xl border border-[#3a2b20] bg-[#06100e]/85 p-3">
+            <p className="flex items-center gap-2 text-xs font-bold text-[#9db2ad]">
+              <Clock3 size={15} /> Estimate
             </p>
-            <p className="mt-2 text-3xl font-black">{estimateMinutes}</p>
+            <p className="mt-1 text-2xl font-black">{estimateMinutes}</p>
           </div>
         </div>
-      </div>
 
-      <div className="mt-5 rounded-[1.5rem] border border-[#3a2b20] bg-[#090f0d]/80 p-4">
-        <p className="text-sm font-bold text-[#637371]">
-          Choose a service first. Details are collected at checkout.
-        </p>
         <button
-          className="mt-4 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl border border-[#991b1b] bg-transparent px-5 py-4 font-black text-[#fca5a5] shadow-lg shadow-[#991b1b]/20 transition hover:bg-[#991b1b] hover:text-white"
-          onClick={() => onNavigate("booking")}
+          className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#991b1b] px-4 text-sm font-black text-white transition hover:bg-[#7f1d1d] disabled:opacity-70"
+          disabled={!user && loginLoading}
+          onClick={() => (user ? onNavigate("profile") : onLogin())}
           type="button"
         >
-          View Services <ArrowRight size={19} />
+          {!user && loginLoading ? (
+            <>
+              <ButtonSpinner /> Logging in...
+            </>
+          ) : (
+            <>
+              <UserRound size={18} />
+              {user ? "Profile" : "Login"}
+            </>
+          )}
         </button>
       </div>
     </section>
@@ -220,9 +226,12 @@ export function HomePage({
             </div>
           </div>
           <QueueSummaryCard
+            loginLoading={loginLoading}
             loading={queueLoading}
+            onLogin={onLogin}
             onNavigate={onNavigate}
             stats={queueStats}
+            user={user}
           />
         </div>
       </section>
