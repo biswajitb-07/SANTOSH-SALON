@@ -4,9 +4,10 @@ import {
   LayoutDashboard,
   MessageSquare,
   QrCode,
-  Scissors,
   Settings,
+  Sparkles,
   UserCheck,
+  UserRound,
   UsersRound,
   WalletCards
 } from "lucide-react";
@@ -80,8 +81,8 @@ export const loadRazorpayCheckout = () =>
 export const navItems = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "queue", label: "Queue", icon: UsersRound },
-  { key: "barbers", label: "Barbers", icon: Scissors },
-  { key: "services", label: "Haircut Design", icon: Scissors },
+  { key: "barbers", label: "Barbers", icon: UserRound },
+  { key: "services", label: "Haircut Design", icon: Sparkles },
   { key: "refunds", label: "Refunds", icon: CreditCard },
   { key: "messages", label: "Messages", icon: MessageSquare },
   { key: "users", label: "Users", icon: UserCheck },
