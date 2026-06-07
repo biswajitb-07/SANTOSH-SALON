@@ -223,10 +223,20 @@ h3 {
 
 .hero-image {
   background-image:
-    linear-gradient(90deg, rgba(3, 9, 9, 0.94), rgba(42, 15, 18, 0.76), rgba(6, 16, 14, 0.56)),
+    linear-gradient(90deg, rgba(3, 9, 9, 0.94), rgba(5, 18, 15, 0.74), rgba(6, 16, 14, 0.56)),
     url("/assets/service-facial.jpg");
   background-position: center;
   background-size: cover;
+}
+
+@media (max-width: 639px) {
+  .hero-image {
+    background-image:
+      linear-gradient(180deg, rgba(3, 9, 9, 0.82), rgba(3, 9, 9, 0.58) 42%, rgba(3, 9, 9, 0.94)),
+      linear-gradient(90deg, rgba(3, 9, 9, 0.76), rgba(6, 16, 14, 0.18)),
+      url("/assets/hero-mobile-salon.jpg");
+    background-position: center;
+  }
 }
 
 .luxury-hero {
@@ -235,7 +245,7 @@ h3 {
 
 .luxury-hero::before {
   background:
-    radial-gradient(circle at 78% 16%, rgba(249, 198, 109, 0.2), transparent 24rem),
+    radial-gradient(circle at 78% 16%, rgba(249, 198, 109, 0.12), transparent 24rem),
     radial-gradient(circle at 18% 82%, rgba(15, 118, 110, 0.2), transparent 28rem);
   content: "";
   inset: 0;
@@ -254,6 +264,18 @@ h3 {
   position: absolute;
   right: 0;
   z-index: 0;
+}
+
+@media (max-width: 639px) {
+  .luxury-hero::after {
+    height: 1.75rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .luxury-hero + section {
+    padding-top: 1rem;
+  }
 }
 
 .glass {

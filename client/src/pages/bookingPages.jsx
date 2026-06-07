@@ -100,22 +100,22 @@ export function HomePage({
 }) {
   return (
     <>
-      <section className="luxury-hero hero-image relative min-h-[92vh] overflow-hidden text-white">
-        <div className="relative z-[1] mx-auto grid min-h-[92vh] max-w-7xl items-center gap-8 px-4 py-10 sm:px-6 lg:px-8">
+      <section className="luxury-hero hero-image relative min-h-[560px] overflow-hidden text-white sm:min-h-[92vh]">
+        <div className="relative z-[1] mx-auto grid min-h-[560px] max-w-7xl items-center gap-6 px-4 py-6 sm:min-h-[92vh] sm:gap-8 sm:px-6 sm:py-10 lg:px-8">
           <div className="max-w-3xl">
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#f9c66d]/30 bg-[#2a0f12]/55 px-4 py-2 text-sm font-black text-[#f9c66d] backdrop-blur">
               <Sparkles size={16} />
               Premium Salon Experience
             </div>
-            <h1 className="max-w-4xl text-5xl font-black leading-[0.94] sm:text-6xl lg:text-7xl">
+            <h1 className="max-w-4xl text-4xl font-black leading-[0.98] sm:text-6xl sm:leading-[0.94] lg:text-7xl">
               Luxury grooming with live queue confidence.
             </h1>
-            <p className="mt-5 max-w-2xl text-base leading-8 text-white/78 sm:text-lg">
+            <p className="mt-4 max-w-2xl text-base leading-7 text-white/78 sm:mt-5 sm:text-lg sm:leading-8">
               Choose your service, pay online, and arrive only
               when your turn is near. A dark luxury booking experience built
               for modern local salons.
             </p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-5 flex flex-col gap-3 sm:mt-7 sm:flex-row">
               <button
                 className="luxury-button flex min-h-[52px] items-center justify-center gap-2 rounded-full px-6 py-4 font-black shadow-lg shadow-[#f9c66d]/20"
                 onClick={() => onNavigate("booking")}
@@ -131,7 +131,7 @@ export function HomePage({
                 Explore Salon <ArrowRight size={19} />
               </button>
             </div>
-            <div className="hero-feature-slider mt-7">
+            <div className="hero-feature-slider mt-5 sm:mt-7">
               <div className="hero-feature-track">
                 {[
                   [Gem, "Luxury Finish", "Sharp, polished cuts"],
