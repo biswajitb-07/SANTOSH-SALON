@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import {
   collection,
   doc,
+  getDoc,
   runTransaction,
   serverTimestamp,
   setDoc
@@ -727,6 +728,37 @@ export function CheckoutModal({
         setStatus({
           type: "info",
           message: "Booking saved. Estimated turn will refresh shortly."
+        });
+      }
+
+      try {
+        setProcessingLabel("Confirming your final queue turn...");
+        const freshBookingSnapshots = await Promise.all(
+          bookingRefs.map((bookingRef) => getDoc(bookingRef))
+        );
+        const freshBookings = freshBookingSnapshots
+          .filter((snapshot) => snapshot.exists())
+          .map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }));
+        const freshTurns = freshBookings
+          .map((booking) => Number(booking.token || 0))
+          .filter((token) => token > 0)
+          .sort((first, second) => first - second);
+
+        if (freshTurns.length) {
+          bookedTurns = freshTurns;
+          bookingCreatedAsWaitlist = false;
+        } else if (
+          freshBookings.some(
+            (booking) => String(booking.status || "").toLowerCase() === "waitlist"
+          )
+        ) {
+          bookedTurns = [];
+          bookingCreatedAsWaitlist = true;
+        }
+      } catch {
+        setStatus({
+          type: "info",
+          message: "Booking saved. Final turn will refresh in My Bookings."
         });
       }
 

@@ -52,127 +52,125 @@ export const reindexQueueDate = async (bookingDate) => {
     throw error;
   }
 
-  const snapshot = await db
-    .collection("customers")
-    .where("bookingDate", "==", bookingDate)
-    .limit(QUEUE_REINDEX_READ_LIMIT)
-    .get();
-  const bookings = snapshot.docs.map((snapshotDoc) => ({
-    id: snapshotDoc.id,
-    ref: snapshotDoc.ref,
-    ...snapshotDoc.data()
-  }));
-  const confirmedBookings = sortBookingsForTurns(
-    bookings.filter((booking) =>
-      confirmedBookingStatuses.has(String(booking.status || "").toLowerCase())
-    )
-  );
-  const waitlistBookings = bookings.filter(
-    (booking) => String(booking.status || "").toLowerCase() === "waitlist"
-  );
-  const batch = db.batch();
-  let writeCount = 0;
+  return db.runTransaction(async (transaction) => {
+    const query = db
+      .collection("customers")
+      .where("bookingDate", "==", bookingDate)
+      .limit(QUEUE_REINDEX_READ_LIMIT);
+    const snapshot = await transaction.get(query);
+    const bookings = snapshot.docs.map((snapshotDoc) => ({
+      id: snapshotDoc.id,
+      ref: snapshotDoc.ref,
+      ...snapshotDoc.data()
+    }));
+    const confirmedBookings = sortBookingsForTurns(
+      bookings.filter((booking) =>
+        confirmedBookingStatuses.has(String(booking.status || "").toLowerCase())
+      )
+    );
+    const waitlistBookings = bookings.filter(
+      (booking) => String(booking.status || "").toLowerCase() === "waitlist"
+    );
+    const counterRef = db.collection("bookingCounters").doc(bookingDate);
+    const counterSnapshot = await transaction.get(counterRef);
+    const counter = counterSnapshot.exists ? counterSnapshot.data() || {} : {};
+    let writeCount = 0;
+    const now = new Date();
 
-  confirmedBookings.forEach((booking, index) => {
-    const nextTurnSortMinutes = getBookingSortMinutes(booking);
-    if (
-      Number(booking.token || 0) === index + 1 &&
-      Number(booking.peopleAhead || 0) === index &&
-      Number(booking.queuePosition || 0) === index + 1 &&
-      Number(booking.turnSortMinutes || 0) === nextTurnSortMinutes
-    ) {
-      return;
+    confirmedBookings.forEach((booking, index) => {
+      const nextTurnSortMinutes = getBookingSortMinutes(booking);
+      if (
+        Number(booking.token || 0) === index + 1 &&
+        Number(booking.peopleAhead || 0) === index &&
+        Number(booking.queuePosition || 0) === index + 1 &&
+        Number(booking.turnSortMinutes || 0) === nextTurnSortMinutes
+      ) {
+        return;
+      }
+
+      transaction.set(
+        booking.ref,
+        {
+          token: index + 1,
+          peopleAhead: index,
+          queuePosition: index + 1,
+          turnSortMinutes: nextTurnSortMinutes,
+          updatedAt: now
+        },
+        { merge: true }
+      );
+      writeCount += 1;
+    });
+
+    waitlistBookings.forEach((booking) => {
+      const nextTurnSortMinutes = Number.MAX_SAFE_INTEGER - 1;
+      if (
+        Number(booking.token || 0) === 0 &&
+        Number(booking.peopleAhead || 0) === 0 &&
+        Number(booking.queuePosition || 0) === 0 &&
+        Number(booking.turnSortMinutes || 0) === nextTurnSortMinutes
+      ) {
+        return;
+      }
+
+      transaction.set(
+        booking.ref,
+        {
+          token: 0,
+          peopleAhead: 0,
+          queuePosition: 0,
+          turnSortMinutes: nextTurnSortMinutes,
+          updatedAt: now
+        },
+        { merge: true }
+      );
+      writeCount += 1;
+    });
+
+    const slotCounts = confirmedBookings.reduce((counts, booking) => {
+      const slot = booking.timeSlot || "";
+      if (slot) counts[slot] = (counts[slot] || 0) + 1;
+      return counts;
+    }, {});
+
+    const counterUnchanged =
+      Number(counter.confirmedCount || 0) === confirmedBookings.length &&
+      Number(counter.waitlistCount || 0) === waitlistBookings.length &&
+      JSON.stringify(counter.slotCounts || {}) === JSON.stringify(slotCounts);
+    if (!counterUnchanged) {
+      transaction.set(
+        counterRef,
+        {
+          bookingDate,
+          confirmedCount: confirmedBookings.length,
+          waitlistCount: waitlistBookings.length,
+          slotCounts,
+          updatedAt: now
+        },
+        { merge: true }
+      );
+      writeCount += 1;
     }
 
-    batch.set(
-      booking.ref,
-      {
+    return {
+      bookingDate,
+      bookings: confirmedBookings.map((booking, index) => ({
+        id: booking.id,
+        status: booking.status,
         token: index + 1,
         peopleAhead: index,
-        queuePosition: index + 1,
-        turnSortMinutes: nextTurnSortMinutes,
-        updatedAt: new Date()
-      },
-      { merge: true }
-    );
-    writeCount += 1;
-  });
-
-  waitlistBookings.forEach((booking) => {
-    const nextTurnSortMinutes = Number.MAX_SAFE_INTEGER - 1;
-    if (
-      Number(booking.token || 0) === 0 &&
-      Number(booking.peopleAhead || 0) === 0 &&
-      Number(booking.queuePosition || 0) === 0 &&
-      Number(booking.turnSortMinutes || 0) === nextTurnSortMinutes
-    ) {
-      return;
-    }
-
-    batch.set(
-      booking.ref,
-      {
+        queuePosition: index + 1
+      })),
+      waitlistBookings: waitlistBookings.map((booking) => ({
+        id: booking.id,
+        status: booking.status,
         token: 0,
         peopleAhead: 0,
-        queuePosition: 0,
-        turnSortMinutes: nextTurnSortMinutes,
-        updatedAt: new Date()
-      },
-      { merge: true }
-    );
-    writeCount += 1;
+        queuePosition: 0
+      })),
+      confirmedCount: confirmedBookings.length,
+      waitlistCount: waitlistBookings.length,
+      writeCount
+    };
   });
-
-  const slotCounts = confirmedBookings.reduce((counts, booking) => {
-    const slot = booking.timeSlot || "";
-    if (slot) counts[slot] = (counts[slot] || 0) + 1;
-    return counts;
-  }, {});
-
-  const counterRef = db.collection("bookingCounters").doc(bookingDate);
-  const counterSnapshot = await counterRef.get();
-  const counter = counterSnapshot.exists ? counterSnapshot.data() || {} : {};
-  const counterUnchanged =
-    Number(counter.confirmedCount || 0) === confirmedBookings.length &&
-    Number(counter.waitlistCount || 0) === waitlistBookings.length &&
-    JSON.stringify(counter.slotCounts || {}) === JSON.stringify(slotCounts);
-  if (!counterUnchanged) {
-    batch.set(
-      counterRef,
-      {
-        bookingDate,
-        confirmedCount: confirmedBookings.length,
-        waitlistCount: waitlistBookings.length,
-        slotCounts,
-        updatedAt: new Date()
-      },
-      { merge: true }
-    );
-    writeCount += 1;
-  }
-
-  if (writeCount > 0) {
-    await batch.commit();
-  }
-
-  return {
-    bookingDate,
-    bookings: confirmedBookings.map((booking, index) => ({
-      id: booking.id,
-      status: booking.status,
-      token: index + 1,
-      peopleAhead: index,
-      queuePosition: index + 1
-    })),
-    waitlistBookings: waitlistBookings.map((booking) => ({
-      id: booking.id,
-      status: booking.status,
-      token: 0,
-      peopleAhead: 0,
-      queuePosition: 0
-    })),
-    confirmedCount: confirmedBookings.length,
-    waitlistCount: waitlistBookings.length,
-    writeCount
-  };
 };
